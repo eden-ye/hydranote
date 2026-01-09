@@ -1,3 +1,4 @@
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -11,11 +12,11 @@ class GenerateRequest(BaseModel):
 
 class BulletNode(BaseModel):
     text: str
-    children: list["BulletNode"] = []
+    children: List["BulletNode"] = []
 
 
 class GenerateResponse(BaseModel):
-    bullets: list[BulletNode]
+    bullets: List[BulletNode]
     tokens_used: int
 
 
@@ -27,7 +28,7 @@ async def generate_structure(request: GenerateRequest):
 
 
 @router.post("/expand")
-async def expand_bullet(bullet_text: str, siblings: list[str] = [], parent_context: str | None = None):
+async def expand_bullet(bullet_text: str, siblings: List[str] = [], parent_context: Optional[str] = None):
     """Expand a single bullet with AI-generated sub-bullets - placeholder"""
     # TODO: Implement Claude API integration
     raise HTTPException(status_code=501, detail="AI expansion not yet implemented")

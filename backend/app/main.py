@@ -3,16 +3,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import auth, ai, user
+from app.api.routes import auth, ai, user, blocks
+from app.db.mongo import connect_to_mongo, close_mongo_connection, create_indexes
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print("Starting Hydra Notes API...")
+    settings = get_settings()
+    if settings.mongodb_uri:
+        await connect_to_mongo()
+        await create_indexes()
+    else:
+        print("Warning: MONGODB_URI not configured, skipping MongoDB connection")
     yield
     # Shutdown
     print("Shutting down Hydra Notes API...")
+    await close_mongo_connection()
 
 
 app = FastAPI(
@@ -37,6 +45,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(user.router, prefix="/api/user", tags=["user"])
+app.include_router(blocks.router, prefix="/api/blocks", tags=["blocks"])
 
 
 @app.get("/api/health")
