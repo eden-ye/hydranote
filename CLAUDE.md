@@ -80,6 +80,14 @@ Frontend uses `@/*` → `./src/*` (configured in `tsconfig.app.json` and `vite.c
 - **Backend**: Pytest + pytest-asyncio, config in `pytest.ini`
 - Test files mirror source structure in `__tests__/` (frontend) and `tests/` (backend)
 
+### Local Development
+
+For local development, run backend and frontend **natively** (without Docker):
+```bash
+# Backend: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Frontend: npm run dev
+```
+
 ### TDD Workflow (MUST FOLLOW)
 
 For each task/feature, execute this sequence:
@@ -98,9 +106,11 @@ For each task/feature, execute this sequence:
    $ npm run test --prefix frontend
    → Must pass before continuing
         ↓
-4. BUILD
+4. BUILD (Required before commit - ensures CI/CD compatibility)
    $ npm run build --prefix frontend
+   $ docker build -t hydra-backend ./backend
    → Must succeed before continuing
+   → Docker build catches platform-specific issues
         ↓
 5. BRUNO API TESTS
    $ bru run bruno/collections --env local
@@ -142,7 +152,7 @@ Treat documentation updates with the same importance as code commits. Undocument
 ### Documentation Structure
 
 All project documentation is in the `docs/` folder:
-- `docs/roadmap.md` - **Development phases and priorities** (RAG → Graph → Quiz)
+- `docs/roadmap.md` - **Development phases and priorities**
 - `docs/features/` - Feature development logs (requirements, tasks, commits, timeline)
 - `docs/bugs/` - Bug fix documentation (symptoms, attempts, solution, prevention)
 - `docs/design/` - Design documents and architecture
@@ -239,6 +249,38 @@ mv docs/tasks/0002_flask-backend-structure.md docs/tasks/done/
 mv docs/tasks/backlog/0020_lightrag-neo4j-setup.md docs/tasks/archive/OBSOLETE_0020_lightrag-neo4j-setup.md
 # Reason: Replaced by RAG-Anything approach
 ```
+
+### Ticket Naming Convention
+
+Use component-based prefixes that map to git worktrees:
+
+| Prefix | Component | Directory | Number Range |
+|--------|-----------|-----------|--------------|
+| AUTH-  | Backend Auth | `backend/app/` | 100-199 |
+| API-   | Backend Services | `backend/app/` | 200-299 |
+| EDITOR-| Editor Core (BlockSuite) | `frontend/src/blocks/` | 300-399 |
+| FE-    | Frontend (non-editor) | `frontend/src/` (excl. blocks) | 400-499 |
+
+**Worktree Mapping:**
+- `auth` worktree → AUTH-* tickets
+- `api` worktree → API-* tickets
+- `editor` worktree → EDITOR-* tickets
+- `fe` worktree → FE-* tickets
+
+**Parallelism Rules:**
+- AUTH + API = CAUTION (same backend, different dirs)
+- AUTH + EDITOR = SAFE (backend vs frontend)
+- AUTH + FE = SAFE (backend vs frontend)
+- API + EDITOR = SAFE (backend vs frontend)
+- API + FE = SAFE (backend vs frontend)
+- EDITOR + FE = SAFE (different frontend dirs)
+- Same prefix = SEQUENTIAL (use same worktree)
+
+**Examples:**
+- `AUTH-101_supabase-client.md` → auth worktree
+- `API-201_claude-service.md` → api worktree
+- `EDITOR-301_blocksuite-integration.md` → editor worktree
+- `FE-401_supabase-client-frontend.md` → fe worktree
 
 ### When to Update Documentation
 

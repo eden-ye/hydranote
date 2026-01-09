@@ -71,10 +71,12 @@ How to prevent similar issues.
 - `abc1234` - Fix description
 ```
 
-### Task Ticket (`docs/tasks/####_[name].md`)
+### Task Ticket (`docs/tasks/[PREFIX]-[NUMBER]_[name].md`)
+
+Use component-based prefixes: `AUTH-1XX`, `API-2XX`, `EDITOR-3XX`, `FE-4XX`
 
 ```markdown
-# Task ####: [Title]
+# [PREFIX]-[NUMBER]: [Title]
 
 ## Description
 What needs to be done.
@@ -83,6 +85,12 @@ What needs to be done.
 - [ ] Criterion 1
 - [ ] Criterion 2
 
+## Dependencies
+- List any tickets this depends on (e.g., EDITOR-301)
+
+## Parallel Safe With
+- List prefixes this can run in parallel with (e.g., AUTH-*, API-*)
+
 ## Notes
 Any relevant context.
 
@@ -90,6 +98,8 @@ Any relevant context.
 - **Created**: YYYY-MM-DD
 - **Status**: pending | in_progress | completed
 ```
+
+See `CLAUDE.md` for full ticket naming convention and worktree mapping.
 
 ## Task Lifecycle
 
