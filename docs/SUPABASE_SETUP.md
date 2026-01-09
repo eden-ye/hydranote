@@ -7,17 +7,17 @@ This guide walks through setting up Supabase for Hydra Notes with SAT/Prod isola
 You need **two separate projects** for environment isolation:
 
 ### SAT (Staging) Project
-1. Go to [supabase.com/dashboard](https://supabase.com/dashboard)
+1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) (Github eden_ye)
 2. Click "New Project"
-3. Name: `hydranote-sat`
-4. Database Password: Generate and save securely
+3. Name: `ewrU8C6B0TCyvz9e`
+4. Database Password: -xM82CJ89*!-N9-
 5. Region: Choose closest to your users
 6. Click "Create new project"
 
 ### PROD Project
 1. Repeat above steps
 2. Name: `hydranote-prod`
-3. Use a different, stronger password
+3. Password: CapxyEBMGu3pn4lj
 
 ## 2. Get API Keys
 
