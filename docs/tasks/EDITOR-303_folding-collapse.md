@@ -11,7 +11,7 @@ Implement folding and collapsing functionality for bullet blocks. Users should b
 - [ ] Keyboard shortcut to toggle fold (e.g., Cmd+.)
 
 ## Dependencies
-- EDITOR-302 (Bullet Block Schema)
+- EDITOR-302 (Bullet Block Schema) ✅ READY
 
 ## Parallel Safe With
 - EDITOR-305, EDITOR-306, EDITOR-307, AUTH-*, API-*, FE-*
