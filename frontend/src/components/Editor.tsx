@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { AffineSchemas } from '@blocksuite/blocks'
+import { AffineSchemas, PageEditorBlockSpecs } from '@blocksuite/blocks'
 import { effects as registerBlocksEffects } from '@blocksuite/blocks/effects'
 import { AffineEditorContainer } from '@blocksuite/presets'
 import { effects as registerPresetsEffects } from '@blocksuite/presets/effects'
 import { Schema, DocCollection } from '@blocksuite/store'
 import '@toeverything/theme/style.css'
+
+// Import Hydra custom blocks
+import { BulletBlockSchema, BulletBlockSpec } from '@/blocks'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -23,8 +26,10 @@ export default function Editor() {
     // Prevent double initialization in StrictMode
     if (editorRef.current) return
 
-    // Create schema with Affine block schemas
-    const schema = new Schema().register(AffineSchemas)
+    // Create schema with Affine block schemas and Hydra custom blocks
+    const schema = new Schema()
+      .register(AffineSchemas)
+      .register([BulletBlockSchema])
 
     // Create document collection
     const collection = new DocCollection({ schema })
@@ -46,6 +51,8 @@ export default function Editor() {
     // This ensures the custom element is properly registered
     const editor = document.createElement('affine-editor-container') as AffineEditorContainer
     editor.doc = doc
+    // Extend page specs with Hydra custom blocks
+    editor.pageSpecs = [...PageEditorBlockSpecs, ...BulletBlockSpec]
     editorRef.current = editor
 
     // Mount the editor to the container

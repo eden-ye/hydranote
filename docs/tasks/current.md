@@ -7,23 +7,32 @@
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
+| EDITOR-302 | Bullet Block Schema | ✅ completed | Schema, component, spec, tests all passing |
 | API-201 | MongoDB Schema Implementation | ✅ completed | Full CRUD API, tests passing |
+
+## Infrastructure (Blocking)
+
+| Ticket | Title | Status | Notes |
+|--------|-------|--------|-------|
+| INFRA-001 | SAT/PROD Deployment Separation | 🔧 in_progress | Workflows updated, needs secrets setup |
+
+**Action Required**: Configure GitHub environments and secrets per INFRA-001 ticket
 
 ## Active (Phase 2 - EDITOR)
 
 | Ticket | Title | Status | Deps |
 |--------|-------|--------|------|
-| EDITOR-301 | BlockSuite Integration | pending | None |
-| EDITOR-302 | Bullet Block Schema | pending | EDITOR-301 |
+| EDITOR-301 | BlockSuite Integration | ✅ completed | None |
+| EDITOR-302 | Bullet Block Schema | ✅ completed | EDITOR-301 |
 | EDITOR-303 | Folding/Collapse | pending | EDITOR-302 |
 | EDITOR-304 | Inline Detail View | pending | EDITOR-302 |
 | EDITOR-305 | IndexedDB Persistence | pending | EDITOR-301 |
 | EDITOR-306 | Keyboard Shortcuts | pending | EDITOR-301 |
 | EDITOR-307 | Editor Store | pending | EDITOR-301 |
 
-**Start with**: EDITOR-301 (foundation, no dependencies)
+**Next up**: EDITOR-303 (Folding/Collapse), EDITOR-304 (Inline Detail View), EDITOR-305 (IndexedDB Persistence)
 
-**After EDITOR-301**: Can parallel EDITOR-302, 305, 306, 307
+**Can parallel**: EDITOR-303, 304, 305, 306, 307 (all dependencies met)
 
 ## Parallel Work Opportunities
 

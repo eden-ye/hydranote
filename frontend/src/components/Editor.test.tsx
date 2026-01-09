@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Note: vi.mock is hoisted, so we need to define everything inside the factory
 vi.mock('@blocksuite/blocks', () => ({
   AffineSchemas: [],
+  PageEditorBlockSpecs: [],
 }))
 
 vi.mock('@blocksuite/blocks/effects', () => ({
@@ -38,6 +39,15 @@ vi.mock('@blocksuite/store', () => {
     }
   }
 
+  // Mock defineBlockSchema to return a schema-like object
+  const defineBlockSchema = (options: { flavour: string }) => ({
+    version: 1,
+    model: {
+      flavour: options.flavour,
+      props: () => ({}),
+    },
+  })
+
   return {
     Schema: class MockSchema {
       register() {
@@ -50,8 +60,28 @@ vi.mock('@blocksuite/store', () => {
         return new MockDoc()
       }
     },
+    defineBlockSchema,
   }
 })
+
+vi.mock('@blocksuite/block-std', () => {
+  // Mock BlockComponent base class
+  class MockBlockComponent extends HTMLElement {
+    model = { children: [], isExpanded: true, text: { toString: () => '' } }
+    doc = { updateBlock: () => {} }
+    renderChildren() { return '' }
+  }
+
+  return {
+    BlockComponent: MockBlockComponent,
+    FlavourExtension: () => ({}),
+    BlockViewExtension: () => ({}),
+  }
+})
+
+vi.mock('lit/static-html.js', () => ({
+  literal: (strings: TemplateStringsArray) => strings.join(''),
+}))
 
 vi.mock('@toeverything/theme/style.css', () => ({}))
 

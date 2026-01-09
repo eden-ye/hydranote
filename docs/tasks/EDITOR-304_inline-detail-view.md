@@ -11,7 +11,7 @@ Implement computed inline detail view that shows a summary of folded content. Wh
 - [ ] Preview updates when children change
 
 ## Dependencies
-- EDITOR-302 (Bullet Block Schema)
+- EDITOR-302 (Bullet Block Schema) ✅ READY
 
 ## Parallel Safe With
 - EDITOR-303, EDITOR-305, EDITOR-306, EDITOR-307, AUTH-*, API-*, FE-*
