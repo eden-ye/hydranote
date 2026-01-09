@@ -40,5 +40,5 @@ htmlcov/
 *.tmp
 *.temp
 
-# Documentation (keep local only)
-/docs/
+# Sensitive API documentation (local only)
+docs/api/
