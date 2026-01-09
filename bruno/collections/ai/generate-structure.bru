@@ -1,0 +1,26 @@
+meta {
+  name: Generate Structure
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/ai/generate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "input_text": "Explain how CPU caching works",
+    "max_levels": 3
+  }
+}
+
+assert {
+  res.status: in [200, 401, 501]
+}

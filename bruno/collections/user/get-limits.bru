@@ -1,0 +1,17 @@
+meta {
+  name: Get User Limits
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/user/limits
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.ai_generations_limit: eq 50
+  res.body.remaining: isNumber
+}
