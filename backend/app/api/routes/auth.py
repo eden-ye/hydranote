@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -7,7 +8,7 @@ router = APIRouter()
 class UserResponse(BaseModel):
     id: str
     email: str
-    name: str | None = None
+    name: Optional[str] = None
 
 
 @router.get("/me", response_model=UserResponse)

@@ -1,5 +1,44 @@
 # Testing Workflow (TDD)
 
+## Local Development Setup
+
+For local development, you can run backend and frontend **natively** (without Docker):
+
+```bash
+# Terminal 1: Backend (native)
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2: Frontend (native)
+cd frontend
+npm install
+npm run dev
+```
+
+**Note**: Docker is NOT required for local development. Native execution is faster for iterative development.
+
+---
+
+## Pre-Commit Requirements
+
+**CRITICAL**: Before committing, you MUST run Docker builds to ensure CI/CD compatibility:
+
+```bash
+# Build frontend (TypeScript check + Vite build)
+npm run build --prefix frontend
+
+# Build backend Docker image (matches CI/CD environment)
+docker build -t hydra-backend ./backend
+```
+
+**Why Docker build before commit?**
+- CI/CD runs in Docker containers with different environments (Linux, specific Python/Node versions)
+- Native builds may pass locally but fail in CI due to platform differences
+- Docker build catches dependency issues, missing files, and environment mismatches
+
+---
+
 ## Automated Testing Pipeline
 
 For each task/feature, execute this sequence:
@@ -29,11 +68,12 @@ For each task/feature, execute this sequence:
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  4. BUILD                                                   │
+│  4. BUILD (Required before commit)                          │
 ├─────────────────────────────────────────────────────────────┤
 │  $ npm run build --prefix frontend                          │
 │  $ docker build -t hydra-backend ./backend                  │
 │  → Must succeed before continuing                           │
+│  → Docker build ensures CI/CD compatibility                 │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐

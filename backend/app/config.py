@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379"
 
+    # MongoDB
+    mongodb_uri: str = ""
+    mongodb_database: str = "hydra"
+
     # Rate limiting
     free_tier_limit: int = 50
 

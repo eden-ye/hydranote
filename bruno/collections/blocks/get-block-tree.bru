@@ -1,0 +1,21 @@
+meta {
+  name: Get Block Tree
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/blocks/{{createdBlockId}}/tree
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.block.id: eq {{createdBlockId}}
+  res.body.descendants: isArray
+}

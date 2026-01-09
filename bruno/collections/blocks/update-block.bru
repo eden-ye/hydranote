@@ -1,0 +1,30 @@
+meta {
+  name: Update Block
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/blocks/{{createdBlockId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "content": {
+      "text": "Updated block content",
+      "content_type": "text"
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.content.text: eq "Updated block content"
+  res.body.version: eq 2
+}
