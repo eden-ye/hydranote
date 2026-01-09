@@ -39,3 +39,6 @@ htmlcov/
 # Temp
 *.tmp
 *.temp
+
+# Documentation (keep local only)
+/docs/
