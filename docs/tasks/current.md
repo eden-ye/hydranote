@@ -7,6 +7,7 @@
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
+| EDITOR-303 | Folding/Collapse | ✅ completed | Keyboard shortcut (Cmd+.), accessibility, tests passing |
 | EDITOR-302 | Bullet Block Schema | ✅ completed | Schema, component, spec, tests all passing |
 | API-201 | MongoDB Schema Implementation | ✅ completed | Full CRUD API, tests passing |
 
@@ -24,15 +25,15 @@
 |--------|-------|--------|------|
 | EDITOR-301 | BlockSuite Integration | ✅ completed | None |
 | EDITOR-302 | Bullet Block Schema | ✅ completed | EDITOR-301 |
-| EDITOR-303 | Folding/Collapse | pending | EDITOR-302 |
+| EDITOR-303 | Folding/Collapse | ✅ completed | EDITOR-302 |
 | EDITOR-304 | Inline Detail View | pending | EDITOR-302 |
 | EDITOR-305 | IndexedDB Persistence | pending | EDITOR-301 |
 | EDITOR-306 | Keyboard Shortcuts | pending | EDITOR-301 |
 | EDITOR-307 | Editor Store | pending | EDITOR-301 |
 
-**Next up**: EDITOR-303 (Folding/Collapse), EDITOR-304 (Inline Detail View), EDITOR-305 (IndexedDB Persistence)
+**Next up**: EDITOR-304 (Inline Detail View), EDITOR-305 (IndexedDB Persistence), EDITOR-306 (Keyboard Shortcuts)
 
-**Can parallel**: EDITOR-303, 304, 305, 306, 307 (all dependencies met)
+**Can parallel**: EDITOR-304, 305, 306, 307 (all dependencies met)
 
 ## Parallel Work Opportunities
 
