@@ -80,6 +80,41 @@ Frontend uses `@/*` → `./src/*` (configured in `tsconfig.app.json` and `vite.c
 - **Backend**: Pytest + pytest-asyncio, config in `pytest.ini`
 - Test files mirror source structure in `__tests__/` (frontend) and `tests/` (backend)
 
+### TDD Workflow (MUST FOLLOW)
+
+For each task/feature, execute this sequence:
+
+```
+1. BEFORE CODING
+   □ Write unit tests (pytest/vitest)
+   □ Check Bruno collection for related endpoints
+   □ Write E2E expectation (e2e/expectations/*.md)
+        ↓
+2. IMPLEMENTATION
+   □ Write code to make tests pass
+        ↓
+3. UNIT TESTS
+   $ pytest backend/tests/ -v
+   $ npm run test --prefix frontend
+   → Must pass before continuing
+        ↓
+4. BUILD
+   $ npm run build --prefix frontend
+   → Must succeed before continuing
+        ↓
+5. BRUNO API TESTS
+   $ bru run bruno/collections --env local
+   → Validates all API endpoints
+        ↓
+6. CHROME E2E (via Claude-in-Chrome MCP)
+   □ Execute scenarios from e2e/expectations/
+   □ Screenshot evidence saved to e2e/results/
+        ↓
+7. COMMIT (only after all tests pass)
+```
+
+See `docs/design/testing-workflow.md` for full details.
+
 ## CI/CD
 
 GitHub Actions in `.github/workflows/`:
