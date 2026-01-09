@@ -93,41 +93,46 @@ For local development, run backend and frontend **natively** (without Docker):
 For each task/feature, execute this sequence:
 
 ```
-1. BEFORE CODING
+1. CREATE BRANCH (before any coding)
+   $ git checkout -b <prefix>/<ticket>-<short-description>
+   → Example: git checkout -b editor/EDITOR-301-blocksuite-integration
+   → Branch naming: <worktree>/<ticket>-<description>
+        ↓
+2. BEFORE CODING
    □ Write unit tests (pytest/vitest)
    □ Check Bruno collection for related endpoints
    □ Write E2E expectation (e2e/expectations/*.md)
         ↓
-2. IMPLEMENTATION
+3. IMPLEMENTATION
    □ Write code to make tests pass
         ↓
-3. UNIT TESTS
+4. UNIT TESTS
    $ pytest backend/tests/ -v
    $ npm run test --prefix frontend
    → Must pass before continuing
         ↓
-4. BUILD (Required before commit - ensures CI/CD compatibility)
+5. BUILD (Required before commit - ensures CI/CD compatibility)
    $ npm run build --prefix frontend
    $ docker build -t hydra-backend ./backend
    → Must succeed before continuing
    → Docker build catches platform-specific issues
         ↓
-5. BRUNO API TESTS
+6. BRUNO API TESTS
    $ bru run bruno/collections --env local
    → Validates all API endpoints
         ↓
-6. CHROME E2E (via Claude-in-Chrome MCP)
+7. CHROME E2E (via Claude-in-Chrome MCP)
    □ Execute scenarios from e2e/expectations/
    □ Screenshot evidence saved to e2e/results/
         ↓
-7. COMMIT & PUSH (only after all tests pass)
+8. COMMIT, PUSH & MERGE (only after all tests pass)
    $ git add <files>
    $ git commit -m "type: description"
-   $ git push origin <branch>
-   → If push fails due to conflicts:
-     $ git pull --rebase origin <branch>
-     → Resolve conflicts, then continue rebase
-     $ git push origin <branch>
+   $ git push -u origin <branch>
+   $ gh pr create --fill --base main
+   $ gh pr merge --auto --squash
+   → If conflicts: resolve locally, push, then merge
+   → NEVER push directly to main
 ```
 
 See `docs/design/testing-workflow.md` for full details.
