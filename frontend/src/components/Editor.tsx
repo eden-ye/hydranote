@@ -1,0 +1,75 @@
+import { useEffect, useRef } from 'react'
+import { AffineSchemas } from '@blocksuite/blocks'
+import { effects as registerBlocksEffects } from '@blocksuite/blocks/effects'
+import { AffineEditorContainer } from '@blocksuite/presets'
+import { effects as registerPresetsEffects } from '@blocksuite/presets/effects'
+import { Schema, DocCollection } from '@blocksuite/store'
+import '@toeverything/theme/style.css'
+
+// Register all BlockSuite custom elements
+// Must call blocks effects first (registers core components)
+// Then presets effects (registers editor container and presets)
+registerBlocksEffects()
+registerPresetsEffects()
+
+export default function Editor() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<AffineEditorContainer | null>(null)
+  const collectionRef = useRef<DocCollection | null>(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    // Prevent double initialization in StrictMode
+    if (editorRef.current) return
+
+    // Create schema with Affine block schemas
+    const schema = new Schema().register(AffineSchemas)
+
+    // Create document collection
+    const collection = new DocCollection({ schema })
+    collection.meta.initialize()
+    collectionRef.current = collection
+
+    // Create a new document
+    const doc = collection.createDoc()
+    doc.load(() => {
+      // Initialize with a page block as root
+      const pageId = doc.addBlock('affine:page', {})
+      // Add a note block as container for content
+      const noteId = doc.addBlock('affine:note', {}, pageId)
+      // Add an initial paragraph block
+      doc.addBlock('affine:paragraph', {}, noteId)
+    })
+
+    // Create and configure the editor using document.createElement
+    // This ensures the custom element is properly registered
+    const editor = document.createElement('affine-editor-container') as AffineEditorContainer
+    editor.doc = doc
+    editorRef.current = editor
+
+    // Mount the editor to the container
+    containerRef.current.appendChild(editor)
+
+    // Cleanup function
+    return () => {
+      if (editorRef.current && containerRef.current) {
+        containerRef.current.removeChild(editorRef.current)
+        editorRef.current = null
+      }
+      collectionRef.current = null
+    }
+  }, [])
+
+  return (
+    <div
+      ref={containerRef}
+      data-testid="editor-container"
+      style={{
+        width: '100%',
+        height: '100%',
+        minHeight: '500px',
+      }}
+    />
+  )
+}
