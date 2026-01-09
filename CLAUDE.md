@@ -120,7 +120,14 @@ For each task/feature, execute this sequence:
    □ Execute scenarios from e2e/expectations/
    □ Screenshot evidence saved to e2e/results/
         ↓
-7. COMMIT (only after all tests pass)
+7. COMMIT & PUSH (only after all tests pass)
+   $ git add <files>
+   $ git commit -m "type: description"
+   $ git push origin <branch>
+   → If push fails due to conflicts:
+     $ git pull --rebase origin <branch>
+     → Resolve conflicts, then continue rebase
+     $ git push origin <branch>
 ```
 
 See `docs/design/testing-workflow.md` for full details.
