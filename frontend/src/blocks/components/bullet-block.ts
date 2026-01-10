@@ -939,6 +939,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   /**
    * Handle keydown events to intercept special keys before rich-text
    * EDITOR-3053: Updated comments - now handles rich-text instead of contenteditable
+   * EDITOR-3059: Fix backspace with selection - only trigger merge when no text selected
    */
   private _handleKeydown(e: KeyboardEvent): void {
     // Backspace at start of line merges with previous sibling
@@ -946,7 +947,17 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // are handled by _bindKeyboardShortcuts() via BlockSuite's bindHotKey system.
     // Do NOT add duplicate handlers here!
     if (e.key === 'Backspace') {
-      const cursorPos = this._getCursorPosition()
+      // EDITOR-3059: Check for selection - if text is selected, let rich-text handle deletion
+      const richText = this.querySelector('rich-text') as RichText | null
+      const range = richText?.inlineEditor?.getInlineRange()
+
+      // If text is selected (length > 0), let rich-text handle the deletion normally
+      if (range && range.length > 0) {
+        return // Don't prevent default - rich-text will delete selected text
+      }
+
+      // Only handle backspace at position 0 with no selection (cursor only)
+      const cursorPos = range?.index ?? this._getCursorPosition()
       if (cursorPos === 0) {
         e.preventDefault()
         this._handleBackspaceAtStart()
