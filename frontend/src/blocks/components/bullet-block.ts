@@ -942,17 +942,22 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         return
       }
 
-      // Case 1b: First child (no previous sibling but has parent) - outdent
-      if (parent && parent.parent) {
-        // If current has children, they stay as children after outdent
-        this._outdent()
-        // Focus after outdent
-        requestAnimationFrame(() => {
-          const contentDiv = this.querySelector('.bullet-content') as HTMLElement
-          if (contentDiv) {
-            contentDiv.focus()
-          }
-        })
+      // Case 1b: First child (no previous sibling but has parent) - delete and focus parent
+      if (parent && parent.parent && ctx.parentId) {
+        const parentModel = parent as unknown as BulletBlockModel
+        const parentTextLength = parentModel.text?.toString().length ?? 0
+
+        // If current has children, reparent them to parent
+        if (this._hasChildren) {
+          const children = [...this.model.children]
+          this.doc.moveBlocks(children, parent)
+        }
+
+        // Delete current block
+        this.doc.deleteBlock(this.model)
+
+        // Focus parent at end
+        this._focusBlockAtPosition(ctx.parentId, parentTextLength)
         return
       }
 
@@ -1095,9 +1100,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return
     }
 
-    // Case 2: Cursor at end - create empty sibling (default behavior)
+    // Case 2: Cursor at end
     if (cursorPos >= currentText.length) {
-      this._createSibling()
+      // If has children, create child instead of sibling (RemNote behavior)
+      if (this._hasChildren) {
+        this._createChild()
+      } else {
+        this._createSibling()
+      }
       return
     }
 

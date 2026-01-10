@@ -73,6 +73,43 @@
 
 ---
 
+## Test: Enter at end of bullet WITH children creates child (RemNote behavior)
+
+### Steps:
+1. Create parent bullet "First" with children "Second" and "Third"
+2. Position cursor at END of "First"
+3. Press Enter
+
+### Expected:
+- [x] New empty child created as FIRST child of "First"
+- [x] Existing children "Second", "Third" remain after new child
+- [x] Structure becomes: First > [Type here..., Second, Third]
+- [x] Cursor is in the new empty child
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- Verified child creation instead of sibling
+
+---
+
+## Test: Backspace on empty first child deletes and focuses parent
+
+### Steps:
+1. Create parent bullet "First" with empty first child
+2. Position cursor in empty first child
+3. Press Backspace
+
+### Expected:
+- [x] Empty first child is DELETED (not outdented)
+- [x] Cursor moves to end of parent "First"
+- [x] Structure returns to: First > [Second, Third]
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- Empty child deleted, cursor at "First" position 5 (end)
+
+---
+
 ## Test: Enter in middle of text with children - trailing text becomes first child (RemNote behavior)
 
 ### Steps:
@@ -227,6 +264,8 @@
 | Backspace deletes empty | ✅ |
 | Backspace first child merges to parent | ✅ |
 | Backspace first bullet | ✅ |
+| Backspace empty first child deletes | ✅ |
+| Enter at end with children creates child | ✅ |
 | Enter splits with children (RemNote) | ✅ |
 | Enter splits without children | ✅ |
 | Delete merges next | ✅ |
