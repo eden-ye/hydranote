@@ -14,3 +14,5 @@ export {
 export { useSpotlight } from './useSpotlight'
 
 export { useFocusMode } from './useFocusMode'
+
+export { useExpandBlock, type ExpandBlockContext } from './useExpandBlock'
