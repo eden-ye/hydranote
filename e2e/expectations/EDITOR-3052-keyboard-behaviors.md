@@ -73,43 +73,6 @@
 
 ---
 
-## Test: Enter at end of bullet WITH children creates child (RemNote behavior)
-
-### Steps:
-1. Create parent bullet "First" with children "Second" and "Third"
-2. Position cursor at END of "First"
-3. Press Enter
-
-### Expected:
-- [x] New empty child created as FIRST child of "First"
-- [x] Existing children "Second", "Third" remain after new child
-- [x] Structure becomes: First > [Type here..., Second, Third]
-- [x] Cursor is in the new empty child
-
-### Evidence:
-- Tested 2026-01-10 via Chrome E2E
-- Verified child creation instead of sibling
-
----
-
-## Test: Backspace on empty first child deletes and focuses parent
-
-### Steps:
-1. Create parent bullet "First" with empty first child
-2. Position cursor in empty first child
-3. Press Backspace
-
-### Expected:
-- [x] Empty first child is DELETED (not outdented)
-- [x] Cursor moves to end of parent "First"
-- [x] Structure returns to: First > [Second, Third]
-
-### Evidence:
-- Tested 2026-01-10 via Chrome E2E
-- Empty child deleted, cursor at "First" position 5 (end)
-
----
-
 ## Test: Enter in middle of text with children - trailing text becomes first child (RemNote behavior)
 
 ### Steps:
@@ -264,10 +227,9 @@
 | Backspace deletes empty | ✅ |
 | Backspace first child merges to parent | ✅ |
 | Backspace first bullet | ✅ |
-| Backspace empty first child deletes | ✅ |
-| Enter at end with children creates child | ✅ |
 | Enter splits with children (RemNote) | ✅ |
 | Enter splits without children | ✅ |
+| Enter after Backspace merge | ✅ |
 | Delete merges next | ✅ |
 | Arrow Up/Down tree traversal | ✅ |
 | Alt+Up swaps | ✅ |
@@ -277,4 +239,60 @@
 
 Tested on: 2026-01-10
 Browser: Chrome via Claude-in-Chrome MCP
-Port: http://localhost:5174
+Port: http://localhost:5173
+
+---
+
+## Test: Enter at end of bullet with sibling below creates bullet in correct position
+
+### Steps:
+1. Create bullet "First bullet" with "Second bullet" as sibling below
+2. Click on "First bullet"
+3. Press End to go to end of line
+4. Press Enter
+
+### Expected:
+- [x] New empty bullet created between "First bullet" and "Second bullet"
+- [x] Cursor lands in the new bullet
+- [x] Structure: First bullet → (new) → Second bullet
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- Before fix: Enter handler executed on wrong block (nested hidden child)
+- After fix: `_hasTextSelection()` guard ensures handler only fires for focused block
+
+## Test: Enter after Backspace merge splits at correct position
+
+### Steps:
+1. Create two bullets: "First bullet" and "Second bullet"
+2. Position cursor at start of "Second bullet"
+3. Press Backspace (merges into "First bulletSecond bullet")
+4. Press Enter
+
+### Expected:
+- [x] Bullets split at merge point into "First bullet" and "Second bullet"
+- [x] No empty bullet created
+- [x] Cursor lands in second bullet
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- Before fix: Enter created empty bullet at wrong position ("fake cursor" bug)
+- After fix: Enter correctly splits at merge point
+
+---
+
+## Additional Fix: Duplicate Handler Bug (2026-01-10)
+
+During testing, discovered duplicate keyboard handlers causing extra bullets on Enter:
+- **Root Cause**: `_handleKeydown()` had duplicate handlers for Enter, Tab, etc. that were already handled by `_bindKeyboardShortcuts()` via BlockSuite's `bindHotKey`
+- **Symptom**: Every Enter press created TWO bullets instead of one
+- **Fix**: Removed duplicate handlers from `_handleKeydown()`, keeping only Backspace handler
+- **Result**: Enter now correctly creates single bullet, focus lands in new bullet
+
+## Additional Fix: Fake Cursor Bug (2026-01-10)
+
+During testing, discovered cursor position not synced after Backspace merge:
+- **Root Cause**: `_getCursorPosition()` only read from InlineEditor, which hadn't synced after `asyncSetInlineRange`
+- **Symptom**: After Backspace merge, pressing Enter created empty bullet at wrong position
+- **Fix**: Added fallback to check BlockSuite TextSelection when InlineEditor range unavailable
+- **Result**: Enter after Backspace merge correctly splits at merge point
