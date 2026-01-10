@@ -1,11 +1,11 @@
 meta {
-  name: Generate Structure
+  name: Expand Bullet
   type: http
-  seq: 1
+  seq: 2
 }
 
 post {
-  url: {{baseUrl}}/api/ai/generate
+  url: {{baseUrl}}/api/ai/expand
   body: json
   auth: bearer
 }
@@ -16,8 +16,9 @@ auth:bearer {
 
 body:json {
   {
-    "input_text": "Explain how CPU caching works",
-    "max_levels": 3
+    "bullet_text": "Project planning",
+    "siblings": ["Design phase", "Implementation"],
+    "parent_context": "Software development lifecycle"
   }
 }
 
@@ -26,18 +27,18 @@ assert {
 }
 
 tests {
-  test("should return bullets on success or error on service unavailable", function() {
+  test("should return children on success or error on service unavailable", function() {
     const status = res.getStatus();
     const data = res.getBody();
 
     if (status === 200) {
       // On success, verify response structure
-      expect(data.bullets).to.be.an('array');
-      expect(data.bullets.length).to.be.greaterThan(0);
+      expect(data.children).to.be.an('array');
+      expect(data.children.length).to.be.greaterThan(0);
       expect(data.tokens_used).to.be.a('number');
 
-      data.bullets.forEach(bullet => {
-        expect(bullet.text).to.be.a('string');
+      data.children.forEach(child => {
+        expect(child).to.be.a('string');
       });
     } else if (status === 503) {
       // Service unavailable (API key not configured)

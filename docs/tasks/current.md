@@ -16,6 +16,8 @@
 | EDITOR-301 | BlockSuite Integration | ✅ completed | Foundation for editor |
 | API-201 | Claude AI Service | ✅ completed | Full CRUD API, tests passing |
 | API-202 | Prompt Builder | ✅ completed | Prompt templates for AI generation |
+| API-204 | Generate Endpoint | ✅ completed | POST /api/ai/generate, 8 tests, Bruno+E2E tests, PR #28 (0ec48e0) |
+| API-205 | Expand Endpoint | ✅ completed | POST /api/ai/expand, 8 tests, Bruno+E2E tests, PR #28 (0ec48e0) |
 
 ## Infrastructure (Blocking)
 
@@ -51,7 +53,8 @@ While Phase 2 (EDITOR) is in progress, these can start in parallel:
 - ~~API-201: Claude AI Service~~ - ✅ COMPLETED
 - ~~API-202: Prompt Builder~~ - ✅ COMPLETED
 - API-203: WebSocket Streaming - Can start now
-- API-204, 205 follow
+- ~~API-204: Generate Endpoint~~ - ✅ COMPLETED
+- ~~API-205: Expand Endpoint~~ - ✅ COMPLETED
 
 ### FE (Phase 3) - Different worktree, frontend services
 - FE-401: Supabase Client (Frontend) - No deps, can start now
