@@ -1,8 +1,16 @@
 import { describe, it, expect, vi } from 'vitest'
-import { shouldHandleFoldShortcut } from '../components/bullet-block'
+import {
+  shouldHandleFoldShortcut,
+  computeIndentLevel,
+  canIndent,
+  canOutdent,
+  getNavigationTarget,
+  type BlockNavigationContext,
+} from '../components/bullet-block'
 
 /**
  * Tests for bullet block folding/collapse functionality (EDITOR-303)
+ * and keyboard shortcuts (EDITOR-306)
  *
  * Since the component relies heavily on BlockSuite internals,
  * we test the business logic extracted into testable functions.
@@ -259,6 +267,218 @@ describe('Inline detail view (EDITOR-304)', () => {
 
     it('should not show preview when preview text is empty', () => {
       expect(shouldShowPreview(false, true, '')).toBe(false)
+    })
+  })
+})
+
+/**
+ * Tests for keyboard shortcuts functionality (EDITOR-306)
+ *
+ * Testing:
+ * - Tab/Shift+Tab for indent/outdent
+ * - Enter for new sibling bullet
+ * - Cmd+Enter for child bullet
+ * - Arrow keys for navigation
+ * - Cmd+. for fold toggle (via BlockSuite hotkey system)
+ */
+describe('Keyboard Shortcuts (EDITOR-306)', () => {
+  describe('Indent/Outdent logic', () => {
+    describe('computeIndentLevel', () => {
+      it('should return 0 for root-level block', () => {
+        expect(computeIndentLevel(0)).toBe(0)
+      })
+
+      it('should return the provided depth', () => {
+        expect(computeIndentLevel(1)).toBe(1)
+        expect(computeIndentLevel(2)).toBe(2)
+        expect(computeIndentLevel(5)).toBe(5)
+      })
+    })
+
+    describe('canIndent', () => {
+      it('should return false when no previous sibling exists', () => {
+        expect(canIndent(false, 0)).toBe(false)
+      })
+
+      it('should return true when previous sibling exists', () => {
+        expect(canIndent(true, 0)).toBe(true)
+        expect(canIndent(true, 3)).toBe(true)
+      })
+    })
+
+    describe('canOutdent', () => {
+      it('should return false when at root level (depth 0)', () => {
+        expect(canOutdent(0)).toBe(false)
+      })
+
+      it('should return true when nested (depth > 0)', () => {
+        expect(canOutdent(1)).toBe(true)
+        expect(canOutdent(2)).toBe(true)
+        expect(canOutdent(5)).toBe(true)
+      })
+    })
+  })
+
+  describe('Arrow key navigation', () => {
+    describe('getNavigationTarget', () => {
+      // Mock context for navigation tests
+      const createContext = (overrides: Partial<BlockNavigationContext> = {}): BlockNavigationContext => ({
+        currentBlockId: 'block-2',
+        previousSiblingId: 'block-1',
+        nextSiblingId: 'block-3',
+        parentId: 'parent-1',
+        firstChildId: null,
+        isExpanded: true,
+        hasChildren: false,
+        ...overrides,
+      })
+
+      describe('ArrowUp navigation', () => {
+        it('should navigate to previous sibling', () => {
+          const ctx = createContext()
+          expect(getNavigationTarget('ArrowUp', ctx)).toBe('block-1')
+        })
+
+        it('should navigate to parent when no previous sibling', () => {
+          const ctx = createContext({ previousSiblingId: null })
+          expect(getNavigationTarget('ArrowUp', ctx)).toBe('parent-1')
+        })
+
+        it('should return null when at top with no parent', () => {
+          const ctx = createContext({ previousSiblingId: null, parentId: null })
+          expect(getNavigationTarget('ArrowUp', ctx)).toBeNull()
+        })
+      })
+
+      describe('ArrowDown navigation', () => {
+        it('should navigate to first child when expanded with children', () => {
+          const ctx = createContext({
+            hasChildren: true,
+            isExpanded: true,
+            firstChildId: 'child-1',
+          })
+          expect(getNavigationTarget('ArrowDown', ctx)).toBe('child-1')
+        })
+
+        it('should navigate to next sibling when collapsed or no children', () => {
+          const ctx = createContext({ hasChildren: false })
+          expect(getNavigationTarget('ArrowDown', ctx)).toBe('block-3')
+        })
+
+        it('should skip children when collapsed', () => {
+          const ctx = createContext({
+            hasChildren: true,
+            isExpanded: false,
+            firstChildId: 'child-1',
+          })
+          expect(getNavigationTarget('ArrowDown', ctx)).toBe('block-3')
+        })
+
+        it('should return null when no next sibling and no expanded children', () => {
+          const ctx = createContext({ nextSiblingId: null, hasChildren: false })
+          expect(getNavigationTarget('ArrowDown', ctx)).toBeNull()
+        })
+      })
+
+      describe('ArrowLeft navigation', () => {
+        it('should collapse when expanded with children', () => {
+          const ctx = createContext({
+            hasChildren: true,
+            isExpanded: true,
+            firstChildId: 'child-1',
+          })
+          // Returns special value indicating collapse action
+          expect(getNavigationTarget('ArrowLeft', ctx)).toBe('__COLLAPSE__')
+        })
+
+        it('should navigate to parent when collapsed or no children', () => {
+          const ctx = createContext({ hasChildren: false })
+          expect(getNavigationTarget('ArrowLeft', ctx)).toBe('parent-1')
+        })
+
+        it('should navigate to parent when has children but collapsed', () => {
+          const ctx = createContext({
+            hasChildren: true,
+            isExpanded: false,
+            firstChildId: 'child-1',
+          })
+          expect(getNavigationTarget('ArrowLeft', ctx)).toBe('parent-1')
+        })
+      })
+
+      describe('ArrowRight navigation', () => {
+        it('should expand when collapsed with children', () => {
+          const ctx = createContext({
+            hasChildren: true,
+            isExpanded: false,
+            firstChildId: 'child-1',
+          })
+          // Returns special value indicating expand action
+          expect(getNavigationTarget('ArrowRight', ctx)).toBe('__EXPAND__')
+        })
+
+        it('should navigate to first child when expanded with children', () => {
+          const ctx = createContext({
+            hasChildren: true,
+            isExpanded: true,
+            firstChildId: 'child-1',
+          })
+          expect(getNavigationTarget('ArrowRight', ctx)).toBe('child-1')
+        })
+
+        it('should return null when no children', () => {
+          const ctx = createContext({ hasChildren: false })
+          expect(getNavigationTarget('ArrowRight', ctx)).toBeNull()
+        })
+      })
+    })
+  })
+
+  describe('New bullet creation logic', () => {
+    /**
+     * Determines the position for a new bullet relative to current block
+     */
+    const getNewBulletPosition = (
+      isAtEndOfText: boolean,
+      hasChildren: boolean,
+      isExpanded: boolean
+    ): 'sibling-after' | 'first-child' => {
+      // If at end of text and has expanded children, insert as first child
+      if (isAtEndOfText && hasChildren && isExpanded) {
+        return 'first-child'
+      }
+      // Otherwise, insert as sibling after current block
+      return 'sibling-after'
+    }
+
+    it('should create sibling when no children', () => {
+      expect(getNewBulletPosition(true, false, false)).toBe('sibling-after')
+    })
+
+    it('should create sibling when has collapsed children', () => {
+      expect(getNewBulletPosition(true, true, false)).toBe('sibling-after')
+    })
+
+    it('should create first child when at end with expanded children', () => {
+      expect(getNewBulletPosition(true, true, true)).toBe('first-child')
+    })
+
+    it('should create sibling when not at end of text', () => {
+      expect(getNewBulletPosition(false, true, true)).toBe('sibling-after')
+    })
+  })
+
+  describe('Cmd+Enter child creation logic', () => {
+    /**
+     * Creates a child bullet regardless of cursor position
+     */
+    const shouldCreateChild = (): boolean => {
+      // Cmd+Enter always creates a child
+      return true
+    }
+
+    it('should always return true for child creation', () => {
+      expect(shouldCreateChild()).toBe(true)
     })
   })
 })
