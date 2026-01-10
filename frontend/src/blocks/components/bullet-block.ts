@@ -8,6 +8,7 @@ import {
   type RichText,
   focusTextModel,
   asyncSetInlineRange,
+  getInlineEditorByModel,
 } from '@blocksuite/affine-components/rich-text'
 
 // Re-export for type checking
@@ -22,22 +23,21 @@ export type { RichText }
  * - Nested child bullets
  * - Inline preview when collapsed (EDITOR-304)
  *
- * ## Keyboard Shortcuts (EDITOR-306)
+ * ## Keyboard Shortcuts (EDITOR-306, EDITOR-3062)
  *
  * ### Navigation
  * - Arrow Up: Move to previous sibling or parent
  * - Arrow Down: Move to next sibling or first child (if expanded)
- * - Arrow Left: Collapse (if expanded) or move to parent
- * - Arrow Right: Expand (if collapsed) or move to first child
+ * - Arrow Left/Right: Standard text cursor movement (browser default)
  *
  * ### Structure Manipulation
  * - Tab: Indent (make child of previous sibling)
  * - Shift+Tab: Outdent (make sibling of parent)
  * - Enter: Create new sibling bullet below
- * - Cmd/Ctrl+Enter: Create new child bullet
  *
  * ### Folding
- * - Cmd/Ctrl+.: Toggle expand/collapse
+ * - Cmd/Ctrl+Enter: Toggle expand/collapse
+ * - Bullet click: Toggle expand/collapse
  */
 
 /**
@@ -94,22 +94,22 @@ export function shouldHandleFoldShortcut(event: {
 /**
  * Documented keyboard shortcuts for the bullet block component.
  * Can be used to display help/documentation to users.
+ * EDITOR-3062: ArrowLeft/ArrowRight removed - use browser default text navigation
  */
 export const KEYBOARD_SHORTCUTS = {
   navigation: [
-    { key: 'Arrow Up', description: 'Move to previous sibling or parent' },
-    { key: 'Arrow Down', description: 'Move to next sibling or first child (if expanded)' },
-    { key: 'Arrow Left', description: 'Collapse (if expanded) or move to parent' },
-    { key: 'Arrow Right', description: 'Expand (if collapsed) or move to first child' },
+    { key: 'Arrow Up', description: 'Move to previous sibling or parent (preserves column)' },
+    { key: 'Arrow Down', description: 'Move to next sibling or first child (preserves column)' },
+    { key: 'Arrow Left', description: 'Move cursor left; at start jumps to end of previous bullet' },
+    { key: 'Arrow Right', description: 'Move cursor right; at end jumps to start of next bullet' },
   ],
   structure: [
     { key: 'Tab', description: 'Indent (make child of previous sibling)' },
     { key: 'Shift+Tab', description: 'Outdent (make sibling of parent)' },
     { key: 'Enter', description: 'Create new sibling bullet below' },
-    { key: 'Cmd/Ctrl+Enter', description: 'Create new child bullet' },
   ],
   folding: [
-    { key: 'Cmd/Ctrl+.', description: 'Toggle expand/collapse' },
+    { key: 'Cmd/Ctrl+Enter', description: 'Toggle expand/collapse' },
   ],
 } as const
 
@@ -138,6 +138,76 @@ export function canOutdent(depth: number): boolean {
 }
 
 /**
+ * Input for computing backspace merge strategy
+ * EDITOR-3063: Added to handle children reparenting
+ */
+export interface BackspaceMergeInput {
+  hasChildren: boolean
+  childrenIds: string[]
+  hasPreviousSibling: boolean
+  previousSiblingId: string | null
+  parentId: string | null
+  grandparentId?: string | null
+}
+
+/**
+ * Output strategy for backspace merge operation
+ * EDITOR-3063: Determines if and how children should be reparented
+ */
+export interface BackspaceMergeStrategy {
+  shouldReparentChildren: boolean
+  childrenToReparent: string[]
+  newParentId: string | null
+}
+
+/**
+ * Compute the strategy for handling backspace at the start of a bullet.
+ * EDITOR-3063: When a bullet with children is deleted, its children should
+ * be unindented (promoted to the parent's level), not deleted.
+ *
+ * @param input - The current block context
+ * @returns Strategy describing how to handle children during merge
+ */
+export function computeBackspaceMergeStrategy(input: BackspaceMergeInput): BackspaceMergeStrategy {
+  // If no children, no reparenting needed
+  if (!input.hasChildren || input.childrenIds.length === 0) {
+    return {
+      shouldReparentChildren: false,
+      childrenToReparent: [],
+      newParentId: null,
+    }
+  }
+
+  // Case 1: Has previous sibling - children become siblings of current block
+  // (they stay at the same level, under the same parent)
+  if (input.hasPreviousSibling && input.parentId) {
+    return {
+      shouldReparentChildren: true,
+      childrenToReparent: input.childrenIds,
+      newParentId: input.parentId,
+    }
+  }
+
+  // Case 2: First child (no previous sibling) - merging with parent
+  // Children should become siblings of the parent (move to grandparent)
+  if (!input.hasPreviousSibling && input.parentId && input.grandparentId) {
+    return {
+      shouldReparentChildren: true,
+      childrenToReparent: input.childrenIds,
+      newParentId: input.grandparentId,
+    }
+  }
+
+  // Case 3: Root level with no previous sibling - backspace does nothing
+  // No reparenting needed since the block itself won't be deleted
+  return {
+    shouldReparentChildren: false,
+    childrenToReparent: [],
+    newParentId: null,
+  }
+}
+
+/**
  * Context for block navigation
  */
 export interface BlockNavigationContext {
@@ -158,10 +228,11 @@ export const NAVIGATION_EXPAND = '__EXPAND__'
 
 /**
  * Get the navigation target based on arrow key direction and block context
- * Returns block ID to navigate to, special action string, or null if no navigation possible
+ * Returns block ID to navigate to, or null if no navigation possible
+ * EDITOR-3062: Only handles ArrowUp/Down - ArrowLeft/Right use browser default
  */
 export function getNavigationTarget(
-  direction: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight',
+  direction: 'ArrowUp' | 'ArrowDown',
   ctx: BlockNavigationContext
 ): string | null {
   switch (direction) {
@@ -176,26 +247,6 @@ export function getNavigationTarget(
       }
       // Otherwise go to next sibling
       return ctx.nextSiblingId
-
-    case 'ArrowLeft':
-      // If expanded with children, collapse
-      if (ctx.hasChildren && ctx.isExpanded) {
-        return NAVIGATION_COLLAPSE
-      }
-      // Otherwise navigate to parent
-      return ctx.parentId
-
-    case 'ArrowRight':
-      // If collapsed with children, expand
-      if (ctx.hasChildren && !ctx.isExpanded) {
-        return NAVIGATION_EXPAND
-      }
-      // If expanded with children, navigate to first child
-      if (ctx.hasChildren && ctx.isExpanded && ctx.firstChildId) {
-        return ctx.firstChildId
-      }
-      // No children, no navigation
-      return null
   }
 }
 
@@ -371,11 +422,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // The 'flavour' option scopes shortcuts to hydra:bullet blocks
     this.bindHotKey(
       {
-        // Cmd+. / Ctrl+. to toggle fold
+        // Cmd+. / Ctrl+. - reserved for future use (EDITOR-3061: do nothing)
         'Mod-.': () => {
           // Guard: Only handle if this block has the text selection
           if (!this._hasTextSelection()) return false
-          this._toggleExpand()
+          // EDITOR-3061: Do nothing - reserved for future functionality
           return true // Prevent default
         },
 
@@ -406,12 +457,12 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           return true
         },
 
-        // Cmd+Enter to create child bullet
+        // Cmd+Enter to toggle fold (EDITOR-3061)
         'Mod-Enter': (ctx) => {
           // Guard: Only handle if this block has the text selection
           if (!this._hasTextSelection()) return false
           ctx.get('defaultState').event.preventDefault()
-          this._createChild()
+          this._toggleExpand()
           return true
         },
 
@@ -430,18 +481,29 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           return true
         },
 
+        // EDITOR-3062: ArrowLeft/ArrowRight - standard text editor behavior
+        // Only intercept at text boundaries to jump between bullets
         ArrowLeft: () => {
-          // Guard: Only handle if this block has the text selection
           if (!this._hasTextSelection()) return false
-          this._handleArrowLeft()
-          return true
+          // Only handle if cursor is at start of text
+          const cursorPos = this._getCursorPosition()
+          if (cursorPos === 0) {
+            return this._handleArrowLeftAtStart()
+          }
+          // Let browser handle normal cursor movement
+          return false
         },
 
         ArrowRight: () => {
-          // Guard: Only handle if this block has the text selection
           if (!this._hasTextSelection()) return false
-          this._handleArrowRight()
-          return true
+          // Only handle if cursor is at end of text
+          const cursorPos = this._getCursorPosition()
+          const textLength = this.model.text.toString().length
+          if (cursorPos >= textLength) {
+            return this._handleArrowRightAtEnd()
+          }
+          // Let browser handle normal cursor movement
+          return false
         },
       },
       { flavour: true }
@@ -655,43 +717,95 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * Navigate to a different block
+   * Navigate to a different block, preserving column position.
+   * EDITOR-3061: Arrow up/down should maintain cursor column like VSCode.
    */
   private _navigate(direction: 'ArrowUp' | 'ArrowDown'): void {
     const ctx = this._getNavigationContext()
     const targetId = getNavigationTarget(direction, ctx)
 
     if (targetId && targetId !== NAVIGATION_COLLAPSE && targetId !== NAVIGATION_EXPAND) {
-      this._focusBlock(targetId)
+      // EDITOR-3061: Preserve column position when navigating
+      const currentColumn = this._getCursorPosition()
+      this._focusBlockPreserveColumn(targetId, currentColumn)
     }
   }
 
   /**
-   * Handle ArrowLeft - collapse or navigate to parent
+   * Focus a block by ID while preserving the cursor column position.
+   * EDITOR-3061: Places cursor at the same column, or at end of text if text is shorter.
    */
-  private _handleArrowLeft(): void {
-    const ctx = this._getNavigationContext()
-    const result = getNavigationTarget('ArrowLeft', ctx)
-
-    if (result === NAVIGATION_COLLAPSE) {
-      this._toggleExpand()
-    } else if (result) {
-      this._focusBlock(result)
+  private _focusBlockPreserveColumn(blockId: string, targetColumn: number): void {
+    const targetModel = this.doc.getBlockById(blockId) as BulletBlockModel | null
+    if (!targetModel || !targetModel.text) {
+      this._focusBlock(blockId)
+      return
     }
+
+    // Clamp column to text length (go to end if text is shorter)
+    const textLength = targetModel.text.toString().length
+    const clampedPosition = Math.min(targetColumn, textLength)
+
+    console.log('[Navigate] Preserving column:', targetColumn, '→ clamped:', clampedPosition, 'for block:', blockId)
+    this._focusBlockAtPosition(blockId, clampedPosition)
   }
 
   /**
-   * Handle ArrowRight - expand or navigate to first child
+   * Handle ArrowLeft when cursor is at start of text.
+   * EDITOR-3062: Jump to end of previous visible bullet (standard text editor behavior).
+   * Returns true if navigation happened, false to let browser handle.
    */
-  private _handleArrowRight(): void {
+  private _handleArrowLeftAtStart(): boolean {
     const ctx = this._getNavigationContext()
-    const result = getNavigationTarget('ArrowRight', ctx)
+    // Get previous block (same logic as ArrowUp)
+    const targetId = ctx.previousSiblingId ?? ctx.parentId
+    if (!targetId) return false
 
-    if (result === NAVIGATION_EXPAND) {
-      this._toggleExpand()
-    } else if (result) {
-      this._focusBlock(result)
+    // For previous sibling, navigate to its last visible descendant
+    if (ctx.previousSiblingId) {
+      const previousBlock = this.doc.getBlockById(ctx.previousSiblingId) as BulletBlockModel | null
+      if (previousBlock) {
+        const targetBlock = this._getLastVisibleDescendant(previousBlock)
+        const textLength = targetBlock.text.toString().length
+        this._focusBlockAtPosition(targetBlock.id, textLength)
+        return true
+      }
     }
+
+    // For parent, go to end of parent's text
+    const parentBlock = this.doc.getBlockById(targetId) as BulletBlockModel | null
+    if (parentBlock?.text) {
+      const textLength = parentBlock.text.toString().length
+      this._focusBlockAtPosition(targetId, textLength)
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Handle ArrowRight when cursor is at end of text.
+   * EDITOR-3062: Jump to start of next visible bullet (standard text editor behavior).
+   * Returns true if navigation happened, false to let browser handle.
+   */
+  private _handleArrowRightAtEnd(): boolean {
+    const ctx = this._getNavigationContext()
+    // Get next block (same logic as ArrowDown)
+    let targetId: string | null = null
+
+    // If expanded with children, go to first child
+    if (ctx.hasChildren && ctx.isExpanded && ctx.firstChildId) {
+      targetId = ctx.firstChildId
+    } else {
+      // Otherwise go to next sibling
+      targetId = ctx.nextSiblingId
+    }
+
+    if (!targetId) return false
+
+    // Navigate to start of target block
+    this._focusBlockAtPosition(targetId, 0)
+    return true
   }
 
   /**
@@ -704,28 +818,42 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * Focus a block by ID and position cursor at a specific character position.
-   * EDITOR-3053: Simplified to use focusTextModel + asyncSetInlineRange
+   * EDITOR-3061: Hide cursor during transition to prevent visible jump.
+   *
+   * The challenge: BlockSuite's selection system has async behavior that causes
+   * the cursor to visibly jump to position 0 before our correction takes effect.
+   *
+   * Solution: Hide the caret during the transition using CSS, then restore it
+   * after the cursor position has been correctly set.
    */
   private _focusBlockAtPosition(blockId: string, position: number): void {
-    console.log('[Focus] Focusing block', blockId, 'at position', position)
-
-    // EDITOR-3053: Use focusTextModel for immediate selection-based focus
-    try {
-      focusTextModel(this.std, blockId, position)
-      console.log('[Focus] focusTextModel called')
-    } catch (e) {
-      console.log('[Focus] focusTextModel error:', e)
-    }
-
-    // Also set cursor position using asyncSetInlineRange after render
     const model = this.doc.getBlockById(blockId)
-    if (model) {
-      asyncSetInlineRange(this.host, model, { index: position, length: 0 }).then(() => {
-        console.log('[Focus] asyncSetInlineRange completed')
-      }).catch(e => {
-        console.log('[Focus] asyncSetInlineRange error:', e)
-      })
+    if (!model) return
+
+    // Get the target block's element to hide its caret during transition
+    const blockElement = this.host.view.getBlock(blockId)
+    const richText = blockElement?.querySelector('rich-text') as HTMLElement | null
+
+    // Hide cursor during transition to prevent visual jump
+    if (richText) {
+      richText.style.caretColor = 'transparent'
     }
+
+    // Use BlockSuite's focus mechanism
+    focusTextModel(this.std, blockId, position)
+
+    // After focusTextModel's effects settle, set correct position and restore cursor
+    setTimeout(() => {
+      const inlineEditor = getInlineEditorByModel(this.host, blockId)
+      if (inlineEditor) {
+        inlineEditor.setInlineRange({ index: position, length: 0 })
+      }
+
+      // Restore cursor visibility
+      if (richText) {
+        richText.style.caretColor = ''
+      }
+    }, 0)
   }
 
   /**
@@ -783,7 +911,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     const icon = this.model.isExpanded ? '▼' : '▶'
-    const title = this.model.isExpanded ? 'Collapse (⌘.)' : 'Expand (⌘.)'
+    const title = this.model.isExpanded ? 'Collapse (⌘↵)' : 'Expand (⌘↵)'
     return html`
       <div
         class="bullet-toggle has-children"
@@ -846,10 +974,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * - First child (no sibling): Merge with parent and delete this block
    * - Root level (no sibling, no parent): Do nothing
    * EDITOR-3053: Updated to use focusTextModel + asyncSetInlineRange
+   * EDITOR-3063: Children are now reparented (unindented) instead of deleted
    */
   private _handleBackspaceAtStart(): void {
     const ctx = this._getNavigationContext()
     const currentText = this.model.text.toString()
+    const parent = this.model.parent
+
+    // EDITOR-3063: Get children to reparent before deletion
+    const children = [...this.model.children] // Copy array since we'll modify structure
 
     // Case 1: Has previous sibling - merge with its last visible descendant
     // EDITOR-3058: Navigate to visual hierarchy, not just tree structure
@@ -875,6 +1008,16 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       const host = this.host
       const targetBlockId = targetBlock.id
 
+      // EDITOR-3063: Reparent children to become siblings (stay under same parent)
+      // They should appear after the current block's position (which we're about to delete)
+      if (children.length > 0 && parent) {
+        // Find the position after current block in parent's children
+        const currentIndex = parent.children.indexOf(blockToDelete)
+        const nextSibling = parent.children[currentIndex + 1] || null
+        // Move children to parent, before the next sibling (or at end if no next sibling)
+        doc.moveBlocks(children, parent, nextSibling)
+      }
+
       // Defer deletion to avoid render cycle crash
       requestAnimationFrame(() => {
         doc.deleteBlock(blockToDelete)
@@ -896,15 +1039,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // Case 2: First child (no previous sibling) - merge with parent
     if (ctx.parentId) {
-      const parent = this.doc.getBlockById(ctx.parentId) as BulletBlockModel | null
-      if (!parent || !parent.text) return // Parent must be a bullet block with text
+      const parentBlock = this.doc.getBlockById(ctx.parentId) as BulletBlockModel | null
+      if (!parentBlock || !parentBlock.text) return // Parent must be a bullet block with text
 
-      const parentText = parent.text.toString()
+      const parentText = parentBlock.text.toString()
       const mergePoint = parentText.length
 
       // Merge: append current text to parent's text
       if (currentText) {
-        parent.text.insert(currentText, mergePoint)
+        parentBlock.text.insert(currentText, mergePoint)
       }
 
       // Store refs before deletion
@@ -913,6 +1056,18 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       const std = this.std
       const host = this.host
       const targetBlockId = ctx.parentId
+
+      // EDITOR-3063: Reparent children to become siblings of parent (move to grandparent)
+      if (children.length > 0) {
+        const grandparent = parentBlock.parent
+        if (grandparent) {
+          // Find position after parent in grandparent's children
+          const parentIndex = grandparent.children.indexOf(parentBlock)
+          const nextSiblingOfParent = grandparent.children[parentIndex + 1] || null
+          // Move children to grandparent, after the parent
+          doc.moveBlocks(children, grandparent, nextSiblingOfParent)
+        }
+      }
 
       // Defer deletion to avoid render cycle crash
       requestAnimationFrame(() => {

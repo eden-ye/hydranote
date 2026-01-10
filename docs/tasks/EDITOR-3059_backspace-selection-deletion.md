@@ -67,10 +67,10 @@ if (e.key === 'Backspace') {
 
 ## Testing
 
-- [ ] Unit tests pass
-- [ ] Build succeeds
-- [ ] Chrome E2E: Backspace with selection only deletes selected text
-- [ ] Chrome E2E: Backspace at start (no selection) still merges correctly
+- [x] Unit tests pass (72 tests)
+- [x] Build succeeds
+- [x] Chrome E2E: Backspace with selection only deletes selected text
+- [x] Chrome E2E: Backspace at start (no selection) still merges correctly
 
 ## Related
 

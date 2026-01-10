@@ -5,6 +5,7 @@ import {
   canIndent,
   canOutdent,
   getNavigationTarget,
+  computeBackspaceMergeStrategy,
   type BlockNavigationContext,
 } from '../components/bullet-block'
 
@@ -380,57 +381,8 @@ describe('Keyboard Shortcuts (EDITOR-306)', () => {
         })
       })
 
-      describe('ArrowLeft navigation', () => {
-        it('should collapse when expanded with children', () => {
-          const ctx = createContext({
-            hasChildren: true,
-            isExpanded: true,
-            firstChildId: 'child-1',
-          })
-          // Returns special value indicating collapse action
-          expect(getNavigationTarget('ArrowLeft', ctx)).toBe('__COLLAPSE__')
-        })
-
-        it('should navigate to parent when collapsed or no children', () => {
-          const ctx = createContext({ hasChildren: false })
-          expect(getNavigationTarget('ArrowLeft', ctx)).toBe('parent-1')
-        })
-
-        it('should navigate to parent when has children but collapsed', () => {
-          const ctx = createContext({
-            hasChildren: true,
-            isExpanded: false,
-            firstChildId: 'child-1',
-          })
-          expect(getNavigationTarget('ArrowLeft', ctx)).toBe('parent-1')
-        })
-      })
-
-      describe('ArrowRight navigation', () => {
-        it('should expand when collapsed with children', () => {
-          const ctx = createContext({
-            hasChildren: true,
-            isExpanded: false,
-            firstChildId: 'child-1',
-          })
-          // Returns special value indicating expand action
-          expect(getNavigationTarget('ArrowRight', ctx)).toBe('__EXPAND__')
-        })
-
-        it('should navigate to first child when expanded with children', () => {
-          const ctx = createContext({
-            hasChildren: true,
-            isExpanded: true,
-            firstChildId: 'child-1',
-          })
-          expect(getNavigationTarget('ArrowRight', ctx)).toBe('child-1')
-        })
-
-        it('should return null when no children', () => {
-          const ctx = createContext({ hasChildren: false })
-          expect(getNavigationTarget('ArrowRight', ctx)).toBeNull()
-        })
-      })
+      // EDITOR-3062: ArrowLeft/ArrowRight tests removed
+      // These keys now use browser default text cursor navigation
     })
   })
 
@@ -479,6 +431,83 @@ describe('Keyboard Shortcuts (EDITOR-306)', () => {
 
     it('should always return true for child creation', () => {
       expect(shouldCreateChild()).toBe(true)
+    })
+  })
+})
+
+/**
+ * Tests for backspace behavior with children (EDITOR-3063)
+ *
+ * When backspace is pressed at the start of a bullet with children,
+ * the children should be unindented (promoted to the parent's level),
+ * not deleted along with the parent.
+ */
+describe('Backspace with children (EDITOR-3063)', () => {
+  describe('computeBackspaceMergeStrategy', () => {
+    describe('when block has no children', () => {
+      it('should return strategy with no children to reparent', () => {
+        const result = computeBackspaceMergeStrategy({
+          hasChildren: false,
+          childrenIds: [],
+          hasPreviousSibling: true,
+          previousSiblingId: 'prev-1',
+          parentId: 'parent-1',
+        })
+
+        expect(result.shouldReparentChildren).toBe(false)
+        expect(result.childrenToReparent).toEqual([])
+      })
+    })
+
+    describe('when block has children and previous sibling', () => {
+      it('should reparent children to previous sibling parent level', () => {
+        const result = computeBackspaceMergeStrategy({
+          hasChildren: true,
+          childrenIds: ['child-1', 'child-2'],
+          hasPreviousSibling: true,
+          previousSiblingId: 'prev-1',
+          parentId: 'parent-1',
+        })
+
+        expect(result.shouldReparentChildren).toBe(true)
+        expect(result.childrenToReparent).toEqual(['child-1', 'child-2'])
+        expect(result.newParentId).toBe('parent-1')
+      })
+    })
+
+    describe('when block has children and no previous sibling (merge with parent)', () => {
+      it('should reparent children to grandparent level', () => {
+        const result = computeBackspaceMergeStrategy({
+          hasChildren: true,
+          childrenIds: ['child-1', 'child-2'],
+          hasPreviousSibling: false,
+          previousSiblingId: null,
+          parentId: 'parent-1',
+          grandparentId: 'grandparent-1',
+        })
+
+        expect(result.shouldReparentChildren).toBe(true)
+        expect(result.childrenToReparent).toEqual(['child-1', 'child-2'])
+        expect(result.newParentId).toBe('grandparent-1')
+      })
+    })
+
+    describe('when block is at root level with children', () => {
+      it('should not reparent as there is no parent to merge with', () => {
+        const result = computeBackspaceMergeStrategy({
+          hasChildren: true,
+          childrenIds: ['child-1', 'child-2'],
+          hasPreviousSibling: false,
+          previousSiblingId: null,
+          parentId: null,
+          grandparentId: null,
+        })
+
+        // At root level with no previous sibling, backspace does nothing
+        // So no reparenting needed
+        expect(result.shouldReparentChildren).toBe(false)
+        expect(result.childrenToReparent).toEqual([])
+      })
     })
   })
 })
