@@ -7,6 +7,7 @@
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
+| EDITOR-3051 | Persistence & Text Sync Fix | ✅ completed | Fixed text reversal bug, persistence timing, hydra:bullet as default |
 | EDITOR-306 | Keyboard Shortcuts | ✅ completed | Full BlockSuite integration, Tab/Shift+Tab, Enter, Cmd+Enter, arrows, Cmd+. |
 | EDITOR-305 | IndexedDB Persistence | ✅ completed | y-indexeddb integration, loading indicator, error handling |
 | EDITOR-304 | Inline Detail View | ✅ completed | Inline preview for collapsed bullets |
