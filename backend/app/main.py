@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,22 +6,39 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.api.routes import auth, ai, user, blocks
 from app.api.websockets import ai_stream_router
-from app.db.mongo import connect_to_mongo, close_mongo_connection, create_indexes
+from app.db.mongo import connect_to_mongo, close_mongo_connection, create_indexes, is_mongo_connected
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("Starting Hydra Notes API...")
+    logger.info("Starting Hydra Notes API...")
     settings = get_settings()
+
+    # Log configuration (without secrets)
+    logger.info(f"MONGODB_URI configured: {bool(settings.mongodb_uri)}")
+    logger.info(f"MONGODB_DATABASE: {settings.mongodb_database}")
+
     if settings.mongodb_uri:
-        await connect_to_mongo()
-        await create_indexes()
+        try:
+            await connect_to_mongo()
+            await create_indexes()
+            logger.info("MongoDB connection established successfully")
+        except Exception as e:
+            logger.error(f"Failed to connect to MongoDB: {e}")
+            # Re-raise to prevent app from starting with broken DB
+            raise
     else:
-        print("Warning: MONGODB_URI not configured, skipping MongoDB connection")
+        logger.warning("MONGODB_URI not configured, skipping MongoDB connection")
+
     yield
+
     # Shutdown
-    print("Shutting down Hydra Notes API...")
+    logger.info("Shutting down Hydra Notes API...")
     await close_mongo_connection()
 
 
@@ -54,4 +72,10 @@ app.include_router(ai_stream_router, tags=["websocket"])
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "version": "0.1.0"}
+    settings = get_settings()
+    return {
+        "status": "healthy",
+        "version": "0.1.0",
+        "mongodb_connected": is_mongo_connected(),
+        "mongodb_database": settings.mongodb_database if is_mongo_connected() else None,
+    }

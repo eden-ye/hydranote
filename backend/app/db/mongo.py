@@ -47,6 +47,11 @@ async def close_mongo_connection() -> None:
         print("MongoDB connection closed")
 
 
+def is_mongo_connected() -> bool:
+    """Check if MongoDB is connected."""
+    return _database is not None
+
+
 def get_database() -> AsyncIOMotorDatabase:
     """Get the MongoDB database instance."""
     if _database is None:
