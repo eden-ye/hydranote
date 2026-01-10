@@ -559,8 +559,10 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * Handle Enter key - split text at cursor position or create empty sibling.
-   * If cursor is at end or text is empty, just create new sibling.
+   * Handle Enter key - split text at cursor position or create empty sibling/child.
+   * If cursor is at end or text is empty:
+   *   - If block has children: create new first child (EDITOR-3057)
+   *   - Otherwise: create new sibling
    * If cursor is in middle, split the text.
    * EDITOR-3053: Updated to use focusTextModel for immediate selection-based focus
    */
@@ -568,9 +570,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     const cursorPos = this._getCursorPosition()
     const currentText = this.model.text.toString()
 
-    // If at end or empty, just create a new sibling
+    // If at end or empty
     if (cursorPos >= currentText.length) {
-      this._createSibling()
+      // EDITOR-3057: If block has children, create first child instead of sibling
+      // This matches RemNote behavior where Enter continues "inside" the bullet
+      if (this._hasChildren) {
+        this._createChild()
+      } else {
+        this._createSibling()
+      }
       return
     }
 
