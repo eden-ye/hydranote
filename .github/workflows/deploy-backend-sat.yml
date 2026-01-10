@@ -23,4 +23,4 @@ jobs:
         run: railway up --service hydra-backend-sat
         working-directory: backend
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_SAT }}
