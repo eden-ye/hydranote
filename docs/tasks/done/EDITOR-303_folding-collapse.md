@@ -8,7 +8,7 @@ Implement folding and collapsing functionality for bullet blocks. Users should b
 - [x] Visual indicator for folded state (e.g., arrow icon)
 - [x] Folded bullets hide their children
 - [x] Fold state persists during session
-- [x] Keyboard shortcut to toggle fold (e.g., Cmd+.)
+- [ ] ~~Keyboard shortcut to toggle fold (e.g., Cmd+.)~~ **BUG: Not working - deferred to EDITOR-306**
 
 ## Dependencies
 - EDITOR-302 (Bullet Block Schema) ✅ READY
@@ -47,3 +47,6 @@ Implement folding and collapsing functionality for bullet blocks. Users should b
 
 ### Commits
 - `5283bed` feat(editor): EDITOR-303 - Folding/collapse with keyboard shortcut
+
+## Known Issues
+- **BUG-EDITOR-303**: Keyboard shortcut (Cmd+.) does not work. BlockSuite captures focus at `AFFINE-PAGE-ROOT` level, so keydown events never reach the `hydra-bullet-block` component. Will be fixed in EDITOR-306 using BlockSuite's keyboard registration system.

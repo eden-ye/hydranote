@@ -22,6 +22,14 @@ Implement keyboard shortcuts for common editor operations. Focus on navigation a
 - Follow common outliner conventions
 - Consider vim-like bindings for future
 
+## Technical Requirements
+- **IMPORTANT**: Must use BlockSuite's keyboard registration system, NOT native DOM event listeners
+- Native `this.addEventListener('keydown', ...)` on custom elements doesn't work because BlockSuite captures focus at `AFFINE-PAGE-ROOT` level
+- See BUG-EDITOR-303 for details on the failed approach in EDITOR-303
+
+## Bug Fixes Included
+- **BUG-EDITOR-303**: Cmd+. fold shortcut not working (deferred from EDITOR-303)
+
 ## Status
 - **Created**: 2025-01-09
 - **Status**: pending
