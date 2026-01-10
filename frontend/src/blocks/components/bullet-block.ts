@@ -11,6 +11,19 @@ import { customElement } from 'lit/decorators.js'
  * - Editable text content
  * - Nested child bullets
  */
+/**
+ * Check if keyboard event is the fold toggle shortcut (Cmd+. / Ctrl+.)
+ */
+export function shouldHandleFoldShortcut(event: {
+  key: string
+  metaKey: boolean
+  ctrlKey: boolean
+}): boolean {
+  const isCorrectKey = event.key === '.'
+  const hasModifier = event.metaKey || event.ctrlKey
+  return isCorrectKey && hasModifier
+}
+
 @customElement('hydra-bullet-block')
 export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   static override styles = css`
@@ -82,11 +95,38 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   `
 
   /**
+   * Bound keyboard handler reference for cleanup
+   */
+  private _boundKeydownHandler = this._handleKeydown.bind(this)
+
+  /**
    * Check if this block has children.
    * Computed dynamically in render to stay in sync.
    */
   private get _hasChildren(): boolean {
     return this.model.children.length > 0
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback()
+    // Listen for keyboard shortcuts on the host element
+    this.addEventListener('keydown', this._boundKeydownHandler)
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback()
+    this.removeEventListener('keydown', this._boundKeydownHandler)
+  }
+
+  /**
+   * Handle keyboard shortcuts for fold toggle (Cmd+. / Ctrl+.)
+   */
+  private _handleKeydown(event: KeyboardEvent): void {
+    if (shouldHandleFoldShortcut(event)) {
+      event.preventDefault()
+      event.stopPropagation()
+      this._toggleExpand()
+    }
   }
 
   private _toggleExpand(): void {
@@ -107,11 +147,22 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     const icon = this.model.isExpanded ? '▼' : '▶'
+    const title = this.model.isExpanded ? 'Collapse (⌘.)' : 'Expand (⌘.)'
     return html`
       <div
         class="bullet-toggle has-children"
         @click=${this._toggleExpand}
-        title=${this.model.isExpanded ? 'Collapse' : 'Expand'}
+        title=${title}
+        role="button"
+        aria-expanded=${this.model.isExpanded ? 'true' : 'false'}
+        aria-label=${this.model.isExpanded ? 'Collapse children' : 'Expand children'}
+        tabindex="0"
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            this._toggleExpand()
+          }
+        }}
       >
         ${icon}
       </div>
