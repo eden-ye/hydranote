@@ -1,6 +1,6 @@
 """Tests for AI router endpoints."""
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -28,16 +28,8 @@ class TestGenerateEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
-            mock_service.generate = MagicMock(return_value=mock_response)
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            # Make async mock work
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/generate",
@@ -60,14 +52,8 @@ class TestGenerateEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/generate",
@@ -87,14 +73,8 @@ class TestGenerateEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/generate",
@@ -112,14 +92,8 @@ class TestGenerateEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/generate",
@@ -138,14 +112,8 @@ class TestGenerateEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/generate",
@@ -160,8 +128,6 @@ class TestGenerateEndpoint:
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
             mock_get.return_value = mock_service
-
-            import asyncio
 
             async def raise_error(**kwargs):
                 raise ClaudeServiceError("Rate limit exceeded")
@@ -194,14 +160,8 @@ class TestGenerateEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/generate",
@@ -224,14 +184,8 @@ class TestExpandEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/expand",
@@ -254,14 +208,8 @@ class TestExpandEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/expand",
@@ -285,14 +233,8 @@ class TestExpandEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/expand",
@@ -310,14 +252,8 @@ class TestExpandEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/expand",
@@ -336,14 +272,8 @@ class TestExpandEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/expand",
@@ -358,8 +288,6 @@ class TestExpandEndpoint:
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
             mock_get.return_value = mock_service
-
-            import asyncio
 
             async def raise_error(**kwargs):
                 raise ClaudeServiceError("Rate limit exceeded")
@@ -392,14 +320,8 @@ class TestExpandEndpoint:
 
         with patch("app.api.routes.ai.get_claude_service") as mock_get:
             mock_service = MagicMock()
+            mock_service.generate = AsyncMock(return_value=mock_response)
             mock_get.return_value = mock_service
-
-            import asyncio
-            mock_service.generate = MagicMock(
-                side_effect=lambda **kwargs: asyncio.coroutine(
-                    lambda: mock_response
-                )()
-            )
 
             response = client.post(
                 "/api/ai/expand",
