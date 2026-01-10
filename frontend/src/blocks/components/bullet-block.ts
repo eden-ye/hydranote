@@ -114,6 +114,7 @@ export function computeIndentLevel(depth: number): number {
  * Check if a block can be indented (moved to become child of previous sibling)
  * Can only indent if there's a previous sibling to become parent
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function canIndent(hasPreviousSibling: boolean, _depth: number): boolean {
   return hasPreviousSibling
 }
