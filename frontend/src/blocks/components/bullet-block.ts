@@ -280,7 +280,42 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   override connectedCallback(): void {
     super.connectedCallback()
-    this._bindKeyboardShortcuts()
+    // Defer binding keyboard shortcuts until std is available
+    // This is needed because this.std may not be ready in connectedCallback
+    requestAnimationFrame(() => {
+      if (this.std) {
+        this._bindKeyboardShortcuts()
+      }
+    })
+  }
+
+  override firstUpdated(): void {
+    // Set up event listeners on the contenteditable
+    const contentDiv = this.querySelector('.bullet-content') as HTMLElement
+    if (contentDiv) {
+      // Set initial text from model
+      const initialText = this.model.text.toString()
+      contentDiv.textContent = initialText
+
+      // Bind input handler for text sync
+      contentDiv.addEventListener('input', (e: Event) => this._handleInput(e as InputEvent))
+
+      // Bind keydown handler for shortcuts
+      contentDiv.addEventListener('keydown', (e: Event) => this._handleKeydown(e as KeyboardEvent))
+
+      // Observe model text changes (for y-indexeddb sync restoration)
+      // Only update DOM when NOT focused (avoid cursor issues during typing)
+      this.model.text.yText.observe(() => {
+        const modelText = this.model.text.toString()
+        // Only update DOM if:
+        // 1. Text differs from model AND
+        // 2. Element is not focused (not being edited) - prevents cursor reset issues
+        const isNotFocused = document.activeElement !== contentDiv
+        if (contentDiv.textContent !== modelText && isNotFocused) {
+          contentDiv.textContent = modelText
+        }
+      })
+    }
   }
 
   /**
@@ -576,6 +611,64 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  /**
+   * Handle input events to sync contenteditable text to Yjs model
+   */
+  private _handleInput(e: InputEvent): void {
+    const target = e.target as HTMLElement
+    const newText = target.textContent || ''
+    const currentText = this.model.text.toString()
+
+    // Only update if text actually changed (avoid feedback loops)
+    if (newText !== currentText) {
+      // Update the Yjs text model
+      this.model.text.delete(0, this.model.text.length)
+      if (newText) {
+        this.model.text.insert(newText, 0)
+      }
+    }
+  }
+
+  /**
+   * Handle keydown events to intercept special keys before contenteditable
+   */
+  private _handleKeydown(e: KeyboardEvent): void {
+    // Enter creates a new sibling bullet
+    if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault()
+      this._createSibling()
+      return
+    }
+
+    // Cmd/Ctrl+Enter creates a child bullet
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      this._createChild()
+      return
+    }
+
+    // Tab indents
+    if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault()
+      this._indent()
+      return
+    }
+
+    // Shift+Tab outdents
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault()
+      this._outdent()
+      return
+    }
+
+    // Cmd/Ctrl+. toggles expand/collapse
+    if (e.key === '.' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      this._toggleExpand()
+      return
+    }
+  }
+
   override renderBlock(): TemplateResult {
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
 
@@ -586,13 +679,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           class="bullet-content"
           contenteditable="true"
           data-placeholder="Type here..."
-        >
-          ${this.model.text.toString()}
-        </div>
+        ></div>
         ${this._renderInlinePreview()}
       </div>
       <div class="bullet-children ${childrenClass}">
-        ${this.renderChildren(this.model)}
+        ${this.std ? this.renderChildren(this.model) : nothing}
       </div>
     `
   }
