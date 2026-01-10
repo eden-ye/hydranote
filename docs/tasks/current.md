@@ -16,8 +16,8 @@
 | EDITOR-301 | BlockSuite Integration | ✅ completed | Foundation for editor |
 | API-201 | Claude AI Service | ✅ completed | Full CRUD API, tests passing |
 | API-202 | Prompt Builder | ✅ completed | Prompt templates for AI generation |
-| API-204 | Generate Endpoint | ✅ completed | POST /api/ai/generate, 8 tests, Bruno tests |
-| API-205 | Expand Endpoint | ✅ completed | POST /api/ai/expand, 8 tests, Bruno tests |
+| API-204 | Generate Endpoint | ✅ completed | POST /api/ai/generate, 8 tests, Bruno+E2E tests, PR #28 (0ec48e0) |
+| API-205 | Expand Endpoint | ✅ completed | POST /api/ai/expand, 8 tests, Bruno+E2E tests, PR #28 (0ec48e0) |
 
 ## Infrastructure (Blocking)
 
