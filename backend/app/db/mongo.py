@@ -28,6 +28,9 @@ async def connect_to_mongo() -> None:
         maxPoolSize=10,
         minPoolSize=1,
         serverSelectionTimeoutMS=5000,
+        # SSL/TLS settings for Railway deployment compatibility
+        tls=True,
+        tlsAllowInvalidCertificates=True,  # For Railway/Atlas connectivity issues
     )
     _database = _client[settings.mongodb_database]
 
