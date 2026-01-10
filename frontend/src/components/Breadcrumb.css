@@ -1,0 +1,82 @@
+/**
+ * Breadcrumb Component Styles
+ * FE-407: Breadcrumb Component
+ *
+ * Unobtrusive styling for focus mode navigation.
+ */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--affine-text-secondary-color, #666);
+  background: var(--affine-background-secondary-color, #f5f5f5);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.breadcrumb-home {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--affine-icon-color, #888);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.breadcrumb-home:hover {
+  background-color: var(--affine-hover-color, #e0e0e0);
+  color: var(--affine-text-primary-color, #333);
+}
+
+.breadcrumb-home:focus-visible {
+  outline: 2px solid var(--affine-primary-color, #1976d2);
+  outline-offset: 2px;
+}
+
+.breadcrumb-segment {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.breadcrumb-separator {
+  color: var(--affine-text-disable-color, #bbb);
+}
+
+.breadcrumb-item {
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.breadcrumb-item--clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.breadcrumb-item--clickable:hover {
+  background-color: var(--affine-hover-color, #e0e0e0);
+  color: var(--affine-text-primary-color, #333);
+}
+
+.breadcrumb-item--clickable:focus-visible {
+  outline: 2px solid var(--affine-primary-color, #1976d2);
+  outline-offset: 2px;
+}
+
+.breadcrumb-item[aria-current='page'] {
+  font-weight: 500;
+  color: var(--affine-text-primary-color, #333);
+}
