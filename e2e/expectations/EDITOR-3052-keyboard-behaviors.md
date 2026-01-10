@@ -3,7 +3,7 @@
 ## Test: Backspace at start of bullet merges with previous
 
 ### Steps:
-1. Navigate to http://localhost:5177
+1. Navigate to http://localhost:5174
 2. Create two bullets: "First bullet" and "Second bullet"
 3. Click at start of "Second bullet"
 4. Press Backspace
@@ -37,6 +37,24 @@
 
 ---
 
+## Test: Backspace on first child merges into parent
+
+### Steps:
+1. Create parent bullet "First" with child "irst"
+2. Position cursor at start of child "irst"
+3. Press Backspace
+
+### Expected:
+- [x] Child text merges into parent: "First" + "irst" = "First" (if was split)
+- [x] Cursor is at join point in parent
+- [x] Child bullet is deleted
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- "F" parent + "irst" child merged to "First"
+
+---
+
 ## Test: Backspace on first bullet does nothing
 
 ### Steps:
@@ -55,21 +73,41 @@
 
 ---
 
-## Test: Enter in middle of text splits bullet
+## Test: Enter in middle of text with children - trailing text becomes first child (RemNote behavior)
 
 ### Steps:
-1. Create bullet "Hello World"
+1. Create parent bullet "First" with children "Second" and "Third"
+2. Position cursor after "F" in "First"
+3. Press Enter
+
+### Expected:
+- [x] Parent bullet becomes "F" (text before cursor)
+- [x] New first child "irst" created (text after cursor)
+- [x] Existing children "Second", "Third" remain after new child
+- [x] Cursor is at start of new child "irst"
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- Matches RemNote behavior exactly
+- Structure: F > [irst, Second, Third]
+
+---
+
+## Test: Enter in middle of text splits bullet (no children)
+
+### Steps:
+1. Create bullet "Hello World" (no children)
 2. Position cursor between "Hello" and "World" (after space)
 3. Press Enter
 
 ### Expected:
 - [x] First bullet becomes "Hello "
-- [x] New bullet below contains "World"
+- [x] New sibling bullet below contains "World"
 - [x] Cursor is at start of new bullet
 
 ### Evidence:
 - Tested 2026-01-10 via Chrome E2E
-- "SplitTest" split into "Split" and "Test" correctly
+- Split into sibling when no children exist
 
 ---
 
@@ -88,6 +126,25 @@
 ### Evidence:
 - Tested 2026-01-10 via Chrome E2E
 - "First" + "World" merged to "FirstWorld"
+
+---
+
+## Test: Arrow Up/Down navigation traverses tree
+
+### Steps:
+1. Create structure: First > [Second, Third]
+2. Focus on "First"
+3. Press ArrowDown repeatedly
+
+### Expected:
+- [x] ArrowDown from "First" goes to "Second" (first child)
+- [x] ArrowDown from "Second" goes to "Third" (next sibling)
+- [x] ArrowUp from "Third" goes to "Second"
+- [x] ArrowUp from "Second" goes to "First" (parent)
+
+### Evidence:
+- Tested 2026-01-10 via Chrome E2E
+- Proper tree traversal working
 
 ---
 
@@ -125,7 +182,7 @@
 
 ---
 
-## Test: Tab indents bullet
+## Test: Tab indents bullet and maintains focus
 
 ### Steps:
 1. Create two bullets at root level
@@ -136,14 +193,15 @@
 - [x] Second bullet becomes child of first
 - [x] Indentation visible
 - [x] First bullet shows expand toggle
+- [x] Cursor remains on indented bullet
 
 ### Evidence:
-- Tested in EDITOR-306 (2026-01-10)
-- Tab indent working
+- Tested 2026-01-10 via Chrome E2E
+- Tab indent working with focus maintained
 
 ---
 
-## Test: Shift+Tab outdents bullet
+## Test: Shift+Tab outdents bullet and maintains focus
 
 ### Steps:
 1. Have indented bullet (child)
@@ -153,10 +211,11 @@
 ### Expected:
 - [x] Child becomes sibling of parent
 - [x] Indentation decreases
+- [x] Cursor remains on outdented bullet
 
 ### Evidence:
-- Tested in EDITOR-306 (2026-01-10)
-- Shift+Tab outdent working
+- Tested 2026-01-10 via Chrome E2E
+- Shift+Tab outdent working with focus maintained
 
 ---
 
@@ -164,16 +223,19 @@
 
 | Test | Status |
 |------|--------|
-| Backspace merges | ✅ |
+| Backspace merges siblings | ✅ |
 | Backspace deletes empty | ✅ |
+| Backspace first child merges to parent | ✅ |
 | Backspace first bullet | ✅ |
-| Enter splits | ✅ |
+| Enter splits with children (RemNote) | ✅ |
+| Enter splits without children | ✅ |
 | Delete merges next | ✅ |
+| Arrow Up/Down tree traversal | ✅ |
 | Alt+Up swaps | ✅ |
 | Alt+Down swaps | ✅ |
-| Tab indents | ✅ |
-| Shift+Tab outdents | ✅ |
+| Tab indents with focus | ✅ |
+| Shift+Tab outdents with focus | ✅ |
 
 Tested on: 2026-01-10
 Browser: Chrome via Claude-in-Chrome MCP
-Port: http://localhost:5177
+Port: http://localhost:5174

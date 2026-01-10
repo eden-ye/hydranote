@@ -497,6 +497,9 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // Move this block to be the last child of the previous sibling
     this.doc.moveBlocks([this.model], previousSibling)
+
+    // Maintain focus after indent
+    this._focusBlockAtPosition(this.model.id, this._getCurrentCursorPosition())
   }
 
   /**
@@ -511,6 +514,18 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // Move this block to be after its parent in the grandparent's children
     this.doc.moveBlocks([this.model], grandparent, grandparent.children[parentIndex + 1])
+
+    // Maintain focus after outdent
+    this._focusBlockAtPosition(this.model.id, this._getCurrentCursorPosition())
+  }
+
+  /**
+   * Get current cursor position from the contenteditable
+   */
+  private _getCurrentCursorPosition(): number {
+    const contentDiv = this.querySelector('.bullet-content') as HTMLElement
+    if (!contentDiv) return 0
+    return getCursorPosition(contentDiv)
   }
 
   /**
@@ -557,15 +572,113 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * Navigate to a different block
+   * Navigate to a different block using visual tree traversal
+   *
+   * ArrowUp: Go to the visually previous bullet
+   * - If has previous sibling: go to last visible descendant of that sibling
+   * - If no previous sibling: go to parent
+   *
+   * ArrowDown: Go to the visually next bullet
+   * - If expanded with children: go to first child
+   * - If has next sibling: go to next sibling
+   * - Otherwise: go to parent's next sibling (recursively)
    */
   private _navigate(direction: 'ArrowUp' | 'ArrowDown'): void {
-    const ctx = this._getNavigationContext()
-    const targetId = getNavigationTarget(direction, ctx)
-
-    if (targetId && targetId !== NAVIGATION_COLLAPSE && targetId !== NAVIGATION_EXPAND) {
-      this._focusBlock(targetId)
+    if (direction === 'ArrowUp') {
+      this._navigateUp()
+    } else {
+      this._navigateDown()
     }
+  }
+
+  /**
+   * Navigate up to the visually previous bullet
+   */
+  private _navigateUp(): void {
+    const ctx = this._getNavigationContext()
+
+    // If has previous sibling, go to last visible descendant of that sibling
+    if (ctx.previousSiblingId) {
+      const targetId = this._getLastVisibleDescendant(ctx.previousSiblingId)
+      this._focusBlock(targetId)
+      return
+    }
+
+    // Otherwise, go to parent
+    if (ctx.parentId) {
+      this._focusBlock(ctx.parentId)
+    }
+  }
+
+  /**
+   * Navigate down to the visually next bullet
+   */
+  private _navigateDown(): void {
+    const ctx = this._getNavigationContext()
+
+    // If expanded with children, go to first child
+    if (ctx.hasChildren && ctx.isExpanded && ctx.firstChildId) {
+      this._focusBlock(ctx.firstChildId)
+      return
+    }
+
+    // Try to go to next sibling
+    if (ctx.nextSiblingId) {
+      this._focusBlock(ctx.nextSiblingId)
+      return
+    }
+
+    // No next sibling - go up to find parent's next sibling
+    const nextInTree = this._findNextInTree()
+    if (nextInTree) {
+      this._focusBlock(nextInTree)
+    }
+  }
+
+  /**
+   * Get the last visible descendant of a block
+   * Traverses down through expanded children to find the last visible bullet
+   */
+  private _getLastVisibleDescendant(blockId: string): string {
+    const block = this.doc.getBlockById(blockId)
+    if (!block) return blockId
+
+    const model = block as unknown as BulletBlockModel
+    const hasChildren = model.children && model.children.length > 0
+    const isExpanded = model.isExpanded
+
+    // If expanded with children, recurse to last child
+    if (hasChildren && isExpanded) {
+      const lastChild = model.children[model.children.length - 1]
+      return this._getLastVisibleDescendant(lastChild.id)
+    }
+
+    // Otherwise, this is the last visible descendant
+    return blockId
+  }
+
+  /**
+   * Find the next block in tree traversal (going up through parents)
+   */
+  private _findNextInTree(): string | null {
+    let current = this.model
+    let parent = current.parent
+
+    while (parent && parent.parent) {
+      const siblings = parent.children
+      const currentIndex = siblings.indexOf(current)
+
+      // If there's a next sibling at this level, return it
+      if (currentIndex < siblings.length - 1) {
+        return siblings[currentIndex + 1].id
+      }
+
+      // Otherwise, go up a level
+      current = parent as BulletBlockModel
+      parent = current.parent
+    }
+
+    return null
   }
 
   /**
@@ -597,19 +710,18 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * Focus a block by ID
+   * Focus a block by ID - focuses the contenteditable at the start
    */
   private _focusBlock(blockId: string): void {
-    // Use BlockSuite's selection system to focus the block
     requestAnimationFrame(() => {
       const blockComponent = this.std.view.getBlock(blockId)
       if (blockComponent) {
-        this.std.selection.setGroup('note', [
-          this.std.selection.create('text', {
-            from: { blockId, index: 0, length: 0 },
-            to: null,
-          }),
-        ])
+        const contentDiv = blockComponent.querySelector('.bullet-content') as HTMLElement
+        if (contentDiv) {
+          contentDiv.focus()
+          // Place cursor at start
+          setCursorPosition(contentDiv, 0)
+        }
       }
     })
   }
@@ -771,6 +883,20 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       this._toggleExpand()
       return
     }
+
+    // ArrowUp - navigate to previous bullet (without Alt modifier)
+    if (e.key === 'ArrowUp' && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault()
+      this._navigateUp()
+      return
+    }
+
+    // ArrowDown - navigate to next bullet (without Alt modifier)
+    if (e.key === 'ArrowDown' && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault()
+      this._navigateDown()
+      return
+    }
   }
 
   // ============================================================================
@@ -778,23 +904,34 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   // ============================================================================
 
   /**
-   * Handle Backspace at start of bullet - merge with previous
-   * If empty bullet: delete and focus previous
-   * If has previous sibling: merge current text into previous
-   * If first bullet: do nothing
+   * Handle Backspace at start of bullet - merge with previous or parent
+   *
+   * RemNote-like behavior:
+   * - Empty bullet with previous sibling: delete and focus previous
+   * - Empty bullet as first child: outdent (become sibling of parent)
+   * - Non-empty with previous sibling: merge into previous
+   * - Non-empty as first child: merge into parent
+   * - Root-level first bullet: do nothing
    */
   private _handleBackspace(): void {
     const ctx = this._getNavigationContext()
     const currentText = this.model.text.toString()
+    const parent = this.model.parent
 
-    // Case 1: Empty bullet - delete it and focus previous
+    // Case 1: Empty bullet
     if (currentText.length === 0) {
+      // Case 1a: Has previous sibling - delete and focus previous
       if (ctx.previousSiblingId) {
         const previousBlock = this.doc.getBlockById(ctx.previousSiblingId)
         if (previousBlock) {
-          // Get previous block's text length for cursor positioning
           const prevModel = previousBlock as unknown as BulletBlockModel
           const prevTextLength = prevModel.text?.toString().length ?? 0
+
+          // If current has children, reparent them to previous sibling
+          if (this._hasChildren) {
+            const children = [...this.model.children]
+            this.doc.moveBlocks(children, previousBlock)
+          }
 
           // Delete current block
           this.doc.deleteBlock(this.model)
@@ -802,11 +939,28 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           // Focus previous block at end
           this._focusBlockAtPosition(ctx.previousSiblingId, prevTextLength)
         }
+        return
       }
+
+      // Case 1b: First child (no previous sibling but has parent) - outdent
+      if (parent && parent.parent) {
+        // If current has children, they stay as children after outdent
+        this._outdent()
+        // Focus after outdent
+        requestAnimationFrame(() => {
+          const contentDiv = this.querySelector('.bullet-content') as HTMLElement
+          if (contentDiv) {
+            contentDiv.focus()
+          }
+        })
+        return
+      }
+
+      // Case 1c: Root-level first bullet - do nothing
       return
     }
 
-    // Case 2: Has previous sibling - merge with it
+    // Case 2: Non-empty bullet with previous sibling - merge with it
     if (ctx.previousSiblingId) {
       const previousBlock = this.doc.getBlockById(ctx.previousSiblingId)
       if (previousBlock) {
@@ -834,7 +988,34 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return
     }
 
-    // Case 3: First bullet with no previous - do nothing
+    // Case 3: First child (no previous sibling) - merge into parent
+    if (parent && parent.parent && ctx.parentId) {
+      const parentModel = parent as unknown as BulletBlockModel
+      // Only merge if parent is a bullet block with text
+      if (parentModel.text) {
+        const parentText = parentModel.text.toString()
+        const parentTextLength = parentText.length
+
+        // Append current text to parent
+        parentModel.text.insert(currentText, parentTextLength)
+
+        // If current block has children, they become siblings (after this block's position in parent)
+        if (this._hasChildren) {
+          const children = [...this.model.children]
+          // Move children to be children of parent (after current block, which we're about to delete)
+          this.doc.moveBlocks(children, parent)
+        }
+
+        // Delete current block
+        this.doc.deleteBlock(this.model)
+
+        // Focus parent at join point
+        this._focusBlockAtPosition(ctx.parentId, parentTextLength)
+      }
+      return
+    }
+
+    // Case 4: Root-level first bullet - do nothing
   }
 
   /**
@@ -882,17 +1063,30 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * Handle Enter - create sibling or split if cursor in middle
+   *
+   * RemNote-like behavior:
+   * - Cursor at end: create new sibling below
+   * - Cursor in middle with children: text after becomes FIRST CHILD
+   * - Cursor in middle without children: text after becomes sibling
+   * - Empty bullet (indented): outdent
    */
   private _handleEnter(contentDiv: HTMLElement): void {
     const currentText = this.model.text.toString()
     const cursorPos = getCursorPosition(contentDiv)
 
-    // Case 1: Empty bullet - outdent if indented, otherwise do nothing special
+    // Case 1: Empty bullet - outdent if indented, otherwise create sibling
     if (currentText.length === 0) {
       const parent = this.model.parent
       if (parent && parent.parent) {
         // Has parent (indented) - outdent
         this._outdent()
+        // Focus after outdent
+        requestAnimationFrame(() => {
+          const contentDiv = this.querySelector('.bullet-content') as HTMLElement
+          if (contentDiv) {
+            contentDiv.focus()
+          }
+        })
       }
       // If at root level, just create empty sibling (default behavior)
       else {
@@ -920,7 +1114,27 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // Sync DOM immediately (observer won't update while focused)
     contentDiv.textContent = textBefore
 
-    // Create new sibling with text after cursor
+    // If block has children, text after cursor becomes FIRST CHILD (RemNote behavior)
+    if (this._hasChildren) {
+      // Expand if collapsed
+      if (!this.model.isExpanded) {
+        this.doc.updateBlock(this.model, { isExpanded: true })
+      }
+
+      // Create new block as first child (index 0)
+      const newBlockId = this.doc.addBlock(
+        'hydra:bullet',
+        { text: new this.doc.Text(textAfter) },
+        this.model,
+        0
+      )
+
+      // Focus new block at start
+      this._focusBlockAtPosition(newBlockId, 0)
+      return
+    }
+
+    // If no children, text after becomes sibling
     const parent = this.model.parent
     if (!parent) return
 
