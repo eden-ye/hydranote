@@ -1,11 +1,11 @@
-name: Deploy Backend to Railway
+name: Deploy Backend to Railway (Production)
 
 on:
   push:
     branches: [main]
     paths:
       - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+      - '.github/workflows/deploy-backend-prod.yml'
   workflow_dispatch:
 
 jobs:
@@ -19,8 +19,8 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy to Railway
-        run: railway up --service hydra-backend
+      - name: Deploy to Railway Production
+        run: railway up --service hydra-backend-prod
         working-directory: backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

@@ -7,33 +7,36 @@
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
+| EDITOR-305 | IndexedDB Persistence | ✅ completed | y-indexeddb integration, loading indicator, error handling |
+| EDITOR-304 | Inline Detail View | ✅ completed | Inline preview for collapsed bullets |
 | EDITOR-303 | Folding/Collapse | ✅ completed | Keyboard shortcut (Cmd+.), accessibility, tests passing |
 | EDITOR-302 | Bullet Block Schema | ✅ completed | Schema, component, spec, tests all passing |
-| API-201 | MongoDB Schema Implementation | ✅ completed | Full CRUD API, tests passing |
+| EDITOR-301 | BlockSuite Integration | ✅ completed | Foundation for editor |
+| API-201 | Claude AI Service | ✅ completed | Full CRUD API, tests passing |
+| API-202 | Prompt Builder | ✅ completed | Prompt templates for AI generation |
 
 ## Infrastructure (Blocking)
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
-| INFRA-001 | SAT/PROD Deployment Separation | 🔧 in_progress | Workflows updated, needs secrets setup |
+| INFRA-001 | SAT/PROD Deployment Separation | 🔧 in_progress | Frontend ✅ live on Vercel, Backend ❌ Railway token missing |
 
-**Action Required**: Configure GitHub environments and secrets per INFRA-001 ticket
+**Deployment Status** (Verified 2026-01-10):
+- **Frontend**: ✅ LIVE at https://frontend-taylorye.vercel.app
+- **Backend**: ❌ FAILED - Missing RAILWAY_TOKEN secret in GitHub Actions
+  - Custom domains (api.hydranote.app, api-sat.hydranote.app) not resolving
+  - Action Required: Add RAILWAY_TOKEN to GitHub repository secrets
 
 ## Active (Phase 2 - EDITOR)
 
 | Ticket | Title | Status | Deps |
 |--------|-------|--------|------|
-| EDITOR-301 | BlockSuite Integration | ✅ completed | None |
-| EDITOR-302 | Bullet Block Schema | ✅ completed | EDITOR-301 |
-| EDITOR-303 | Folding/Collapse | ✅ completed | EDITOR-302 |
-| EDITOR-304 | Inline Detail View | pending | EDITOR-302 |
-| EDITOR-305 | IndexedDB Persistence | pending | EDITOR-301 |
-| EDITOR-306 | Keyboard Shortcuts | pending | EDITOR-301 |
-| EDITOR-307 | Editor Store | pending | EDITOR-301 |
+| EDITOR-306 | Keyboard Shortcuts | pending | EDITOR-301 ✅ |
+| EDITOR-307 | Editor Store | pending | EDITOR-301 ✅ |
 
-**Next up**: EDITOR-304 (Inline Detail View), EDITOR-305 (IndexedDB Persistence), EDITOR-306 (Keyboard Shortcuts)
+**Next up**: EDITOR-306 (Keyboard Shortcuts), EDITOR-307 (Editor Store)
 
-**Can parallel**: EDITOR-304, 305, 306, 307 (all dependencies met)
+**Can parallel**: EDITOR-306, 307 (all dependencies met)
 
 ## Parallel Work Opportunities
 
@@ -44,9 +47,10 @@ While Phase 2 (EDITOR) is in progress, these can start in parallel:
 - AUTH-102, 103, 104 follow sequentially
 
 ### API (Phase 4) - Different worktree, backend focused
-- ~~API-201: MongoDB Schema~~ - ✅ COMPLETED
-- API-202: Claude AI Service - No deps, can start now
-- API-203, 204, 205 follow
+- ~~API-201: Claude AI Service~~ - ✅ COMPLETED
+- ~~API-202: Prompt Builder~~ - ✅ COMPLETED
+- API-203: WebSocket Streaming - Can start now
+- API-204, 205 follow
 
 ### FE (Phase 3) - Different worktree, frontend services
 - FE-401: Supabase Client (Frontend) - No deps, can start now
@@ -59,14 +63,15 @@ None currently blocked.
 ## Notes for Claude Code
 
 **Quick Start**:
-1. Start with EDITOR-301 (BlockSuite Integration)
-2. This unlocks 6 parallel tickets: EDITOR-302 through EDITOR-307
+1. EDITOR-301 through EDITOR-305 are complete
+2. Remaining: EDITOR-306 (Keyboard Shortcuts), EDITOR-307 (Editor Store)
 3. Backend work (AUTH, API) can start in parallel immediately
 
 **Infrastructure Completed**:
 - MongoDB Atlas connected and working
 - Blocks CRUD API implemented with tree queries
 - Auth middleware ready (needs JWT validation wiring)
+- IndexedDB persistence for local-first storage
 
 **Worktree Commands**:
 ```bash

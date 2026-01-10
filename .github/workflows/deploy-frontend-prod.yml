@@ -1,11 +1,11 @@
-name: Deploy Frontend to Vercel
+name: Deploy Frontend to Vercel (Production)
 
 on:
   push:
     branches: [main]
     paths:
       - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/deploy-frontend-prod.yml'
   workflow_dispatch:
 
 jobs:
