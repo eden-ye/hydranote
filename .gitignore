@@ -42,3 +42,6 @@ htmlcov/
 
 # Sensitive API documentation (local only)
 docs/api/
+
+# Reference code (local development only)
+affine/
