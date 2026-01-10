@@ -1,0 +1,145 @@
+/**
+ * GhostQuestions Component Styles
+ * FE-409: Ghost Question Rendering
+ *
+ * Visually distinct styling for AI-generated questions.
+ * Uses grayed, italic text to differentiate from user content.
+ */
+
+.ghost-questions {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--affine-background-tertiary-color, #fafafa);
+  border-radius: 8px;
+  border: 1px dashed var(--affine-border-color, #e0e0e0);
+}
+
+.ghost-questions-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ghost-questions-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--affine-text-secondary-color, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ghost-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ghost-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--affine-background-secondary-color, #f5f5f5);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.ghost-question:hover {
+  background-color: var(--affine-hover-color, #e8e8e8);
+}
+
+.ghost-question:focus-visible {
+  outline: 2px solid var(--affine-primary-color, #1976d2);
+  outline-offset: 2px;
+}
+
+.ghost-question-text {
+  flex: 1;
+  font-style: italic;
+  color: var(--affine-text-secondary-color, #666);
+  font-size: 14px;
+}
+
+.ghost-question-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--affine-icon-secondary-color, #999);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ghost-question:hover .ghost-question-dismiss {
+  opacity: 1;
+}
+
+.ghost-question-dismiss:hover {
+  background-color: var(--affine-hover-color, #ddd);
+  color: var(--affine-text-primary-color, #333);
+}
+
+.ghost-question-dismiss:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--affine-primary-color, #1976d2);
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.ghost-questions-loading {
+  padding: 8px 0;
+}
+
+.ghost-questions-loading-text {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--affine-text-secondary-color, #666);
+  margin-bottom: 8px;
+}
+
+.ghost-questions-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ghost-questions-skeleton-line {
+  height: 16px;
+  background: linear-gradient(
+    90deg,
+    var(--affine-background-secondary-color, #f0f0f0) 25%,
+    var(--affine-hover-color, #e8e8e8) 50%,
+    var(--affine-background-secondary-color, #f0f0f0) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.ghost-questions-skeleton-line:nth-child(1) {
+  width: 80%;
+}
+
+.ghost-questions-skeleton-line:nth-child(2) {
+  width: 65%;
+}
+
+.ghost-questions-skeleton-line:nth-child(3) {
+  width: 75%;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
