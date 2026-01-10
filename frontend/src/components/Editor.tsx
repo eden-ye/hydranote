@@ -117,20 +117,20 @@ export default function Editor() {
       const persistence = new IndexeddbPersistence(dbName, doc.spaceDoc)
       persistenceRef.current = persistence
 
-      // Listen for sync completion
-      persistence.on('synced', () => {
-        setPersistenceState({ status: 'synced', error: null })
-      })
+      // Load the document first (required to connect Yjs)
+      doc.load()
 
-      // Load the document after persistence is set up
-      // This initializes the doc structure if it's new
-      doc.load(() => {
-        // Only add initial blocks if the doc is empty (new document)
+      // Wait for sync completion before checking if empty
+      // This ensures we don't overwrite restored data
+      persistence.on('synced', () => {
+        // Only add initial blocks if the doc is truly empty (new document)
+        // Check after sync to ensure IndexedDB data is loaded
         if (doc.isEmpty) {
           const pageId = doc.addBlock('affine:page', {})
           const noteId = doc.addBlock('affine:note', {}, pageId)
-          doc.addBlock('affine:paragraph', {}, noteId)
+          doc.addBlock('hydra:bullet', {}, noteId)
         }
+        setPersistenceState({ status: 'synced', error: null })
       })
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
@@ -139,13 +139,12 @@ export default function Editor() {
       console.error('Failed to initialize IndexedDB persistence:', err)
 
       // Still load the doc even if persistence fails
-      doc.load(() => {
-        if (doc.isEmpty) {
-          const pageId = doc.addBlock('affine:page', {})
-          const noteId = doc.addBlock('affine:note', {}, pageId)
-          doc.addBlock('affine:paragraph', {}, noteId)
-        }
-      })
+      doc.load()
+      if (doc.isEmpty) {
+        const pageId = doc.addBlock('affine:page', {})
+        const noteId = doc.addBlock('affine:note', {}, pageId)
+        doc.addBlock('hydra:bullet', {}, noteId)
+      }
     }
 
     // Create and configure the editor using document.createElement
