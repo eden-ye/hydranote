@@ -746,6 +746,20 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
+   * Get the last visible descendant of a block.
+   * Traverses down through expanded children to find the deepest last child.
+   * Used by Backspace to find the visually preceding bullet.
+   * EDITOR-3058: Fix backspace to navigate to visual hierarchy, not tree structure.
+   */
+  private _getLastVisibleDescendant(block: BulletBlockModel): BulletBlockModel {
+    let target = block
+    while (target.isExpanded && target.children.length > 0) {
+      target = target.children[target.children.length - 1] as BulletBlockModel
+    }
+    return target
+  }
+
+  /**
    * Render inline preview element when collapsed with children.
    */
   private _renderInlinePreview(): TemplateResult | typeof nothing {
@@ -837,17 +851,21 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     const ctx = this._getNavigationContext()
     const currentText = this.model.text.toString()
 
-    // Case 1: Has previous sibling - merge with it
+    // Case 1: Has previous sibling - merge with its last visible descendant
+    // EDITOR-3058: Navigate to visual hierarchy, not just tree structure
     if (ctx.previousSiblingId) {
       const previousBlock = this.doc.getBlockById(ctx.previousSiblingId) as BulletBlockModel | null
       if (!previousBlock) return
 
-      const previousText = previousBlock.text.toString()
-      const mergePoint = previousText.length
+      // Find the last visible descendant of the previous sibling
+      // This handles cases where the previous sibling is expanded with children
+      const targetBlock = this._getLastVisibleDescendant(previousBlock)
+      const targetText = targetBlock.text.toString()
+      const mergePoint = targetText.length
 
-      // Merge: append current text to previous block's text
+      // Merge: append current text to target block's text
       if (currentText) {
-        previousBlock.text.insert(currentText, mergePoint)
+        targetBlock.text.insert(currentText, mergePoint)
       }
 
       // Store refs before deletion
@@ -855,7 +873,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       const doc = this.doc
       const std = this.std
       const host = this.host
-      const targetBlockId = ctx.previousSiblingId
+      const targetBlockId = targetBlock.id
 
       // Defer deletion to avoid render cycle crash
       requestAnimationFrame(() => {
