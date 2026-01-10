@@ -33,8 +33,9 @@ export default function Editor() {
       .register([BulletBlockSchema])
 
     // Extend affine:note to accept hydra:bullet as children
-    const noteSchema = schema.flavourSchemaMap.get('affine:note')
-    if (noteSchema?.model?.children) {
+    // This is required because BlockSuite validates schemas bidirectionally
+    const noteSchema = schema.flavourSchemaMap?.get('affine:note')
+    if (noteSchema?.model?.children && Array.isArray(noteSchema.model.children)) {
       noteSchema.model.children.push('hydra:bullet')
     }
 
