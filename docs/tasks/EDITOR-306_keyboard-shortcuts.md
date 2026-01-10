@@ -4,12 +4,12 @@
 Implement keyboard shortcuts for common editor operations. Focus on navigation and structure manipulation.
 
 ## Acceptance Criteria
-- [ ] Tab/Shift+Tab for indent/outdent (logic ready, needs BlockSuite integration)
-- [ ] Enter to create new sibling bullet (needs BlockSuite integration)
-- [ ] Cmd+Enter to create child bullet (needs BlockSuite integration)
-- [x] Arrow keys for navigation (logic layer complete)
-- [ ] Cmd+. to toggle fold (needs BlockSuite integration)
-- [ ] Shortcuts documented in help
+- [x] Tab/Shift+Tab for indent/outdent
+- [x] Enter to create new sibling bullet
+- [x] Cmd+Enter to create child bullet
+- [x] Arrow keys for navigation
+- [x] Cmd+. to toggle fold
+- [x] Shortcuts documented (KEYBOARD_SHORTCUTS export)
 
 ## Dependencies
 - EDITOR-301 (BlockSuite Integration)
@@ -43,23 +43,42 @@ Implemented testable business logic functions:
   - ArrowLeft: Collapse (if expanded) or parent
   - ArrowRight: Expand (if collapsed) or first child
 
-### Phase 2: BlockSuite Integration (TODO)
-Needs hotkey registration using BlockSuite's keyboard system:
-- Tab/Shift+Tab handlers
-- Enter/Cmd+Enter handlers
-- Cmd+. handler (may reuse BUG-EDITOR-303 fix)
+### Phase 2: BlockSuite Integration (COMPLETED)
+Implemented using BlockSuite's bindHotKey system:
+- Tab/Shift+Tab handlers with `_indent()` / `_outdent()`
+- Enter/Cmd+Enter handlers with `_createSibling()` / `_createChild()`
+- Cmd+. handler with `_toggleExpand()`
+- Arrow key handlers with `_navigate()` and expand/collapse logic
+- All shortcuts properly scoped to hydra:bullet blocks with `{ flavour: true }`
 
 ### Files Changed
-- `frontend/src/blocks/components/bullet-block.ts` (+89 lines)
+- `frontend/src/blocks/components/bullet-block.ts`:
+  - Added pure logic functions (+89 lines)
+  - Added `_bindKeyboardShortcuts()` method with full BlockSuite hotkey registration
+  - Added `KEYBOARD_SHORTCUTS` documentation export
 - `frontend/src/blocks/__tests__/bullet-block-component.test.ts` (+222 lines)
 
 ### Tests
 56 tests passing (all green)
 
+### Keyboard Shortcuts Implemented
+All shortcuts use BlockSuite's `bindHotKey` system:
+- **Mod+. (Cmd/Ctrl+.)**: Toggle fold/expand
+- **Tab**: Indent block (make child of previous sibling)
+- **Shift+Tab**: Outdent block (make sibling of parent)
+- **Enter**: Create new sibling bullet
+- **Mod+Enter (Cmd/Ctrl+Enter)**: Create new child bullet
+- **ArrowUp**: Navigate to previous sibling or parent
+- **ArrowDown**: Navigate to first child (if expanded) or next sibling
+- **ArrowLeft**: Collapse if expanded, else navigate to parent
+- **ArrowRight**: Expand if collapsed, else navigate to first child
+
 ## Commits
 - 5a2abfe feat(editor): EDITOR-306 - Keyboard shortcuts business logic
+- 38cd036 refactor(editor): use index-based addBlock API in Enter handlers
+- d1b9085 docs: update EDITOR-306 with Phase 1 completion status
 
 ## Status
 - **Created**: 2025-01-09
-- **Completed**: 2026-01-10 (Phase 1: Logic layer)
-- **Status**: in_progress (Phase 2: BlockSuite integration pending)
+- **Completed**: 2026-01-10
+- **Status**: done
