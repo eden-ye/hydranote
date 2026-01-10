@@ -170,9 +170,9 @@ class TestErrorHandling:
 class TestModelConfiguration:
     """Tests for model configuration."""
 
-    def test_default_model_is_sonnet(self, claude_service):
-        """Default model is claude-3-sonnet for cost efficiency."""
-        assert "sonnet" in claude_service.default_model.lower()
+    def test_default_model_is_haiku(self, claude_service):
+        """Default model is claude-haiku-4-5 for fast streaming."""
+        assert "haiku" in claude_service.default_model.lower()
 
     @pytest.mark.asyncio
     async def test_generate_uses_specified_model(self, claude_service):
