@@ -104,7 +104,8 @@ vi.mock('y-indexeddb', () => {
       off = vi.fn()
       destroy = vi.fn()
 
-      constructor(_dbName: string, _doc: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      constructor(dbName: string, doc: unknown) {
         // Register sync callback and auto-fire it
         this.on.mockImplementation((event: string, callback: () => void) => {
           if (event === 'synced') {

@@ -134,6 +134,7 @@ export default function Editor() {
       })
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPersistenceState({ status: 'error', error: err })
       console.error('Failed to initialize IndexedDB persistence:', err)
 
