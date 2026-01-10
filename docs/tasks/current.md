@@ -1,12 +1,13 @@
 # Current Tasks
 
 **Current Phase**: Phase 2 - Core Editor
-**Last Updated**: 2026-01-09
+**Last Updated**: 2026-01-10
 
 ## Recently Completed
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
+| EDITOR-306 | Keyboard Shortcuts | ✅ completed | Full BlockSuite integration, Tab/Shift+Tab, Enter, Cmd+Enter, arrows, Cmd+. |
 | EDITOR-305 | IndexedDB Persistence | ✅ completed | y-indexeddb integration, loading indicator, error handling |
 | EDITOR-304 | Inline Detail View | ✅ completed | Inline preview for collapsed bullets |
 | EDITOR-303 | Folding/Collapse | ✅ completed | Keyboard shortcut (Cmd+.), accessibility, tests passing |
@@ -31,12 +32,11 @@
 
 | Ticket | Title | Status | Deps |
 |--------|-------|--------|------|
-| EDITOR-306 | Keyboard Shortcuts | 🔧 in_progress | EDITOR-301 ✅ (Phase 1 logic done, Phase 2 BlockSuite integration pending) |
 | EDITOR-307 | Editor Store | pending | EDITOR-301 ✅ |
 
-**Next up**: EDITOR-306 Phase 2 (BlockSuite hotkey integration), EDITOR-307 (Editor Store)
+**Next up**: EDITOR-307 (Editor Store)
 
-**Can parallel**: EDITOR-307 (all dependencies met)
+**EDITOR-306 completed**: All keyboard shortcuts implemented using BlockSuite's bindHotKey system
 
 ## Parallel Work Opportunities
 
@@ -63,8 +63,8 @@ None currently blocked.
 ## Notes for Claude Code
 
 **Quick Start**:
-1. EDITOR-301 through EDITOR-305 are complete
-2. Remaining: EDITOR-306 (Keyboard Shortcuts), EDITOR-307 (Editor Store)
+1. EDITOR-301 through EDITOR-306 are complete
+2. Remaining: EDITOR-307 (Editor Store)
 3. Backend work (AUTH, API) can start in parallel immediately
 
 **Infrastructure Completed**:
