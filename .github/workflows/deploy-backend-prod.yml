@@ -19,8 +19,14 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
+      - name: Link Railway Project
+        run: railway link -p hydra-backend-prod -e production
+        working-directory: backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+
       - name: Deploy to Railway Production
-        run: railway up --service hydra-backend-prod
+        run: railway up
         working-directory: backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
