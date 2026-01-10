@@ -11,6 +11,23 @@ import { customElement } from 'lit/decorators.js'
  * - Editable text content
  * - Nested child bullets
  * - Inline preview when collapsed (EDITOR-304)
+ *
+ * ## Keyboard Shortcuts (EDITOR-306)
+ *
+ * ### Navigation
+ * - Arrow Up: Move to previous sibling or parent
+ * - Arrow Down: Move to next sibling or first child (if expanded)
+ * - Arrow Left: Collapse (if expanded) or move to parent
+ * - Arrow Right: Expand (if collapsed) or move to first child
+ *
+ * ### Structure Manipulation
+ * - Tab: Indent (make child of previous sibling)
+ * - Shift+Tab: Outdent (make sibling of parent)
+ * - Enter: Create new sibling bullet below
+ * - Cmd/Ctrl+Enter: Create new child bullet
+ *
+ * ### Folding
+ * - Cmd/Ctrl+.: Toggle expand/collapse
  */
 
 /**
@@ -63,6 +80,28 @@ export function shouldHandleFoldShortcut(event: {
 // ============================================================================
 // EDITOR-306: Keyboard Shortcuts - Pure Logic Functions
 // ============================================================================
+
+/**
+ * Documented keyboard shortcuts for the bullet block component.
+ * Can be used to display help/documentation to users.
+ */
+export const KEYBOARD_SHORTCUTS = {
+  navigation: [
+    { key: 'Arrow Up', description: 'Move to previous sibling or parent' },
+    { key: 'Arrow Down', description: 'Move to next sibling or first child (if expanded)' },
+    { key: 'Arrow Left', description: 'Collapse (if expanded) or move to parent' },
+    { key: 'Arrow Right', description: 'Expand (if collapsed) or move to first child' },
+  ],
+  structure: [
+    { key: 'Tab', description: 'Indent (make child of previous sibling)' },
+    { key: 'Shift+Tab', description: 'Outdent (make sibling of parent)' },
+    { key: 'Enter', description: 'Create new sibling bullet below' },
+    { key: 'Cmd/Ctrl+Enter', description: 'Create new child bullet' },
+  ],
+  folding: [
+    { key: 'Cmd/Ctrl+.', description: 'Toggle expand/collapse' },
+  ],
+} as const
 
 /**
  * Compute the indent level (depth) of a block
@@ -381,14 +420,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     const siblings = parent.children
     const currentIndex = siblings.indexOf(this.model)
-    const nextSibling = siblings[currentIndex + 1]
 
-    // Add new block after current block
+    // Add new block after current block (index is the position to insert at)
     const newBlockId = this.doc.addBlock(
       'hydra:bullet',
       { text: new this.doc.Text() },
       parent,
-      nextSibling ? nextSibling : undefined
+      currentIndex + 1
     )
 
     // Focus the new block
@@ -404,12 +442,12 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       this.doc.updateBlock(this.model, { isExpanded: true })
     }
 
-    // Add new block as first child
+    // Add new block as first child (index 0)
     const newBlockId = this.doc.addBlock(
       'hydra:bullet',
       { text: new this.doc.Text() },
       this.model,
-      this.model.children[0]
+      0
     )
 
     // Focus the new block
