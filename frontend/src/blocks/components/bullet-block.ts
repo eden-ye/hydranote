@@ -1,6 +1,6 @@
 import { BlockComponent } from '@blocksuite/block-std'
 import type { BulletBlockModel } from '../schemas/bullet-block-schema'
-import { html, css, type TemplateResult } from 'lit'
+import { html, css, nothing, type TemplateResult } from 'lit'
 import { customElement } from 'lit/decorators.js'
 
 /**
@@ -10,7 +10,43 @@ import { customElement } from 'lit/decorators.js'
  * - Expand/collapse toggle for folding
  * - Editable text content
  * - Nested child bullets
+ * - Inline preview when collapsed (EDITOR-304)
  */
+
+/**
+ * Maximum length for inline preview text before truncation
+ */
+export const PREVIEW_MAX_LENGTH = 50
+
+/**
+ * Separator between child texts in the preview
+ */
+export const PREVIEW_SEPARATOR = ' · '
+
+/**
+ * Compute inline preview from child blocks' text content.
+ * Concatenates child texts with separator, skipping empty content.
+ */
+export function computeInlinePreview(
+  children: Array<{ text: string }>
+): string {
+  return children
+    .map((child) => child.text.trim())
+    .filter((text) => text.length > 0)
+    .join(PREVIEW_SEPARATOR)
+}
+
+/**
+ * Truncate preview text if it exceeds max length.
+ * Adds ellipsis when truncated.
+ */
+export function truncatePreview(text: string): string {
+  if (text.length <= PREVIEW_MAX_LENGTH) {
+    return text
+  }
+  return text.slice(0, PREVIEW_MAX_LENGTH) + '…'
+}
+
 /**
  * Check if keyboard event is the fold toggle shortcut (Cmd+. / Ctrl+.)
  */
@@ -92,6 +128,17 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     .bullet-children.collapsed {
       display: none;
     }
+
+    .inline-preview {
+      color: var(--affine-text-secondary-color, #666);
+      font-size: 0.9em;
+      margin-left: 8px;
+      opacity: 0.7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 50%;
+    }
   `
 
   /**
@@ -135,6 +182,37 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     this.doc.updateBlock(this.model, {
       isExpanded: !this.model.isExpanded,
     })
+  }
+
+  /**
+   * Compute the inline preview text from children.
+   * Returns truncated preview of child content when collapsed.
+   */
+  private _getInlinePreview(): string {
+    if (this.model.isExpanded || !this._hasChildren) {
+      return ''
+    }
+
+    const childTexts = this.model.children.map((child) => ({
+      text: (child as BulletBlockModel).text?.toString() ?? '',
+    }))
+
+    const preview = computeInlinePreview(childTexts)
+    return truncatePreview(preview)
+  }
+
+  /**
+   * Render inline preview element when collapsed with children.
+   */
+  private _renderInlinePreview(): TemplateResult | typeof nothing {
+    const previewText = this._getInlinePreview()
+    if (!previewText) {
+      return nothing
+    }
+
+    return html`<span class="inline-preview" title="${previewText}"
+      >${previewText}</span
+    >`
   }
 
   private _renderToggle(): TemplateResult {
@@ -182,6 +260,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         >
           ${this.model.text.toString()}
         </div>
+        ${this._renderInlinePreview()}
       </div>
       <div class="bullet-children ${childrenClass}">
         ${this.renderChildren(this.model)}

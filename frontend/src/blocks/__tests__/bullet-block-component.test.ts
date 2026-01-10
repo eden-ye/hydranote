@@ -143,3 +143,122 @@ describe('Accessibility', () => {
     expect(getAriaExpanded(false, false)).toBeUndefined()
   })
 })
+
+// Import inline preview functions (EDITOR-304)
+import {
+  computeInlinePreview,
+  truncatePreview,
+  PREVIEW_MAX_LENGTH,
+  PREVIEW_SEPARATOR,
+} from '../components/bullet-block'
+
+/**
+ * Tests for inline detail view functionality (EDITOR-304)
+ *
+ * When a bullet is collapsed, an inline preview of child content
+ * should be shown to provide context without expanding.
+ */
+describe('Inline detail view (EDITOR-304)', () => {
+  describe('computeInlinePreview', () => {
+    it('should return empty string when no children', () => {
+      const children: Array<{ text: string }> = []
+      expect(computeInlinePreview(children)).toBe('')
+    })
+
+    it('should return single child text', () => {
+      const children = [{ text: 'First child' }]
+      expect(computeInlinePreview(children)).toBe('First child')
+    })
+
+    it('should concatenate multiple children with separator', () => {
+      const children = [{ text: 'First' }, { text: 'Second' }, { text: 'Third' }]
+      expect(computeInlinePreview(children)).toBe('First · Second · Third')
+    })
+
+    it('should skip empty child texts', () => {
+      const children = [{ text: 'First' }, { text: '' }, { text: 'Third' }]
+      expect(computeInlinePreview(children)).toBe('First · Third')
+    })
+
+    it('should trim whitespace from child texts', () => {
+      const children = [{ text: '  First  ' }, { text: '  Second  ' }]
+      expect(computeInlinePreview(children)).toBe('First · Second')
+    })
+
+    it('should handle children with only whitespace', () => {
+      const children = [{ text: '   ' }, { text: 'Real content' }]
+      expect(computeInlinePreview(children)).toBe('Real content')
+    })
+  })
+
+  describe('truncatePreview', () => {
+    it('should not truncate short text', () => {
+      const text = 'Short text'
+      expect(truncatePreview(text)).toBe('Short text')
+    })
+
+    it('should truncate text longer than max length with ellipsis', () => {
+      const longText = 'A'.repeat(PREVIEW_MAX_LENGTH + 10)
+      const result = truncatePreview(longText)
+      expect(result.length).toBe(PREVIEW_MAX_LENGTH + 1) // +1 for ellipsis
+      expect(result.endsWith('…')).toBe(true)
+    })
+
+    it('should truncate at exactly max length', () => {
+      const exactText = 'A'.repeat(PREVIEW_MAX_LENGTH)
+      expect(truncatePreview(exactText)).toBe(exactText)
+    })
+
+    it('should handle empty string', () => {
+      expect(truncatePreview('')).toBe('')
+    })
+
+    it('should preserve text up to max length', () => {
+      const longText = 'Hello World This is a very long preview text that should be truncated'
+      const result = truncatePreview(longText)
+      expect(result.startsWith('Hello')).toBe(true)
+    })
+  })
+
+  describe('PREVIEW_MAX_LENGTH constant', () => {
+    it('should be a reasonable length for inline preview', () => {
+      expect(PREVIEW_MAX_LENGTH).toBeGreaterThanOrEqual(30)
+      expect(PREVIEW_MAX_LENGTH).toBeLessThanOrEqual(100)
+    })
+  })
+
+  describe('PREVIEW_SEPARATOR constant', () => {
+    it('should be a visual separator character', () => {
+      expect(PREVIEW_SEPARATOR).toBe(' · ')
+    })
+  })
+
+  describe('Preview visibility logic', () => {
+    /**
+     * Determine if inline preview should be shown
+     */
+    const shouldShowPreview = (
+      isExpanded: boolean,
+      hasChildren: boolean,
+      previewText: string
+    ): boolean => {
+      return !isExpanded && hasChildren && previewText.length > 0
+    }
+
+    it('should show preview when collapsed with children and preview text', () => {
+      expect(shouldShowPreview(false, true, 'Some preview')).toBe(true)
+    })
+
+    it('should not show preview when expanded', () => {
+      expect(shouldShowPreview(true, true, 'Some preview')).toBe(false)
+    })
+
+    it('should not show preview when no children', () => {
+      expect(shouldShowPreview(false, false, 'Some preview')).toBe(false)
+    })
+
+    it('should not show preview when preview text is empty', () => {
+      expect(shouldShowPreview(false, true, '')).toBe(false)
+    })
+  })
+})
