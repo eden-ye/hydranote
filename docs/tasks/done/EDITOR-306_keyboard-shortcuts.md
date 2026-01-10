@@ -74,11 +74,12 @@ All shortcuts use BlockSuite's `bindHotKey` system:
 - **ArrowRight**: Expand if collapsed, else navigate to first child
 
 ## Commits
-- 5a2abfe feat(editor): EDITOR-306 - Keyboard shortcuts business logic
-- 38cd036 refactor(editor): use index-based addBlock API in Enter handlers
-- d1b9085 docs: update EDITOR-306 with Phase 1 completion status
+- 700c762 feat(editor): EDITOR-306 - Keyboard shortcuts business logic
+- 9243c60 docs: update EDITOR-306 with Phase 1 completion status
+- 5d743c3 docs(editor): mark EDITOR-306 as done with full implementation details
+- 1eb93f8 docs: move EDITOR-306 to done, update current.md
 
 ## Status
-- **Created**: 2025-01-09
+- **Created**: 2026-01-09
 - **Completed**: 2026-01-10
-- **Status**: done
+- **Status**: ✅ done
