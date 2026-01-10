@@ -10,3 +10,5 @@ export {
   type PersistenceStatus,
   type PersistenceResult,
 } from './useIndexedDBPersistence'
+
+export { useSpotlight } from './useSpotlight'
