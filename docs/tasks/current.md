@@ -31,12 +31,12 @@
 
 | Ticket | Title | Status | Deps |
 |--------|-------|--------|------|
-| EDITOR-306 | Keyboard Shortcuts | pending | EDITOR-301 ✅ |
+| EDITOR-306 | Keyboard Shortcuts | 🔧 in_progress | EDITOR-301 ✅ (Phase 1 logic done, Phase 2 BlockSuite integration pending) |
 | EDITOR-307 | Editor Store | pending | EDITOR-301 ✅ |
 
-**Next up**: EDITOR-306 (Keyboard Shortcuts), EDITOR-307 (Editor Store)
+**Next up**: EDITOR-306 Phase 2 (BlockSuite hotkey integration), EDITOR-307 (Editor Store)
 
-**Can parallel**: EDITOR-306, 307 (all dependencies met)
+**Can parallel**: EDITOR-307 (all dependencies met)
 
 ## Parallel Work Opportunities
 
