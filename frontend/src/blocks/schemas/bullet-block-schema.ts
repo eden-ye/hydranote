@@ -38,8 +38,9 @@ export const BulletBlockSchema = defineBlockSchema({
 
 export type BulletBlockModel = SchemaToModel<typeof BulletBlockSchema>
 
-// Extend BlockSuite global types
+// Extend BlockSuite global types (namespace required for declaration merging)
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace BlockSuite {
     interface BlockModels {
       'hydra:bullet': BulletBlockModel

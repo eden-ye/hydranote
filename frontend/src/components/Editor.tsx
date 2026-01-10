@@ -21,7 +21,8 @@ export default function Editor() {
   const collectionRef = useRef<DocCollection | null>(null)
 
   useEffect(() => {
-    if (!containerRef.current) return
+    const container = containerRef.current
+    if (!container) return
 
     // Prevent double initialization in StrictMode
     if (editorRef.current) return
@@ -56,12 +57,12 @@ export default function Editor() {
     editorRef.current = editor
 
     // Mount the editor to the container
-    containerRef.current.appendChild(editor)
+    container.appendChild(editor)
 
     // Cleanup function
     return () => {
-      if (editorRef.current && containerRef.current) {
-        containerRef.current.removeChild(editorRef.current)
+      if (editorRef.current && container) {
+        container.removeChild(editorRef.current)
         editorRef.current = null
       }
       collectionRef.current = null
