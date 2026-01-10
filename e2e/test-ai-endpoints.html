@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Endpoints E2E Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+        }
+        .status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Endpoints E2E Testing</h1>
+    <p>Test Page for API-204 (Generate) and API-205 (Expand) endpoints</p>
+
+    <!-- Test 1: Generate Structure -->
+    <div class="test-section">
+        <h2>Test 1: POST /api/ai/generate</h2>
+        <div>
+            <label for="generateInput">Input Text:</label>
+            <input type="text" id="generateInput" value="How computers work" placeholder="Enter topic...">
+        </div>
+        <div>
+            <label for="maxLevels">Max Levels:</label>
+            <input type="number" id="maxLevels" value="3" min="1" max="5">
+        </div>
+        <button id="generateBtn" onclick="testGenerate()">Test Generate Endpoint</button>
+        <div id="generateResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Test 2: Expand Bullet -->
+    <div class="test-section">
+        <h2>Test 2: POST /api/ai/expand</h2>
+        <div>
+            <label for="bulletText">Bullet Text:</label>
+            <input type="text" id="bulletText" value="Project planning" placeholder="Enter bullet text...">
+        </div>
+        <div>
+            <label for="siblings">Siblings (comma-separated):</label>
+            <input type="text" id="siblings" value="Design phase, Implementation" placeholder="Enter sibling bullets...">
+        </div>
+        <div>
+            <label for="parentContext">Parent Context (optional):</label>
+            <input type="text" id="parentContext" value="Software development lifecycle" placeholder="Enter parent context...">
+        </div>
+        <button id="expandBtn" onclick="testExpand()">Test Expand Endpoint</button>
+        <div id="expandResult" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        async function testGenerate() {
+            const btn = document.getElementById('generateBtn');
+            const resultDiv = document.getElementById('generateResult');
+            const inputText = document.getElementById('generateInput').value;
+            const maxLevels = parseInt(document.getElementById('maxLevels').value);
+
+            btn.disabled = true;
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status">Testing...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/ai/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        input_text: inputText,
+                        max_levels: maxLevels
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <div class="status">✓ SUCCESS (${response.status})</div>
+                        <div><strong>Bullets generated:</strong> ${data.bullets.length}</div>
+                        <div><strong>Tokens used:</strong> ${data.tokens_used}</div>
+                        <div><strong>Response:</strong></div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.log('Generate test passed:', data);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${data.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <div class="status">✗ ERROR</div>
+                    <div>${error.message}</div>
+                `;
+                console.error('Generate test failed:', error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function testExpand() {
+            const btn = document.getElementById('expandBtn');
+            const resultDiv = document.getElementById('expandResult');
+            const bulletText = document.getElementById('bulletText').value;
+            const siblingsText = document.getElementById('siblings').value;
+            const parentContext = document.getElementById('parentContext').value;
+
+            const siblings = siblingsText.split(',').map(s => s.trim()).filter(s => s);
+
+            btn.disabled = true;
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status">Testing...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/ai/expand`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        bullet_text: bulletText,
+                        siblings: siblings,
+                        parent_context: parentContext || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <div class="status">✓ SUCCESS (${response.status})</div>
+                        <div><strong>Children generated:</strong> ${data.children.length}</div>
+                        <div><strong>Tokens used:</strong> ${data.tokens_used}</div>
+                        <div><strong>Response:</strong></div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.log('Expand test passed:', data);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${data.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <div class="status">✗ ERROR</div>
+                    <div>${error.message}</div>
+                `;
+                console.error('Expand test failed:', error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Auto-run tests on page load (optional)
+        // window.onload = async () => {
+        //     await testGenerate();
+        //     await new Promise(resolve => setTimeout(resolve, 1000));
+        //     await testExpand();
+        // };
+    </script>
+</body>
+</html>
