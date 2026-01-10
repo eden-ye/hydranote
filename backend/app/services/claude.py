@@ -21,7 +21,7 @@ class ClaudeService:
             raise ClaudeServiceError("API key not configured")
 
         self.client = Anthropic(api_key=settings.anthropic_api_key)
-        self.default_model = "claude-3-sonnet-20240229"
+        self.default_model = "claude-haiku-4-5-20251001"
         self.default_max_tokens = 4096
 
     async def generate(

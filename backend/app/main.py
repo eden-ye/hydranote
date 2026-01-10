@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.api.routes import auth, ai, user, blocks
+from app.api.websockets import ai_stream_router
 from app.db.mongo import connect_to_mongo, close_mongo_connection, create_indexes
 
 
@@ -46,6 +47,9 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(user.router, prefix="/api/user", tags=["user"])
 app.include_router(blocks.router, prefix="/api/blocks", tags=["blocks"])
+
+# WebSocket Routes
+app.include_router(ai_stream_router, tags=["websocket"])
 
 
 @app.get("/api/health")
