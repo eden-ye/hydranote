@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AffineSchemas, PageEditorBlockSpecs } from '@blocksuite/blocks'
 import { effects as registerBlocksEffects } from '@blocksuite/blocks/effects'
 import { AffineEditorContainer } from '@blocksuite/presets'
 import { effects as registerPresetsEffects } from '@blocksuite/presets/effects'
 import { Schema, DocCollection } from '@blocksuite/store'
+import { IndexeddbPersistence } from 'y-indexeddb'
 import '@toeverything/theme/style.css'
 
 // Import Hydra custom blocks
 import { BulletBlockSchema, BulletBlockSpec } from '@/blocks'
+import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -15,10 +17,71 @@ import { BulletBlockSchema, BulletBlockSpec } from '@/blocks'
 registerBlocksEffects()
 registerPresetsEffects()
 
+/**
+ * Default document ID for the main editor
+ */
+const DEFAULT_DOC_ID = 'main'
+
+/**
+ * Loading indicator component shown while hydrating from IndexedDB
+ */
+function LoadingIndicator() {
+  return (
+    <div
+      data-testid="editor-loading"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        minHeight: '200px',
+        color: '#666',
+        fontSize: '14px',
+      }}
+    >
+      <span>Loading document...</span>
+    </div>
+  )
+}
+
+/**
+ * Error indicator component shown when persistence fails
+ */
+function ErrorIndicator({ error }: { error: Error }) {
+  return (
+    <div
+      data-testid="editor-error"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        minHeight: '200px',
+        color: '#dc3545',
+        fontSize: '14px',
+        gap: '8px',
+      }}
+    >
+      <span>Failed to load document</span>
+      <span style={{ fontSize: '12px', color: '#666' }}>{error.message}</span>
+    </div>
+  )
+}
+
 export default function Editor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<AffineEditorContainer | null>(null)
   const collectionRef = useRef<DocCollection | null>(null)
+  const persistenceRef = useRef<IndexeddbPersistence | null>(null)
+
+  const [persistenceState, setPersistenceState] = useState<{
+    status: PersistenceStatus
+    error: Error | null
+  }>({
+    status: 'loading',
+    error: null,
+  })
 
   useEffect(() => {
     const container = containerRef.current
@@ -46,14 +109,43 @@ export default function Editor() {
 
     // Create a new document
     const doc = collection.createDoc()
-    doc.load(() => {
-      // Initialize with a page block as root
-      const pageId = doc.addBlock('affine:page', {})
-      // Add a note block as container for content
-      const noteId = doc.addBlock('affine:note', {}, pageId)
-      // Add an initial paragraph block
-      doc.addBlock('affine:paragraph', {}, noteId)
-    })
+
+    // Set up IndexedDB persistence BEFORE loading
+    // This allows y-indexeddb to hydrate the doc from stored state
+    try {
+      const dbName = `${HYDRA_DB_PREFIX}${DEFAULT_DOC_ID}`
+      const persistence = new IndexeddbPersistence(dbName, doc.spaceDoc)
+      persistenceRef.current = persistence
+
+      // Listen for sync completion
+      persistence.on('synced', () => {
+        setPersistenceState({ status: 'synced', error: null })
+      })
+
+      // Load the document after persistence is set up
+      // This initializes the doc structure if it's new
+      doc.load(() => {
+        // Only add initial blocks if the doc is empty (new document)
+        if (doc.isEmpty) {
+          const pageId = doc.addBlock('affine:page', {})
+          const noteId = doc.addBlock('affine:note', {}, pageId)
+          doc.addBlock('affine:paragraph', {}, noteId)
+        }
+      })
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error))
+      setPersistenceState({ status: 'error', error: err })
+      console.error('Failed to initialize IndexedDB persistence:', err)
+
+      // Still load the doc even if persistence fails
+      doc.load(() => {
+        if (doc.isEmpty) {
+          const pageId = doc.addBlock('affine:page', {})
+          const noteId = doc.addBlock('affine:note', {}, pageId)
+          doc.addBlock('affine:paragraph', {}, noteId)
+        }
+      })
+    }
 
     // Create and configure the editor using document.createElement
     // This ensures the custom element is properly registered
@@ -68,6 +160,12 @@ export default function Editor() {
 
     // Cleanup function
     return () => {
+      // Destroy persistence first
+      if (persistenceRef.current) {
+        persistenceRef.current.destroy()
+        persistenceRef.current = null
+      }
+
       if (editorRef.current && container) {
         container.removeChild(editorRef.current)
         editorRef.current = null
@@ -76,10 +174,45 @@ export default function Editor() {
     }
   }, [])
 
+  // Show loading state while hydrating
+  if (persistenceState.status === 'loading') {
+    return (
+      <div
+        ref={containerRef}
+        data-testid="editor-container"
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: '500px',
+        }}
+      >
+        <LoadingIndicator />
+      </div>
+    )
+  }
+
+  // Show error state if persistence failed
+  if (persistenceState.status === 'error' && persistenceState.error) {
+    return (
+      <div
+        ref={containerRef}
+        data-testid="editor-container"
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: '500px',
+        }}
+      >
+        <ErrorIndicator error={persistenceState.error} />
+      </div>
+    )
+  }
+
   return (
     <div
       ref={containerRef}
       data-testid="editor-container"
+      data-persistence-status={persistenceState.status}
       style={{
         width: '100%',
         height: '100%',
