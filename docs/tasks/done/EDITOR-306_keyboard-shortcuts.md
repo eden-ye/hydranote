@@ -79,6 +79,12 @@ All shortcuts use BlockSuite's `bindHotKey` system:
 - 5d743c3 docs(editor): mark EDITOR-306 as done with full implementation details
 - 1eb93f8 docs: move EDITOR-306 to done, update current.md
 
+## Follow-up Fix
+- **EDITOR-3051**: Added native `_handleKeydown()` on contenteditable in addition to `bindHotKey`.
+  - Reason: `bindHotKey` requires BlockSuite's focus system, but contenteditable captures events directly
+  - Both systems now coexist - `bindHotKey` for BlockSuite focus, native handler for contenteditable focus
+  - See `docs/tasks/EDITOR-3051_persistence-text-sync-fix.md` for details
+
 ## Status
 - **Created**: 2026-01-09
 - **Completed**: 2026-01-10
