@@ -12,3 +12,9 @@ export {
   selectCanGenerate,
   selectGenerationsRemaining,
 } from './ai-store'
+
+export {
+  useEditorStore,
+  selectIsInFocusMode,
+  selectFocusedBlockId,
+} from './editor-store'

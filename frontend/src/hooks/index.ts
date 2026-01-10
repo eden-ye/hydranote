@@ -12,3 +12,5 @@ export {
 } from './useIndexedDBPersistence'
 
 export { useSpotlight } from './useSpotlight'
+
+export { useFocusMode } from './useFocusMode'
