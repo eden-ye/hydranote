@@ -102,7 +102,28 @@ BlockSuite's rich-text handles these automatically:
 
 - **EDITOR-3053**: Prerequisite (rich-text migration)
 
+## Implementation Notes
+
+### Changes Made
+
+1. **bullet-block.ts**: Changed `.enableFormat=${false}` to `.enableFormat=${true}` (line 1206)
+2. **bullet-block.ts**: Added CSS styles for inline formatting using `data-v-*` attributes:
+   - Bold: `[data-v-bold="true"]` → `font-weight: bold`
+   - Italic: `[data-v-italic="true"]` → `font-style: italic`
+   - Underline: `[data-v-underline="true"]` → `text-decoration: underline`
+   - Strikethrough: `[data-v-strike="true"]` → `text-decoration: line-through`
+   - Code: `[data-v-code="true"]` → monospace font with background
+   - Links: `[data-v-link]` → blue color with underline
+
+3. **bullet-block-component.test.ts**: Added 8 unit tests for inline formatting support
+
+### Test Results
+
+- All 227 frontend tests passing
+- Build succeeds
+
 ## Status
 
 - **Created**: 2026-01-10
-- **Status**: pending
+- **Completed**: 2026-01-11
+- **Status**: completed
