@@ -1640,6 +1640,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * EDITOR-3059: Fix backspace with selection - only trigger merge when no text selected
    */
   private _handleKeydown(e: KeyboardEvent): void {
+    // EDITOR-3203: Detect ~ key for descriptor autocomplete
+    // Note: ~ is typed with Shift+` on US keyboards, but e.key gives us '~' directly
+    if (e.key === '~') {
+      // Dispatch event to open descriptor autocomplete
+      this._dispatchDescriptorAutocompleteOpen()
+      // Don't prevent default - let the ~ character be typed
+      return
+    }
+
     // Backspace at start of line merges with previous sibling
     // NOTE: This is the ONLY handler here - all other shortcuts (Enter, Tab, etc.)
     // are handled by _bindKeyboardShortcuts() via BlockSuite's bindHotKey system.
@@ -1717,6 +1726,45 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         blockText: this.model.text.toString(),
         siblingTexts,
         parentText,
+      },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3203: Dispatch event to open descriptor autocomplete
+   * Called when user types `~` to trigger descriptor selection
+   */
+  private _dispatchDescriptorAutocompleteOpen(): void {
+    // Get cursor position for dropdown positioning
+    const richText = this.querySelector('rich-text') as RichText | null
+    const selection = window.getSelection()
+    let position = { top: 0, left: 0 }
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      // Position dropdown below the cursor
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    } else if (richText) {
+      // Fallback to element position
+      const rect = richText.getBoundingClientRect()
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    }
+
+    // Dispatch custom event with autocomplete context
+    const event = new CustomEvent('hydra-descriptor-autocomplete-open', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        blockId: this.model.id,
+        position,
       },
     })
     this.dispatchEvent(event)

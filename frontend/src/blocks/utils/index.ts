@@ -10,3 +10,6 @@ export * from './descriptor'
 
 // EDITOR-3202: Descriptor repository
 export * from './descriptor-repository'
+
+// EDITOR-3203: Descriptor autocomplete
+export * from './descriptor-autocomplete'

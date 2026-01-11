@@ -20,6 +20,10 @@ import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
 import { useExpandBlock, type ExpandBlockContext } from '@/hooks/useExpandBlock'
 // Auth store for token
 import { useAuthStore, selectAccessToken } from '@/stores/auth-store'
+// EDITOR-3203: Descriptor autocomplete
+import { DescriptorAutocomplete } from './DescriptorAutocomplete'
+import { useEditorStore } from '@/stores/editor-store'
+import type { Descriptor } from '@/blocks/utils/descriptor-repository'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -171,6 +175,18 @@ export default function Editor() {
   const { expandBlock, canExpand } = useExpandBlock()
   const accessToken = useAuthStore(selectAccessToken)
 
+  // EDITOR-3203: Descriptor autocomplete state
+  const {
+    autocompleteOpen,
+    autocompleteQuery,
+    autocompleteSelectedIndex,
+    openAutocomplete,
+    closeAutocomplete,
+    setAutocompleteQuery,
+    setAutocompleteSelectedIndex,
+  } = useEditorStore()
+  const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 })
+
   // FE-408: Handle expand event from bullet blocks
   const handleExpandEvent = useCallback((event: Event) => {
     const customEvent = event as CustomEvent<ExpandBlockContext>
@@ -189,6 +205,25 @@ export default function Editor() {
     console.log('[Expand] Expanding block:', context.blockId)
     expandBlock(context, accessToken)
   }, [accessToken, canExpand, expandBlock])
+
+  // EDITOR-3203: Handle descriptor autocomplete open event
+  const handleAutocompleteOpenEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string; position: { top: number; left: number } }>
+    const { blockId, position } = customEvent.detail
+
+    setAutocompletePosition(position)
+    openAutocomplete(blockId)
+  }, [openAutocomplete])
+
+  // EDITOR-3203: Handle descriptor selection
+  const handleDescriptorSelect = useCallback((descriptor: Descriptor) => {
+    console.log('[Autocomplete] Descriptor selected:', descriptor.key)
+    // Close autocomplete - descriptor insertion will be handled by EDITOR-3204
+    closeAutocomplete()
+
+    // TODO EDITOR-3204: Insert descriptor as child bullet
+    // For now, just log the selection
+  }, [closeAutocomplete])
 
   useEffect(() => {
     const container = containerRef.current
@@ -283,10 +318,14 @@ export default function Editor() {
     // FE-408: Add expand event listener
     container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
 
+    // EDITOR-3203: Add autocomplete open event listener
+    container.addEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
+
     // Cleanup function
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
+      container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       // Destroy persistence first
       if (persistenceRef.current) {
         persistenceRef.current.destroy()
@@ -300,7 +339,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent])
+  }, [enterFocusMode, handleExpandEvent, handleAutocompleteOpenEvent])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -382,6 +421,18 @@ export default function Editor() {
           onDismiss={handleQuestionDismiss}
         />
       )}
+
+      {/* EDITOR-3203: Descriptor autocomplete dropdown */}
+      <DescriptorAutocomplete
+        isOpen={autocompleteOpen}
+        query={autocompleteQuery}
+        selectedIndex={autocompleteSelectedIndex}
+        position={autocompletePosition}
+        onSelect={handleDescriptorSelect}
+        onClose={closeAutocomplete}
+        onQueryChange={setAutocompleteQuery}
+        onSelectedIndexChange={setAutocompleteSelectedIndex}
+      />
     </div>
   )
 }
