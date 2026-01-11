@@ -168,8 +168,7 @@ export default function Editor() {
   }, [])
 
   // FE-408: Expand block hook
-  // Note: isExpanding and streamedText will be used for UI feedback in future iterations
-  const { isExpanding: _isExpanding, streamedText: _streamedText, expandBlock, canExpand } = useExpandBlock()
+  const { expandBlock, canExpand } = useExpandBlock()
   const accessToken = useAuthStore(selectAccessToken)
 
   // FE-408: Handle expand event from bullet blocks
