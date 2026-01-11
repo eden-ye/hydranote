@@ -13,3 +13,6 @@ export * from './descriptor-repository'
 
 // EDITOR-3203: Descriptor autocomplete
 export * from './descriptor-autocomplete'
+
+// EDITOR-3204: Descriptor insertion
+export * from './descriptor-insertion'

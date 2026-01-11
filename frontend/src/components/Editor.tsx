@@ -24,6 +24,10 @@ import { useAuthStore, selectAccessToken } from '@/stores/auth-store'
 import { DescriptorAutocomplete } from './DescriptorAutocomplete'
 import { useEditorStore } from '@/stores/editor-store'
 import type { Descriptor } from '@/blocks/utils/descriptor-repository'
+// EDITOR-3204: Descriptor insertion
+import { findDuplicateDescriptor, removeTriggerText } from '@/blocks/utils/descriptor-insertion'
+import { isValidDescriptorType, type DescriptorType } from '@/blocks/utils/descriptor'
+import type { BulletBlockModel } from '@/blocks/schemas/bullet-block-schema'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -179,6 +183,7 @@ export default function Editor() {
   const {
     autocompleteOpen,
     autocompleteQuery,
+    autocompleteBlockId,
     autocompleteSelectedIndex,
     openAutocomplete,
     closeAutocomplete,
@@ -215,15 +220,100 @@ export default function Editor() {
     openAutocomplete(blockId)
   }, [openAutocomplete])
 
-  // EDITOR-3203: Handle descriptor selection
+  // EDITOR-3203/3204: Handle descriptor selection and insertion
   const handleDescriptorSelect = useCallback((descriptor: Descriptor) => {
     console.log('[Autocomplete] Descriptor selected:', descriptor.key)
-    // Close autocomplete - descriptor insertion will be handled by EDITOR-3204
-    closeAutocomplete()
 
-    // TODO EDITOR-3204: Insert descriptor as child bullet
-    // For now, just log the selection
-  }, [closeAutocomplete])
+    const doc = docRef.current
+    if (!doc || !autocompleteBlockId) {
+      console.warn('[Autocomplete] No doc or blockId available')
+      closeAutocomplete()
+      return
+    }
+
+    // Validate descriptor type
+    if (!isValidDescriptorType(descriptor.key)) {
+      console.warn('[Autocomplete] Invalid descriptor type:', descriptor.key)
+      closeAutocomplete()
+      return
+    }
+    const descriptorType = descriptor.key as DescriptorType
+
+    // Get the parent block where ~ was typed
+    const parentBlock = doc.getBlockById(autocompleteBlockId) as BulletBlockModel | null
+    if (!parentBlock) {
+      console.warn('[Autocomplete] Parent block not found:', autocompleteBlockId)
+      closeAutocomplete()
+      return
+    }
+
+    // EDITOR-3204: Check for duplicate descriptor among children
+    const existingDescriptorId = findDuplicateDescriptor(parentBlock, descriptorType)
+
+    if (existingDescriptorId) {
+      console.log('[Autocomplete] Focusing existing descriptor:', existingDescriptorId)
+      // Remove trigger text from parent
+      const currentText = parentBlock.text.toString()
+      const newText = removeTriggerText(currentText, descriptorType)
+      if (newText !== currentText) {
+        parentBlock.text.delete(0, parentBlock.text.length)
+        if (newText) {
+          parentBlock.text.insert(newText, 0)
+        }
+      }
+      // Focus the existing descriptor
+      // Note: Direct focus via DOM since we're in React, BlockSuite will handle selection
+      setTimeout(() => {
+        const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${existingDescriptorId}"]`)
+        const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+        richText?.focus()
+      }, 0)
+      closeAutocomplete()
+      return
+    }
+
+    // EDITOR-3204: Create new descriptor child bullet
+    console.log('[Autocomplete] Creating new descriptor:', descriptorType)
+
+    // Remove trigger text from parent
+    const currentText = parentBlock.text.toString()
+    const newText = removeTriggerText(currentText, descriptorType)
+    if (newText !== currentText) {
+      parentBlock.text.delete(0, parentBlock.text.length)
+      if (newText) {
+        parentBlock.text.insert(newText, 0)
+      }
+    }
+
+    // Expand parent if collapsed
+    if (!parentBlock.isExpanded) {
+      doc.updateBlock(parentBlock, { isExpanded: true })
+    }
+
+    // Create new descriptor child bullet
+    const newBlockId = doc.addBlock(
+      'hydra:bullet',
+      {
+        text: new doc.Text(),
+        isDescriptor: true,
+        descriptorType: descriptorType,
+        isExpanded: true,
+      },
+      parentBlock,
+      0 // Insert as first child
+    )
+
+    console.log('[Autocomplete] Created descriptor block:', newBlockId)
+
+    // Focus the new descriptor
+    setTimeout(() => {
+      const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${newBlockId}"]`)
+      const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+      richText?.focus()
+    }, 0)
+
+    closeAutocomplete()
+  }, [autocompleteBlockId, closeAutocomplete])
 
   useEffect(() => {
     const container = containerRef.current
