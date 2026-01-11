@@ -37,15 +37,34 @@ export function filterBullets(bullets: BulletItem[], query: string): BulletItem[
 }
 
 /**
+ * Minimal block interface for extraction
+ */
+interface BlockWithChildren {
+  id: string
+  flavour: string
+  text?: { toString?: () => string }
+  children?: BlockWithChildren[]
+}
+
+/**
+ * Minimal document interface
+ */
+interface DocumentWithRoot {
+  root?: {
+    children?: BlockWithChildren[]
+  }
+}
+
+/**
  * Extract bullets from a BlockSuite document
  *
  * @param doc - The BlockSuite document
  * @returns List of bullets with their nesting levels
  */
-export function extractBulletsFromDoc(doc: any): BulletItem[] {
+export function extractBulletsFromDoc(doc: DocumentWithRoot): BulletItem[] {
   const bullets: BulletItem[] = []
 
-  function traverseBlocks(blocks: any[], level: number = 0): void {
+  function traverseBlocks(blocks: BlockWithChildren[], level: number = 0): void {
     for (const block of blocks) {
       // Only include hydra:bullet blocks
       if (block.flavour === 'hydra:bullet') {

@@ -94,7 +94,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({ id: 'b1', text: 'First bullet', level: 0 })
       expect(result[1]).toEqual({ id: 'b2', text: 'Second bullet', level: 0 })
@@ -134,7 +134,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result).toHaveLength(3)
       expect(result[0].level).toBe(0)
       expect(result[1].level).toBe(1)
@@ -158,7 +158,6 @@ describe('Portal Picker Utilities', () => {
                 {
                   id: 'p1',
                   flavour: 'hydra:portal',
-                  sourceBlockId: 'b1',
                   children: [],
                 },
                 {
@@ -173,7 +172,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('b1')
     })
@@ -185,7 +184,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result).toEqual([])
     })
 
@@ -209,7 +208,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result).toEqual([])
     })
 
@@ -239,7 +238,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result).toHaveLength(2)
       expect(result[0].text).toBe('')
       expect(result[1].text).toBe('')
@@ -277,7 +276,7 @@ describe('Portal Picker Utilities', () => {
         },
       }
 
-      const result = extractBulletsFromDoc(mockDoc as any)
+      const result = extractBulletsFromDoc(mockDoc)
       expect(result.map(b => b.id)).toEqual(['b3', 'b1', 'b2'])
     })
   })
