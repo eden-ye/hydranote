@@ -25,6 +25,20 @@ vi.mock('@blocksuite/store', () => ({
   defineBlockSchema: mockDefineBlockSchema,
 }))
 
+// EDITOR-3102: Mock baseTextAttributes from @blocksuite/inline
+vi.mock('@blocksuite/inline', () => {
+  const baseTextAttributes = {
+    extend: (schema: Record<string, unknown>) => ({
+      ...schema,
+      parse: (value: unknown) => value,
+      safeParse: (value: unknown) => ({ success: true, data: value }),
+    }),
+    parse: (value: unknown) => value,
+    safeParse: (value: unknown) => ({ success: true, data: value }),
+  }
+  return { baseTextAttributes }
+})
+
 // Import after mocking - this triggers the schema definition
 import { BulletBlockSchema } from '../schemas/bullet-block-schema'
 

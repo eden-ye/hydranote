@@ -66,6 +66,20 @@ vi.mock('@blocksuite/store', () => {
   }
 })
 
+// EDITOR-3102: Mock @blocksuite/inline for baseTextAttributes
+vi.mock('@blocksuite/inline', () => {
+  const baseTextAttributes = {
+    extend: (schema: Record<string, unknown>) => ({
+      ...schema,
+      parse: (value: unknown) => value,
+      safeParse: (value: unknown) => ({ success: true, data: value }),
+    }),
+    parse: (value: unknown) => value,
+    safeParse: (value: unknown) => ({ success: true, data: value }),
+  }
+  return { baseTextAttributes }
+})
+
 vi.mock('@blocksuite/block-std', () => {
   // Mock BlockComponent base class
   class MockBlockComponent extends HTMLElement {
@@ -86,6 +100,16 @@ vi.mock('lit/static-html.js', () => ({
 }))
 
 vi.mock('@toeverything/theme/style.css', () => ({}))
+
+// Mock supabase service to avoid initialization errors
+vi.mock('@/services/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    },
+  },
+}))
 
 // Track mock instances for y-indexeddb
 const mockInstances: Array<{
