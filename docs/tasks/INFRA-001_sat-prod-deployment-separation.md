@@ -249,7 +249,7 @@ Railway CLI has created, configured, and deployed two projects:
 | Environment | Project Name | Project ID | Service | Deployment URL |
 |-------------|--------------|------------|---------|----------------|
 | **SAT** | `hydra-backend-sat` | `09d56c95-2e3e-4064-ab5f-33f8455b6f78` | `hydra-backend-sat` | https://hydra-backend-sat-production.up.railway.app |
-| **PROD** | `hydra-backend-prod` | `46c68c7f-48f7-480e-8c3d-b2c2f5fd9714` | `hydranote` | https://hydranote-production.up.railway.app |
+| **PROD** | `hydra-backend-prod` | `46c68c7f-48f7-480e-8c3d-b2c2f5fd9714` | `hydranote-backend-prod` | https://hydranote-production.up.railway.app |
 
 ### 🔐 Railway Project Tokens (for GitHub Secrets)
 

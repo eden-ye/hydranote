@@ -1,0 +1,49 @@
+# FE-406: Focus Mode Navigation
+
+## Description
+Implement focus mode that zooms into a single bullet and its children. Reduces cognitive load by hiding sibling context.
+
+## Acceptance Criteria
+- [x] Editor store tracks focus state (`focusedBlockId`)
+- [x] Actions: enterFocusMode, exitFocusMode, setFocusedBlockId
+- [x] Selectors: selectIsInFocusMode, selectFocusedBlockId
+- [x] useFocusMode hook for component integration
+- [x] Escape key exits focus mode (keyboard handler in hook)
+- [x] isFocused helper to check if specific block is focused
+
+## Implementation Notes
+- Editor store in `frontend/src/stores/editor-store.ts`
+- Hook in `frontend/src/hooks/useFocusMode.ts`
+- Double-click trigger to be integrated at component level
+
+## Dependencies
+- EDITOR-303 (Folding/Collapse) ✅
+
+## Parallel Safe With
+- AUTH-*, API-*
+
+## Notes
+- Core cognitive scaffolding feature
+- Combines with breadcrumb for navigation (FE-407)
+- Consider nested focus (focus within focus)
+
+## Testing
+- **Unit Tests**: 9 tests in `src/stores/__tests__/editor-store.test.ts` ✅
+- **Unit Tests**: 12 tests in `src/hooks/__tests__/useFocusMode.test.ts` ✅
+- **Commit**: `715a874` feat(fe): FE-406 - Add focus mode navigation with editor store (#23)
+
+## Status
+- **Created**: 2025-01-09
+- **Code Complete**: 2026-01-10
+- **Status**: needs_integration
+- **Phase**: 5
+
+## Integration Required
+
+Hook and store are implemented but NOT wired into Editor.tsx.
+
+**Integration tasks:**
+- [ ] Import `useFocusMode` in Editor.tsx
+- [ ] Add double-click handler on bullets to enter focus mode
+- [ ] Filter visible blocks based on `focusedBlockId`
+- [ ] Render Breadcrumb when in focus mode (FE-407)
