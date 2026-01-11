@@ -45,3 +45,7 @@ docs/api/
 
 # Reference code (local development only)
 affine/
+
+# BMAD (local workflow tooling)
+_bmad/
+_bmad-output/
