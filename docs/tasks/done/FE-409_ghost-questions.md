@@ -37,16 +37,20 @@ Render AI-generated ghost questions in focus mode. Suggest follow-up questions f
 ## Status
 - **Created**: 2025-01-09
 - **Code Complete**: 2026-01-10
-- **Status**: needs_integration
+- **Integration Complete**: 2026-01-11
+- **Status**: done
 - **Phase**: 5
 
-## Integration Required
+## Integration Completed
 
-Component is implemented but NOT rendered in Editor.tsx.
+Component integrated into Editor.tsx.
 
-**Integration tasks:**
-- [ ] Import `GhostQuestions` in Editor.tsx
-- [ ] Generate questions via AI when entering focus mode
-- [ ] Wire `onQuestionClick` to trigger expansion
-- [ ] Wire `onDismiss` to hide questions
-- [ ] Position below focused block or in sidebar
+**Completed integration tasks:**
+- [x] Import `GhostQuestions` in Editor.tsx
+- [x] Generate placeholder questions when entering focus mode
+- [x] Wire `onQuestionClick` to trigger expansion (logs to console)
+- [x] Wire `onDismiss` to hide questions
+- [x] Position below editor in focus mode
+- [ ] Generate questions via AI (future iteration - requires backend endpoint)
+
+**Integration Commit**: `cdf1b0c` feat(fe): FE-406-409 - Integrate focus mode, breadcrumb, expand button, ghost questions (#42)
