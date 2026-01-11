@@ -17,4 +17,9 @@ export {
   useEditorStore,
   selectIsInFocusMode,
   selectFocusedBlockId,
+  selectCurrentDocumentId,
+  selectSelectedBlockIds,
+  selectHasSelection,
+  selectEditorMode,
+  type EditorMode,
 } from './editor-store'
