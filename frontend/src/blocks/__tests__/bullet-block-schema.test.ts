@@ -56,7 +56,13 @@ describe('BulletBlockSchema', () => {
 
   describe('props factory', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    type PropsFactory = (internal: any) => { text: unknown; isExpanded: boolean }
+    type PropsFactory = (internal: any) => {
+      text: unknown
+      isExpanded: boolean
+      isDescriptor: boolean
+      descriptorType: string | null
+      descriptorLabel: string | undefined
+    }
 
     it('should define text and isExpanded props', () => {
       const propsFactory = BulletBlockSchema.model.props as PropsFactory
@@ -110,6 +116,77 @@ describe('BulletBlockSchema', () => {
 
       expect(mockInternal.Text).toHaveBeenCalled()
       expect(props.text).toBe(mockText)
+    })
+
+    // EDITOR-3201: Descriptor props tests
+    it('should define descriptor props', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal)
+
+      expect(props).toHaveProperty('isDescriptor')
+      expect(props).toHaveProperty('descriptorType')
+      expect(props).toHaveProperty('descriptorLabel')
+    })
+
+    it('should default isDescriptor to false', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal)
+
+      expect(props.isDescriptor).toBe(false)
+    })
+
+    it('should default descriptorType to null', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal)
+
+      expect(props.descriptorType).toBeNull()
+    })
+
+    it('should default descriptorLabel to undefined', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal)
+
+      expect(props.descriptorLabel).toBeUndefined()
     })
   })
 })
