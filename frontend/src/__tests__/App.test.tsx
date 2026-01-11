@@ -7,8 +7,25 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAIStore } from '../stores/ai-store'
 
-// Create mock auth state
-const createMockAuthState = (overrides = {}) => ({
+// Create mock auth state with proper types
+interface MockSession {
+  access_token: string | null
+  refresh_token: string | null
+  user: unknown | null
+}
+
+interface MockAuthState {
+  user: unknown | null
+  session: MockSession | null
+  isLoading: boolean
+  isInitialized: boolean
+  setUser: ReturnType<typeof vi.fn>
+  setSession: ReturnType<typeof vi.fn>
+  setLoading: ReturnType<typeof vi.fn>
+  clearUser: ReturnType<typeof vi.fn>
+}
+
+const createMockAuthState = (overrides: Partial<MockAuthState> = {}): MockAuthState => ({
   user: null,
   session: null,
   isLoading: false,
@@ -27,6 +44,9 @@ vi.mock('@/stores/auth-store', () => ({
     return selector ? selector(state) : state
   }),
   initializeAuth: vi.fn(() => Promise.resolve(() => {})),
+  // FE-408: Add selector for access token
+  selectAccessToken: (state: MockAuthState) => state.session?.access_token ?? null,
+  selectIsAuthenticated: (state: MockAuthState) => state.user !== null && state.session !== null,
 }))
 
 // Mock supabase service
