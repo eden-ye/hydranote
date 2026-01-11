@@ -577,6 +577,26 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       max-width: 50%;
     }
 
+    /* EDITOR-3304: Cheatsheet separator styles */
+    .cheatsheet-separator-pipe {
+      color: var(--affine-border-color, #d0d0d0);
+      font-weight: 300;
+      padding: 0 2px;
+    }
+
+    .cheatsheet-separator-versus {
+      color: var(--affine-text-secondary-color, #888);
+      font-style: italic;
+      font-weight: 500;
+      padding: 0 4px;
+    }
+
+    .cheatsheet-separator-arrow {
+      color: var(--affine-text-secondary-color, #888);
+      font-weight: 400;
+      padding: 0 4px;
+    }
+
     /* EDITOR-3103: Context menu color picker styles */
     .color-context-menu {
       position: fixed;
@@ -1532,18 +1552,24 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   /**
    * Render inline preview element when collapsed with children.
    * EDITOR-3302: Render colored segments for Pros (green) and Cons (pink).
+   * EDITOR-3304: Render styled separators (pipe, versus).
    */
   private _renderInlinePreview(): TemplateResult | typeof nothing {
     // EDITOR-3302: Try to get colored segments first
     const segments = this._getCheatsheetSegments()
 
     if (segments && segments.length > 0) {
-      // Render with colored segments
+      // Render with colored segments and styled separators
       const fullText = segments.map(s => s.text).join('')
       return html`<span class="inline-preview" title="${fullText}">${segments.map(
         (segment) => {
+          // EDITOR-3304: Check for separator type first
+          if (segment.separatorType) {
+            const separatorClass = `cheatsheet-separator-${segment.separatorType}`
+            return html`<span class="${separatorClass}">${segment.text}</span>`
+          }
           if (segment.color) {
-            // Render colored segment
+            // Render colored segment (Pros/Cons)
             return html`<span
               class="cheatsheet-segment"
               style="background-color: ${segment.color.backgroundColor}; color: ${segment.color.textColor}; padding: 0 4px; border-radius: 3px; margin: 0 1px;"
