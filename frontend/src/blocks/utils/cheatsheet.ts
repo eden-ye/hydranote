@@ -75,6 +75,8 @@ export interface DescriptorChild {
   descriptorType: DescriptorType | null
   /** Whether this child is a descriptor */
   isDescriptor: boolean
+  /** EDITOR-3303: Whether this descriptor is visible in cheatsheet (default: true) */
+  cheatsheetVisible?: boolean
 }
 
 /**
@@ -102,6 +104,7 @@ const DESCRIPTOR_ORDER: (keyof GroupedDescriptors)[] = [
 
 /**
  * Group descriptor children by their type
+ * EDITOR-3303: Added visibility filtering - hidden descriptors are excluded
  *
  * @param children - Array of descriptor children
  * @returns Grouped descriptors by type
@@ -121,6 +124,11 @@ export function groupDescriptorsByType(
   for (const child of children) {
     // Skip non-descriptors
     if (!child.isDescriptor || !child.descriptorType) {
+      continue
+    }
+
+    // EDITOR-3303: Skip hidden descriptors (default to visible if undefined)
+    if (child.cheatsheetVisible === false) {
       continue
     }
 
