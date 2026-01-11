@@ -32,3 +32,10 @@ Part of Epic 4: Portal
 - **Status**: completed
 - **Epic**: MVP2 - Portal
 - **PR**: https://github.com/eden-ye/hydranote/pull/60
+
+## E2E Testing Results (2026-01-11)
+- ✅ Portal renders with distinctive gradient border (indigo left border)
+- ✅ Source content displayed correctly (text from source block)
+- ✅ Collapse toggle works (🔗 collapsed / 📎 expanded icons)
+- ✅ Source location hint shows "from: This document • content preview"
+- ✅ Orphaned state renders with red dashed border and "Source deleted" badge
