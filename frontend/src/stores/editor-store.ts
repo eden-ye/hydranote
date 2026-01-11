@@ -3,12 +3,14 @@
  * FE-406: Focus Mode Navigation
  * EDITOR-307: Document ID and Selection State
  * EDITOR-3203: Descriptor Autocomplete State
+ * EDITOR-3405: Portal Picker State
  *
  * Manages editor state including:
  * - Current document ID
  * - Selection state (selected block IDs)
  * - Editor mode (normal, focus)
  * - Descriptor autocomplete state
+ * - Portal picker state
  */
 import { create } from 'zustand'
 
@@ -36,6 +38,15 @@ interface EditorState {
   autocompleteBlockId: string | null
   /** Currently selected index in autocomplete list */
   autocompleteSelectedIndex: number
+  // EDITOR-3405: Portal picker state
+  /** Whether the portal picker is open */
+  portalPickerOpen: boolean
+  /** Current search query in portal picker */
+  portalPickerQuery: string
+  /** Block ID where portal picker was triggered */
+  portalPickerBlockId: string | null
+  /** Currently selected index in portal picker list */
+  portalPickerSelectedIndex: number
 }
 
 /**
@@ -63,6 +74,15 @@ interface EditorActions {
   setAutocompleteQuery: (query: string) => void
   /** Set the selected index in autocomplete list */
   setAutocompleteSelectedIndex: (index: number) => void
+  // EDITOR-3405: Portal picker actions
+  /** Open portal picker for a block */
+  openPortalPicker: (blockId: string) => void
+  /** Close portal picker and reset state */
+  closePortalPicker: () => void
+  /** Update the portal picker search query */
+  setPortalPickerQuery: (query: string) => void
+  /** Set the selected index in portal picker list */
+  setPortalPickerSelectedIndex: (index: number) => void
 }
 
 /**
@@ -78,6 +98,11 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   autocompleteQuery: '',
   autocompleteBlockId: null,
   autocompleteSelectedIndex: 0,
+  // EDITOR-3405: Portal picker initial state
+  portalPickerOpen: false,
+  portalPickerQuery: '',
+  portalPickerBlockId: null,
+  portalPickerSelectedIndex: 0,
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -119,6 +144,32 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   setAutocompleteSelectedIndex: (index) =>
     set({ autocompleteSelectedIndex: index }),
+
+  // EDITOR-3405: Portal picker actions
+  openPortalPicker: (blockId) =>
+    set({
+      portalPickerOpen: true,
+      portalPickerBlockId: blockId,
+      portalPickerQuery: '',
+      portalPickerSelectedIndex: 0,
+    }),
+
+  closePortalPicker: () =>
+    set({
+      portalPickerOpen: false,
+      portalPickerQuery: '',
+      portalPickerBlockId: null,
+      portalPickerSelectedIndex: 0,
+    }),
+
+  setPortalPickerQuery: (query) =>
+    set({
+      portalPickerQuery: query,
+      portalPickerSelectedIndex: 0, // Reset selection when query changes
+    }),
+
+  setPortalPickerSelectedIndex: (index) =>
+    set({ portalPickerSelectedIndex: index }),
 }))
 
 /**
@@ -182,3 +233,29 @@ export const selectAutocompleteBlockId = (state: EditorState): string | null =>
  */
 export const selectAutocompleteSelectedIndex = (state: EditorState): number =>
   state.autocompleteSelectedIndex
+
+// EDITOR-3405: Portal picker selectors
+
+/**
+ * Selector for checking if portal picker is open
+ */
+export const selectIsPortalPickerOpen = (state: EditorState): boolean =>
+  state.portalPickerOpen
+
+/**
+ * Selector for getting the portal picker query
+ */
+export const selectPortalPickerQuery = (state: EditorState): string =>
+  state.portalPickerQuery
+
+/**
+ * Selector for getting the portal picker block ID
+ */
+export const selectPortalPickerBlockId = (state: EditorState): string | null =>
+  state.portalPickerBlockId
+
+/**
+ * Selector for getting the portal picker selected index
+ */
+export const selectPortalPickerSelectedIndex = (state: EditorState): number =>
+  state.portalPickerSelectedIndex

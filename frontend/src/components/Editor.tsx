@@ -28,6 +28,10 @@ import type { Descriptor } from '@/blocks/utils/descriptor-repository'
 import { findDuplicateDescriptor, removeTriggerText } from '@/blocks/utils/descriptor-insertion'
 import { isValidDescriptorType, type DescriptorType } from '@/blocks/utils/descriptor'
 import type { BulletBlockModel } from '@/blocks/schemas/bullet-block-schema'
+// EDITOR-3405: Portal picker
+import { PortalPicker } from './PortalPicker'
+import { extractBulletsFromDoc, filterBullets, type BulletItem } from '@/blocks/utils/portal-picker'
+import { removePortalSlashCommand } from '@/blocks/utils/portal-slash-command'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -192,6 +196,21 @@ export default function Editor() {
   } = useEditorStore()
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 })
 
+  // EDITOR-3405: Portal picker state
+  const {
+    portalPickerOpen,
+    portalPickerQuery,
+    portalPickerBlockId,
+    portalPickerSelectedIndex,
+    openPortalPicker,
+    closePortalPicker,
+    setPortalPickerQuery,
+    setPortalPickerSelectedIndex,
+  } = useEditorStore()
+  const [portalPickerPosition, setPortalPickerPosition] = useState({ top: 0, left: 0 })
+  const [allBullets, setAllBullets] = useState<BulletItem[]>([])
+  const filteredBullets = filterBullets(allBullets, portalPickerQuery)
+
   // FE-408: Handle expand event from bullet blocks
   const handleExpandEvent = useCallback((event: Event) => {
     const customEvent = event as CustomEvent<ExpandBlockContext>
@@ -315,6 +334,79 @@ export default function Editor() {
     closeAutocomplete()
   }, [autocompleteBlockId, closeAutocomplete])
 
+  // EDITOR-3405: Handle portal picker open event
+  const handlePortalPickerOpenEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string; position: { top: number; left: number } }>
+    const { blockId, position } = customEvent.detail
+
+    const doc = docRef.current
+    if (!doc) {
+      console.warn('[PortalPicker] No doc available')
+      return
+    }
+
+    // Extract all bullets from document
+    const bullets = extractBulletsFromDoc(doc)
+    setAllBullets(bullets)
+
+    setPortalPickerPosition(position)
+    openPortalPicker(blockId)
+  }, [openPortalPicker])
+
+  // EDITOR-3405: Handle portal selection and creation
+  const handlePortalSelect = useCallback((bullet: BulletItem) => {
+    console.log('[PortalPicker] Bullet selected:', bullet.id)
+
+    const doc = docRef.current
+    if (!doc || !portalPickerBlockId) {
+      console.warn('[PortalPicker] No doc or blockId available')
+      closePortalPicker()
+      return
+    }
+
+    // Get the parent block where portal should be inserted
+    const parentBlock = doc.getBlockById(portalPickerBlockId) as BulletBlockModel | null
+    if (!parentBlock) {
+      console.warn('[PortalPicker] Parent block not found:', portalPickerBlockId)
+      closePortalPicker()
+      return
+    }
+
+    // Remove /portal command from parent text if present
+    const currentText = parentBlock.text.toString()
+    const newText = removePortalSlashCommand(currentText)
+    if (newText !== currentText) {
+      parentBlock.text.delete(0, parentBlock.text.length)
+      if (newText.trim()) {
+        parentBlock.text.insert(newText.trim(), 0)
+      }
+    }
+
+    // Create portal block as child of current block
+    const newBlockId = doc.addBlock(
+      'hydra:portal',
+      {
+        sourceDocId: doc.id,
+        sourceBlockId: bullet.id,
+        isCollapsed: false,
+        syncStatus: 'synced',
+      },
+      parentBlock,
+      0 // Insert as first child
+    )
+
+    console.log('[PortalPicker] Created portal block:', newBlockId)
+
+    // Focus the parent block after portal creation
+    setTimeout(() => {
+      const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${portalPickerBlockId}"]`)
+      const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+      richText?.focus()
+    }, 0)
+
+    closePortalPicker()
+  }, [portalPickerBlockId, closePortalPicker])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -417,11 +509,15 @@ export default function Editor() {
     // EDITOR-3203: Add autocomplete open event listener
     container.addEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
 
+    // EDITOR-3405: Add portal picker open event listener
+    container.addEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+
     // Cleanup function
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
+      container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
       // Destroy persistence first
       if (persistenceRef.current) {
         persistenceRef.current.destroy()
@@ -435,7 +531,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleAutocompleteOpenEvent])
+  }, [enterFocusMode, handleExpandEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -528,6 +624,18 @@ export default function Editor() {
         onClose={closeAutocomplete}
         onQueryChange={setAutocompleteQuery}
         onSelectedIndexChange={setAutocompleteSelectedIndex}
+      />
+
+      {/* EDITOR-3405: Portal picker dropdown */}
+      <PortalPicker
+        isOpen={portalPickerOpen}
+        bullets={filteredBullets}
+        selectedIndex={portalPickerSelectedIndex}
+        position={portalPickerPosition}
+        onSelect={handlePortalSelect}
+        onClose={closePortalPicker}
+        onQueryChange={setPortalPickerQuery}
+        onSelectedIndexChange={setPortalPickerSelectedIndex}
       />
     </div>
   )

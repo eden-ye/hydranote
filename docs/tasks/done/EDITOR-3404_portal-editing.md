@@ -33,6 +33,7 @@ Part of Epic 4: Portal. Bidirectional sync.
 - **Completed**: 2026-01-11
 - **Status**: completed
 - **Epic**: MVP2 - Portal
+- **PR**: https://github.com/eden-ye/hydranote/pull/63
 
 ## Implementation Summary
 
