@@ -125,11 +125,20 @@ For each task/feature, execute this sequence:
    □ Execute scenarios from e2e/expectations/
    □ Screenshot evidence saved to e2e/results/
         ↓
-8. COMMIT, PUSH & MERGE (only after all tests pass)
+8. UPDATE DOCUMENTATION
+   □ Update the concise summary about what you have done
+   □ E2E Testing result
+   □ What blocks you and what did you learned
+   □ Token cost and time cost on each step
+   □ Move task file to docs/tasks/done/
+   □ Update docs/tasks/current.md
+        ↓
+9. COMMIT, PUSH & MERGE (only after all tests pass)
    $ git add <files>
    $ git commit -m "type: description"
    $ git push -u origin <branch>
    $ gh pr create --fill --base main
+   → Wait until all GitHub checks pass before merging to main
    $ gh pr merge --auto --squash
    → If conflicts: resolve locally, push, then merge
    → NEVER push directly to main
@@ -150,12 +159,14 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
 
 - **Always pull origin main before starting a new ticket** - ensures you have the latest code
 - **Complete tickets one by one** - If assigned multiple tickets, finish ALL TDD steps for one ticket before starting the next:
-  1. Write tests, implement, run tests & build
-  2. Chrome E2E testing
-  3. Update documentation
-  4. Create PR and resolve conflicts
-  5. Wait until all GitHub checks pass, then merge to main
-  6. Only then start the next ticket
+  1. Create branch (Step 1)
+  2. Write tests, implement, run tests & build (Steps 2-5)
+  3. Bruno API tests (Step 6)
+  4. Chrome E2E testing (Step 7)
+  5. Update documentation (Step 8)
+  6. Commit, push & create PR (Step 9)
+  7. Wait until all GitHub checks pass, then merge to main
+  8. Only then start the next ticket
 - NEVER commit `docs/api/` to git - contains sensitive API documentation (in .gitignore)
 - NEVER include API keys, secrets, or credentials in any documentation
 - NEVER say you Complete all TDD if you are missing Chrome testing but working on EDITOR ticket
