@@ -8,6 +8,14 @@ import {
   debounce,
   SYNC_DEBOUNCE_DELAY,
 } from '../utils/portal-sync'
+import {
+  isPortalEditable,
+  shouldShowEditWarning,
+  getEditingIndicator,
+  getEditingClasses,
+  getEditWarningMessage,
+} from '../utils/portal-editing'
+import type { Text } from '@blocksuite/store'
 
 /**
  * Display state for portal rendering
@@ -242,12 +250,85 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       text-overflow: ellipsis;
       max-width: 300px;
     }
+
+    /* EDITOR-3404: Editing state styles */
+    .portal-container.portal-editing {
+      border-left-width: 4px;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .portal-container.portal-syncing {
+      border-left-color: #10b981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Rich-text editing area in portal */
+    .portal-editable-content {
+      padding-left: 22px;
+    }
+
+    .portal-editable-content rich-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #374151;
+      outline: none;
+    }
+
+    /* Edit warning banner */
+    .portal-edit-warning {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #fef3c7;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #92400e;
+      margin-bottom: 8px;
+    }
+
+    .portal-edit-warning-icon {
+      flex-shrink: 0;
+    }
+
+    .portal-edit-warning-dismiss {
+      margin-left: auto;
+      padding: 2px 8px;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .portal-edit-warning-dismiss:hover {
+      background: #d97706;
+    }
+
+    /* Edit indicator badge */
+    .portal-edit-indicator {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #dbeafe;
+      color: #1e40af;
+      margin-left: 8px;
+    }
   `
 
   private _isLoading = true
   private _sourceText = ''
   private _sourceDocName: string | null = null
   private _sourceObserver: SourceObserver | null = null
+
+  // EDITOR-3404: Editing state
+  private _isEditing = false
+  private _isSyncing = false
+  private _hasEditedBefore = false
+  private _warningDismissed = false
+  private _sourceYText: Text | null = null
 
   private _debouncedUpdate = debounce((newText: string) => {
     this._sourceText = newText
@@ -280,12 +361,26 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     const statusLabel = getSyncStatusLabel(this.model.syncStatus)
     const statusClass = getSyncStatusClass(this.model.syncStatus)
 
+    // EDITOR-3404: Compute editing indicator and classes
+    const isEditable = isPortalEditable({
+      isCollapsed: this.model.isCollapsed,
+      isOrphaned: this.model.syncStatus === 'orphaned',
+      isLoading: this._isLoading,
+    })
+    const editingIndicator = getEditingIndicator({
+      isEditing: this._isEditing,
+      isSyncing: this._isSyncing,
+      isEditable,
+    })
+    const editingClasses = getEditingClasses(editingIndicator)
+
     const containerClasses = [
       'portal-container',
       displayState === 'loading' ? 'portal-loading' : '',
       displayState === 'orphaned' ? 'portal-orphaned' : '',
       displayState === 'stale' ? 'portal-stale' : '',
       displayState === 'collapsed' ? 'portal-collapsed' : '',
+      ...editingClasses, // EDITOR-3404: Add editing state classes
     ]
       .filter(Boolean)
       .join(' ')
@@ -299,6 +394,9 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
           <span class="portal-source-hint">
             ${this._formatSourceHint()}
           </span>
+          ${this._isEditing
+            ? html`<span class="portal-edit-indicator">Editing source</span>`
+            : nothing}
           ${statusLabel
             ? html`<span class="portal-status ${statusClass === 'portal-stale' ? 'stale' : 'orphaned'}"
                 >${statusLabel}</span
@@ -339,12 +437,87 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
 
       case 'stale':
       case 'expanded':
-        return html`
-          <div class="portal-content">
-            <div class="source-block-content">${this._sourceText}</div>
-          </div>
-        `
+        // EDITOR-3404: Render rich-text for editable portal content
+        return this._renderEditableContent()
     }
+  }
+
+  /**
+   * EDITOR-3404: Render editable content with rich-text bound to source Y.Text
+   */
+  private _renderEditableContent(): TemplateResult {
+    // Check if editing should show warning
+    const showWarning = shouldShowEditWarning({
+      hasEditedBefore: this._hasEditedBefore,
+      warningDismissed: this._warningDismissed,
+    })
+
+    // If we don't have the source Y.Text yet, show text-only content
+    if (!this._sourceYText) {
+      return html`
+        <div class="portal-content">
+          <div class="source-block-content">${this._sourceText}</div>
+        </div>
+      `
+    }
+
+    return html`
+      ${showWarning ? this._renderEditWarning() : nothing}
+      <div class="portal-editable-content">
+        <rich-text
+          .yText=${this._sourceYText.yText}
+          .enableFormat=${true}
+          .enableClipboard=${true}
+          .enableUndoRedo=${true}
+          .readonly=${false}
+          @focus=${this._handleFocus}
+          @blur=${this._handleBlur}
+        ></rich-text>
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3404: Render warning banner for first edit
+   */
+  private _renderEditWarning(): TemplateResult {
+    return html`
+      <div class="portal-edit-warning">
+        <span class="portal-edit-warning-icon">⚠️</span>
+        <span>${getEditWarningMessage()}</span>
+        <button
+          class="portal-edit-warning-dismiss"
+          @click=${this._dismissWarning}
+        >
+          Got it
+        </button>
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3404: Handle focus on rich-text (entering edit mode)
+   */
+  private _handleFocus(): void {
+    this._isEditing = true
+    this._hasEditedBefore = true
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3404: Handle blur on rich-text (leaving edit mode)
+   */
+  private _handleBlur(): void {
+    this._isEditing = false
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3404: Dismiss the edit warning
+   */
+  private _dismissWarning(): void {
+    this._warningDismissed = true
+    this.requestUpdate()
   }
 
   private _toggleCollapse(): void {
@@ -367,11 +540,23 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
 
   /**
    * Sets up the Yjs observer for live sync with the source block
+   * EDITOR-3404: Also captures Y.Text reference for bidirectional editing
    */
   private _setupSourceObserver(): void {
     this._isLoading = true
+    this._sourceYText = null
     this._cleanupSourceObserver()
     this.requestUpdate()
+
+    // EDITOR-3404: Get source block and its Y.Text for editing
+    const sourceBlock = this.doc.getBlock(this.model.sourceBlockId)
+    if (sourceBlock) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sourceModel = sourceBlock.model as any
+      if (sourceModel.text) {
+        this._sourceYText = sourceModel.text as Text
+      }
+    }
 
     // For same-document portals, set up direct Yjs observation
     this._sourceObserver = createSourceObserver({
@@ -384,6 +569,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       },
       onOrphaned: () => {
         this._isLoading = false
+        this._sourceYText = null
         this.doc.updateBlock(this.model, {
           syncStatus: 'orphaned',
         })
@@ -400,6 +586,8 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       this._sourceObserver.dispose()
       this._sourceObserver = null
     }
+    // EDITOR-3404: Clear Y.Text reference on cleanup
+    this._sourceYText = null
   }
 }
 

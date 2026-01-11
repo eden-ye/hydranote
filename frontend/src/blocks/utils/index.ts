@@ -19,3 +19,6 @@ export * from './descriptor-insertion'
 
 // EDITOR-3403: Portal sync utilities
 export * from './portal-sync'
+
+// EDITOR-3404: Portal editing utilities
+export * from './portal-editing'
