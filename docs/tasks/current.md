@@ -1,12 +1,12 @@
 # Current Tasks
 
 **Current Phase**: Phase 2 - Core Editor (Keyboard Behaviors Complete)
-**Last Updated**: 2026-01-10
+**Last Updated**: 2026-01-11
 
 ## Summary
 
-**Completed**: 31 tickets in `done/`
-**Active**: 10 tickets remaining (5 MVP1 + 5 needs_integration)
+**Completed**: 32 tickets in `done/`
+**Active**: 9 tickets remaining (5 MVP1 + 4 needs_integration)
 **Backlog (MVP2)**: 23 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
@@ -20,6 +20,8 @@ All keyboard behavior tickets (EDITOR-3051-3063) are now complete:
 - Cmd+Enter: toggles fold
 
 Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store, login UI, spotlight)
+
+**2026-01-11**: FE-405 (AI Generation Store) - Integrated into App.tsx, Spotlight shows "50 remaining"
 
 ## Infrastructure (Blocking)
 
@@ -45,11 +47,10 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 | INFRA-001 | SAT/PROD Deployment | in_progress | Needs GitHub secrets added |
 | INFRA-501 | CI/CD Duplication Fix | open | Railway auto-deploy + GitHub Actions both running |
 
-### Needs Integration (5) - Code Complete, Not Wired
+### Needs Integration (4) - Code Complete, Not Wired
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
-| FE-405 | AI Generation Store | needs_integration | Hook/store exist, not wired in App.tsx |
 | FE-406 | Focus Mode Navigation | needs_integration | Hook/store exist, not wired in Editor.tsx |
 | FE-407 | Breadcrumb Component | needs_integration | Component exists, not rendered in Editor.tsx |
 | FE-408 | Expand Button Logic | needs_integration | Hook exists, expand button not added to bullets |
@@ -67,8 +68,9 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 ### AUTH (Phase 3) - Backend ✅
 - AUTH-101, 102, 103, 104: All completed with 125 backend tests passing
 
-### FE (Phase 4-5) - Code Complete, Needs Integration
-- FE-405-409: Unit tests pass (219 frontend tests) but NOT integrated into UI
+### FE (Phase 4-5) - Integration In Progress
+- FE-405: ✅ DONE - Integrated into App.tsx (PR #40)
+- FE-406-409: Unit tests pass (223 frontend tests) but NOT integrated into UI
 - See "Needs Integration" section above for specific integration tasks
 
 ## Notes for Claude Code
@@ -76,8 +78,9 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 **Quick Start**:
 1. Phase 2-5 keyboard behaviors and auth are complete
 2. Active MVP1: BUG-EDITOR-3064, EDITOR-307, EDITOR-3056, INFRA-001, INFRA-501
-3. Needs Integration: FE-405-409 (code complete, not wired into UI)
-4. Backlog: 23 MVP2 tickets (ready after MVP1 complete)
+3. Needs Integration: FE-406-409 (code complete, not wired into UI)
+4. FE-405 ✅ DONE - AI Store integrated into Spotlight
+5. Backlog: 23 MVP2 tickets (ready after MVP1 complete)
 
 **Test Commands**:
 ```bash
