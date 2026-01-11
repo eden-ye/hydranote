@@ -129,6 +129,7 @@ For each task/feature, execute this sequence:
    □ Update the concise summary about what you have done
    □ E2E Testing result
    □ What blocks you and what did you learned
+   □ Especially checking why user actively communicated with you in the conversation: If that's due to something you are missing or didn't follow but already listed in CLAUDE.md or user's instructions, to avoid the same/similar problems happen again, create concise AI instruction as bullets to "## YOU MUST" section in CLAUDE_backlog.md
    □ Token cost and time cost on each step
    □ Move task file to docs/tasks/done/
    □ Update docs/tasks/current.md
