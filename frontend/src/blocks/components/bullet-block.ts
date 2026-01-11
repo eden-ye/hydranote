@@ -10,8 +10,27 @@ import {
   asyncSetInlineRange,
   getInlineEditorByModel,
 } from '@blocksuite/affine-components/rich-text'
+// EDITOR-3102: Import color palette for highlight shortcuts
+import { type ColorId, getColorById } from '../utils/color-palette'
+// EDITOR-3102: Import zod and baseTextAttributes for schema extension
+import { z } from 'zod'
+import { baseTextAttributes } from '@blocksuite/inline'
 // EDITOR-3201: Import descriptor utilities
 import { getDescriptorLabel, getDescriptorPrefix } from '../utils/descriptor'
+
+/**
+ * EDITOR-3102: Extended text attributes schema with background and color
+ * Required because baseTextAttributes only includes: bold, italic, underline, strike, code, link
+ * This adds support for text highlighting with background color and contrast text color
+ */
+const hydraTextAttributesSchema = baseTextAttributes.extend({
+  background: z.string().optional().nullable().catch(undefined),
+  color: z.string().optional().nullable().catch(undefined),
+})
+
+// EDITOR-3102: Debug log to verify schema creation
+console.log('[EDITOR-3102] Schema created:', hydraTextAttributesSchema ? 'yes' : 'no')
+console.log('[EDITOR-3102] Schema shape keys:', hydraTextAttributesSchema?.shape ? Object.keys(hydraTextAttributesSchema.shape) : 'no shape')
 
 // Re-export for type checking
 export type { RichText }
@@ -437,54 +456,12 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       opacity: 0.8;
     }
 
-    /* EDITOR-3101: Background highlight colors */
-    /* Yellow highlight - Cmd+Alt+1 */
-    rich-text [data-v-highlight="yellow"] {
-      background-color: #FEF3C7;
-      color: #92400E;
-      padding: 0.1em 0.2em;
-      border-radius: 2px;
-    }
-
-    /* Green highlight - Cmd+Alt+2 */
-    rich-text [data-v-highlight="green"] {
-      background-color: #D1FAE5;
-      color: #065F46;
-      padding: 0.1em 0.2em;
-      border-radius: 2px;
-    }
-
-    /* Blue highlight - Cmd+Alt+3 */
-    rich-text [data-v-highlight="blue"] {
-      background-color: #DBEAFE;
-      color: #1E40AF;
-      padding: 0.1em 0.2em;
-      border-radius: 2px;
-    }
-
-    /* Purple highlight - Cmd+Alt+4 */
-    rich-text [data-v-highlight="purple"] {
-      background-color: #EDE9FE;
-      color: #5B21B6;
-      padding: 0.1em 0.2em;
-      border-radius: 2px;
-    }
-
-    /* Pink highlight - Cmd+Alt+5 */
-    rich-text [data-v-highlight="pink"] {
-      background-color: #FCE7F3;
-      color: #9D174D;
-      padding: 0.1em 0.2em;
-      border-radius: 2px;
-    }
-
-    /* Gray highlight - Cmd+Alt+6 */
-    rich-text [data-v-highlight="gray"] {
-      background-color: #F3F4F6;
-      color: #1F2937;
-      padding: 0.1em 0.2em;
-      border-radius: 2px;
-    }
+    /* EDITOR-3101/3102: Background highlight colors
+     * Note: Colors are now applied via inline styles (background-color, color)
+     * using the background and color attributes with hex values.
+     * This follows the Affine/BlockSuite pattern for text formatting.
+     * CSS rules for data-v-highlight removed - inline styles handle it.
+     */
 
     /* Placeholder styling - rich-text handles this internally */
     rich-text .inline-editor.empty::before {
@@ -579,6 +556,9 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       richText.addEventListener('keydown', (e: Event) => this._handleKeydown(e as KeyboardEvent))
     }
 
+    // EDITOR-3102: Apply highlight styles after first render
+    this._applyHighlightStyles()
+
     // AUTO-FOCUS: If this block was just created and should receive focus
     if (HydraBulletBlock._pendingFocusBlockId === this.model.id) {
       HydraBulletBlock._pendingFocusBlockId = null
@@ -596,6 +576,75 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         console.log('[AutoFocus] focusTextModel error:', e)
       }
     }
+  }
+
+  /**
+   * EDITOR-3102: Called after each update to re-apply highlight styles
+   */
+  override updated(): void {
+    // Re-apply highlight styles after any re-render
+    requestAnimationFrame(() => this._applyHighlightStyles())
+  }
+
+  /**
+   * EDITOR-3102: Apply inline styles for background/color attributes
+   * This is needed because the default renderer doesn't handle custom attributes
+   */
+  private _applyHighlightStyles(): void {
+    const richText = this.querySelector('rich-text') as RichText | null
+    if (!richText?.inlineEditor) return
+
+    const inlineEditor = richText.inlineEditor
+    const yText = inlineEditor.yText
+    if (!yText) return
+
+    // Get the delta which contains text and attributes
+    const delta = yText.toDelta()
+    if (!delta || delta.length === 0) return
+
+    // Find the v-line and v-text elements
+    const vLine = richText.querySelector('v-line')
+    if (!vLine) return
+
+    // Get all v-element and v-text children
+    const vChildren = vLine.querySelectorAll('v-element, v-text')
+
+    // Track position in delta
+    let deltaIndex = 0
+
+    vChildren.forEach((vChild) => {
+      // Get the span inside
+      const span = vChild.querySelector('span')
+      if (!span) return
+
+      // Find matching delta segment
+      if (deltaIndex < delta.length) {
+        const segment = delta[deltaIndex]
+        const attrs = segment?.attributes as { background?: string; color?: string } | undefined
+
+        // Apply or clear background color
+        if (attrs?.background) {
+          span.style.backgroundColor = attrs.background
+          span.style.borderRadius = '2px'
+          span.style.padding = '0 2px'
+          span.style.margin = '0 -2px'
+        } else {
+          span.style.backgroundColor = ''
+          span.style.borderRadius = ''
+          span.style.padding = ''
+          span.style.margin = ''
+        }
+
+        // Apply or clear text color
+        if (attrs?.color) {
+          span.style.color = attrs.color
+        } else {
+          span.style.color = ''
+        }
+      }
+
+      deltaIndex++
+    })
   }
 
   /**
@@ -700,9 +749,110 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           // Let browser handle normal cursor movement
           return false
         },
+
+        // EDITOR-3102: Cmd+Alt+1-6 for highlight colors, Cmd+Alt+0 to clear
+        'Mod-Alt-1': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight('yellow')
+          return true
+        },
+        'Mod-Alt-2': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight('green')
+          return true
+        },
+        'Mod-Alt-3': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight('blue')
+          return true
+        },
+        'Mod-Alt-4': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight('purple')
+          return true
+        },
+        'Mod-Alt-5': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight('pink')
+          return true
+        },
+        'Mod-Alt-6': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight('gray')
+          return true
+        },
+        'Mod-Alt-0': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._applyHighlight(null) // Clear highlight
+          return true
+        },
       },
       { flavour: true }
     )
+  }
+
+  /**
+   * EDITOR-3102: Apply or toggle highlight color on selected text
+   * Uses `background` and `color` attributes with hex values (Affine pattern)
+   * @param colorId - Color to apply, or null to clear
+   */
+  private _applyHighlight(colorId: ColorId | null): void {
+    const richText = this.querySelector('rich-text') as RichText | null
+    if (!richText?.inlineEditor) {
+      console.log('[Highlight] No InlineEditor available')
+      return
+    }
+
+    const inlineEditor = richText.inlineEditor
+    const range = inlineEditor.getInlineRange()
+    if (!range || range.length === 0) {
+      console.log('[Highlight] No selection')
+      return
+    }
+
+    // Get current format at selection to check for toggle behavior
+    const currentFormat = inlineEditor.getFormat(range) as Record<string, unknown>
+    const currentBg = currentFormat.background as string | undefined
+
+    if (colorId === null) {
+      // Clear highlight
+      inlineEditor.formatText(range, { background: null, color: null } as Record<string, unknown>)
+      // EDITOR-3102: Apply styles immediately after format
+      requestAnimationFrame(() => this._applyHighlightStyles())
+      console.log('[Highlight] Cleared')
+      return
+    }
+
+    // Get the color definition with hex values
+    const colorDef = getColorById(colorId)
+    if (!colorDef) {
+      console.log('[Highlight] Invalid color:', colorId)
+      return
+    }
+
+    // Toggle behavior: if same color, remove it
+    if (currentBg === colorDef.backgroundColor) {
+      inlineEditor.formatText(range, { background: null, color: null } as Record<string, unknown>)
+      // EDITOR-3102: Apply styles immediately after format
+      requestAnimationFrame(() => this._applyHighlightStyles())
+      console.log('[Highlight] Toggled off:', colorId)
+    } else {
+      // Apply new color with both background and text color for contrast
+      inlineEditor.formatText(range, {
+        background: colorDef.backgroundColor,
+        color: colorDef.textColor
+      } as Record<string, unknown>)
+      // EDITOR-3102: Apply styles immediately after format
+      requestAnimationFrame(() => this._applyHighlightStyles())
+      console.log('[Highlight] Applied:', colorId, colorDef.backgroundColor)
+    }
   }
 
   /**
@@ -1444,12 +1594,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // EDITOR-3053: Use rich-text component instead of contenteditable
     // This provides InlineEditor which routes input based on selection, not DOM focus
+    // EDITOR-3102: Pass extended schema to enable background/color attributes
     return html`
       <div class="${containerClass}">
         ${this._renderToggle()}
         ${this._renderDescriptorPrefix()}
         <rich-text
           .yText=${this.model.text.yText}
+          .attributesSchema=${hydraTextAttributesSchema}
           .enableFormat=${true}
           .enableClipboard=${true}
           .enableUndoRedo=${true}

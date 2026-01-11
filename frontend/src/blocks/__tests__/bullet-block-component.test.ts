@@ -1,4 +1,52 @@
 import { describe, it, expect, vi } from 'vitest'
+
+// EDITOR-3102: Mock @blocksuite/inline before importing bullet-block
+// This is needed because bullet-block now imports baseTextAttributes for schema extension
+vi.mock('@blocksuite/inline', () => {
+  const mockBaseTextAttributes = {
+    extend: (schema: Record<string, unknown>) => ({
+      ...schema,
+      parse: (value: unknown) => value,
+      safeParse: (value: unknown) => ({ success: true, data: value }),
+    }),
+    parse: (value: unknown) => value,
+    safeParse: (value: unknown) => ({ success: true, data: value }),
+  }
+  return {
+    baseTextAttributes: mockBaseTextAttributes,
+  }
+})
+
+// Mock @blocksuite/block-std since bullet-block extends BlockComponent
+vi.mock('@blocksuite/block-std', () => {
+  class MockBlockComponent extends HTMLElement {
+    model = { children: [], isExpanded: true, text: { toString: () => '' } }
+    doc = { updateBlock: () => {} }
+    renderChildren() { return '' }
+  }
+  return {
+    BlockComponent: MockBlockComponent,
+  }
+})
+
+// Mock @blocksuite/affine-components/rich-text
+vi.mock('@blocksuite/affine-components/rich-text', () => ({
+  focusTextModel: vi.fn(),
+  asyncSetInlineRange: vi.fn(),
+  getInlineEditorByModel: vi.fn(),
+}))
+
+// Mock lit - return minimal implementation
+vi.mock('lit', () => ({
+  html: () => '',
+  css: () => '',
+  nothing: '',
+}))
+
+vi.mock('lit/decorators.js', () => ({
+  customElement: () => () => {},
+}))
+
 import {
   shouldHandleFoldShortcut,
   computeIndentLevel,
@@ -624,6 +672,142 @@ describe('Background Highlight Styling (EDITOR-3101)', () => {
     it('should return null for invalid color', () => {
       const styles = getExpectedHighlightStyles('invalid')
       expect(styles).toBeNull()
+    })
+  })
+})
+
+/**
+ * Tests for color keyboard shortcuts (EDITOR-3102)
+ *
+ * Testing the keyboard shortcut logic for applying highlight colors
+ */
+describe('Color Keyboard Shortcuts (EDITOR-3102)', () => {
+  describe('Shortcut key mapping', () => {
+    /**
+     * Maps keyboard shortcut key to color ID
+     * Cmd+Alt+1-6 for colors, Cmd+Alt+0 to clear
+     */
+    const getColorFromShortcut = (key: string): string | null => {
+      const colorMap: Record<string, string> = {
+        '1': 'yellow',
+        '2': 'green',
+        '3': 'blue',
+        '4': 'purple',
+        '5': 'pink',
+        '6': 'gray',
+        '0': '__clear__',
+      }
+      return colorMap[key] || null
+    }
+
+    it('should map key 1 to yellow', () => {
+      expect(getColorFromShortcut('1')).toBe('yellow')
+    })
+
+    it('should map key 2 to green', () => {
+      expect(getColorFromShortcut('2')).toBe('green')
+    })
+
+    it('should map key 3 to blue', () => {
+      expect(getColorFromShortcut('3')).toBe('blue')
+    })
+
+    it('should map key 4 to purple', () => {
+      expect(getColorFromShortcut('4')).toBe('purple')
+    })
+
+    it('should map key 5 to pink', () => {
+      expect(getColorFromShortcut('5')).toBe('pink')
+    })
+
+    it('should map key 6 to gray', () => {
+      expect(getColorFromShortcut('6')).toBe('gray')
+    })
+
+    it('should map key 0 to clear', () => {
+      expect(getColorFromShortcut('0')).toBe('__clear__')
+    })
+
+    it('should return null for invalid keys', () => {
+      expect(getColorFromShortcut('7')).toBeNull()
+      expect(getColorFromShortcut('8')).toBeNull()
+      expect(getColorFromShortcut('a')).toBeNull()
+    })
+  })
+
+  describe('Toggle behavior', () => {
+    /**
+     * Determines the action to take based on current and new color
+     */
+    const getHighlightAction = (
+      currentColor: string | null,
+      newColor: string
+    ): 'apply' | 'remove' | 'replace' => {
+      if (newColor === '__clear__') {
+        return currentColor ? 'remove' : 'remove'
+      }
+      if (currentColor === newColor) {
+        return 'remove' // Toggle off
+      }
+      if (currentColor) {
+        return 'replace' // Replace existing color
+      }
+      return 'apply' // Apply new color
+    }
+
+    it('should apply when no existing color', () => {
+      expect(getHighlightAction(null, 'yellow')).toBe('apply')
+    })
+
+    it('should remove when same color (toggle)', () => {
+      expect(getHighlightAction('yellow', 'yellow')).toBe('remove')
+    })
+
+    it('should replace when different color', () => {
+      expect(getHighlightAction('yellow', 'green')).toBe('replace')
+    })
+
+    it('should remove when clear shortcut used', () => {
+      expect(getHighlightAction('yellow', '__clear__')).toBe('remove')
+      expect(getHighlightAction(null, '__clear__')).toBe('remove')
+    })
+  })
+
+  describe('Shortcut key detection', () => {
+    /**
+     * Check if keyboard event matches highlight shortcut pattern
+     */
+    const isHighlightShortcut = (event: {
+      key: string
+      metaKey: boolean
+      ctrlKey: boolean
+      altKey: boolean
+    }): boolean => {
+      const hasModifier = event.metaKey || event.ctrlKey
+      const hasAlt = event.altKey
+      const isValidKey = /^[0-6]$/.test(event.key)
+      return hasModifier && hasAlt && isValidKey
+    }
+
+    it('should return true for Cmd+Alt+1 (Mac)', () => {
+      expect(isHighlightShortcut({ key: '1', metaKey: true, ctrlKey: false, altKey: true })).toBe(true)
+    })
+
+    it('should return true for Ctrl+Alt+1 (Windows/Linux)', () => {
+      expect(isHighlightShortcut({ key: '1', metaKey: false, ctrlKey: true, altKey: true })).toBe(true)
+    })
+
+    it('should return false without Alt', () => {
+      expect(isHighlightShortcut({ key: '1', metaKey: true, ctrlKey: false, altKey: false })).toBe(false)
+    })
+
+    it('should return false without Cmd/Ctrl', () => {
+      expect(isHighlightShortcut({ key: '1', metaKey: false, ctrlKey: false, altKey: true })).toBe(false)
+    })
+
+    it('should return false for invalid keys', () => {
+      expect(isHighlightShortcut({ key: '7', metaKey: true, ctrlKey: false, altKey: true })).toBe(false)
+      expect(isHighlightShortcut({ key: 'a', metaKey: true, ctrlKey: false, altKey: true })).toBe(false)
     })
   })
 })

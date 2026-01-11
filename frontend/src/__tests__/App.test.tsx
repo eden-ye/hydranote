@@ -49,6 +49,89 @@ vi.mock('@/stores/auth-store', () => ({
   selectIsAuthenticated: (state: MockAuthState) => state.user !== null && state.session !== null,
 }))
 
+// Mock @blocksuite/store
+vi.mock('@blocksuite/store', () => {
+  class MockDoc {
+    isEmpty = true
+    spaceDoc = {}
+    load(callback?: () => void) {
+      callback?.()
+    }
+    addBlock() {
+      return 'block-id'
+    }
+  }
+
+  return {
+    Schema: class MockSchema { register() { return this } },
+    DocCollection: class MockDocCollection {
+      meta = { initialize: () => {} }
+      createDoc() { return new MockDoc() }
+    },
+    defineBlockSchema: (opts: { flavour: string }) => ({ version: 1, model: { flavour: opts.flavour } }),
+  }
+})
+
+// EDITOR-3102: Mock @blocksuite/inline for baseTextAttributes
+vi.mock('@blocksuite/inline', () => {
+  const baseTextAttributes = {
+    extend: (schema: Record<string, unknown>) => ({
+      ...schema,
+      parse: (value: unknown) => value,
+      safeParse: (value: unknown) => ({ success: true, data: value }),
+    }),
+    parse: (value: unknown) => value,
+    safeParse: (value: unknown) => ({ success: true, data: value }),
+  }
+  return { baseTextAttributes }
+})
+
+// Mock @blocksuite/block-std
+vi.mock('@blocksuite/block-std', () => ({
+  BlockComponent: class MockBlockComponent extends HTMLElement {},
+  FlavourExtension: () => ({}),
+  BlockViewExtension: () => ({}),
+}))
+
+// Mock @blocksuite/affine-components/rich-text
+vi.mock('@blocksuite/affine-components/rich-text', () => ({
+  focusTextModel: vi.fn(),
+  asyncSetInlineRange: vi.fn(),
+  getInlineEditorByModel: vi.fn(),
+}))
+
+// Mock lit for LitElement components
+vi.mock('lit', () => ({
+  html: () => '',
+  css: () => '',
+  nothing: '',
+}))
+
+vi.mock('lit/decorators.js', () => ({
+  customElement: () => () => {},
+}))
+
+// Mock y-indexeddb with a proper class
+vi.mock('y-indexeddb', () => {
+  return {
+    IndexeddbPersistence: class MockIndexeddbPersistence {
+      synced = false
+      on = vi.fn().mockImplementation((event: string, callback: () => void) => {
+        if (event === 'synced') {
+          // Simulate immediate sync
+          setTimeout(() => {
+            this.synced = true
+            callback()
+          }, 0)
+        }
+      })
+      off = vi.fn()
+      destroy = vi.fn()
+    },
+    clearDocument: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
 // Mock @supabase/supabase-js to prevent URL validation error
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
