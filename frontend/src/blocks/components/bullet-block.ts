@@ -342,6 +342,42 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       cursor: default;
     }
 
+    /* FE-408: Expand button styles */
+    .bullet-expand {
+      width: 20px;
+      height: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--affine-icon-color, #888);
+      border-radius: 4px;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 12px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      margin-left: 4px;
+    }
+
+    .bullet-container:hover .bullet-expand {
+      display: flex;
+    }
+
+    .bullet-expand:hover {
+      background-color: var(--affine-hover-color, #f0f0f0);
+      color: var(--affine-primary-color, #1976d2);
+    }
+
+    .bullet-expand.expanding {
+      color: var(--affine-primary-color, #1976d2);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
     .bullet-icon {
       width: 6px;
       height: 6px;
@@ -397,6 +433,55 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     rich-text [data-v-link]:hover {
       text-decoration: underline;
       opacity: 0.8;
+    }
+
+    /* EDITOR-3101: Background highlight colors */
+    /* Yellow highlight - Cmd+Alt+1 */
+    rich-text [data-v-highlight="yellow"] {
+      background-color: #FEF3C7;
+      color: #92400E;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Green highlight - Cmd+Alt+2 */
+    rich-text [data-v-highlight="green"] {
+      background-color: #D1FAE5;
+      color: #065F46;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Blue highlight - Cmd+Alt+3 */
+    rich-text [data-v-highlight="blue"] {
+      background-color: #DBEAFE;
+      color: #1E40AF;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Purple highlight - Cmd+Alt+4 */
+    rich-text [data-v-highlight="purple"] {
+      background-color: #EDE9FE;
+      color: #5B21B6;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Pink highlight - Cmd+Alt+5 */
+    rich-text [data-v-highlight="pink"] {
+      background-color: #FCE7F3;
+      color: #9D174D;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Gray highlight - Cmd+Alt+6 */
+    rich-text [data-v-highlight="gray"] {
+      background-color: #F3F4F6;
+      color: #1F2937;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
     }
 
     /* Placeholder styling - rich-text handles this internally */
@@ -1231,6 +1316,74 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     return super.render()
   }
 
+  /**
+   * FE-408: Dispatch expand request event
+   * This event is handled by the React layer to trigger AI expansion
+   */
+  private _handleExpandClick(e: Event): void {
+    e.stopPropagation()
+
+    // Get context for the expansion
+    const parent = this.model.parent
+    const siblings = parent?.children.filter(c => c.flavour === 'hydra:bullet') || []
+    const siblingTexts = siblings
+      .filter(s => s.id !== this.model.id)
+      .map(s => (s as BulletBlockModel).text?.toString() || '')
+      .filter(text => text.length > 0)
+
+    const parentText = parent?.flavour === 'hydra:bullet'
+      ? (parent as BulletBlockModel).text?.toString() || null
+      : null
+
+    // Dispatch custom event with expand context
+    const event = new CustomEvent('hydra-expand-block', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        blockId: this.model.id,
+        blockText: this.model.text.toString(),
+        siblingTexts,
+        parentText,
+      },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * FE-408: Render expand button with AI icon
+   */
+  private _renderExpandButton(): TemplateResult {
+    return html`
+      <div
+        class="bullet-expand"
+        @click=${this._handleExpandClick}
+        title="Expand with AI (generates child bullets)"
+        role="button"
+        aria-label="Expand this bullet with AI"
+        tabindex="0"
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            this._handleExpandClick(e)
+          }
+        }}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 3v6m0 6v6M3 12h6m6 0h6" />
+        </svg>
+      </div>
+    `
+  }
+
   override renderBlock(): TemplateResult {
     // Additional guard (render() guard should catch this, but being defensive)
     if (!this.model) {
@@ -1252,6 +1405,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           .readonly=${false}
         ></rich-text>
         ${this._renderInlinePreview()}
+        ${this._renderExpandButton()}
       </div>
       <div class="bullet-children ${childrenClass}">
         ${this.std ? this.renderChildren(this.model) : nothing}

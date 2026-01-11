@@ -34,16 +34,19 @@ Create breadcrumb navigation for focus mode. Shows path to currently focused bul
 ## Status
 - **Created**: 2025-01-09
 - **Code Complete**: 2026-01-10
-- **Status**: needs_integration
+- **Integration Complete**: 2026-01-11
+- **Status**: done
 - **Phase**: 5
 
-## Integration Required
+## Integration Completed
 
-Component is implemented but NOT rendered in Editor.tsx.
+Component integrated into Editor.tsx.
 
-**Integration tasks:**
-- [ ] Import `Breadcrumb` in Editor.tsx
-- [ ] Connect to `useFocusMode` hook for focus state
-- [ ] Build ancestor path from block tree
-- [ ] Wire `onNavigate` to change focus target
-- [ ] Wire `onExitFocusMode` to exit focus mode
+**Completed integration tasks:**
+- [x] Import `Breadcrumb` in Editor.tsx
+- [x] Connect to `useFocusMode` hook for focus state
+- [x] Build ancestor path from block tree
+- [x] Wire `onNavigate` to change focus target
+- [x] Wire `onExitFocusMode` to exit focus mode
+
+**Integration Commit**: `cdf1b0c` feat(fe): FE-406-409 - Integrate focus mode, breadcrumb, expand button, ghost questions (#42)

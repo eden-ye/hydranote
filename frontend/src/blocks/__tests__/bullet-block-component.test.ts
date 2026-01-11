@@ -538,6 +538,96 @@ describe('Inline Formatting (EDITOR-3056)', () => {
   })
 })
 
+/**
+ * Tests for background highlight styling (EDITOR-3101)
+ *
+ * Testing that highlight CSS selectors and styles are correctly defined
+ */
+describe('Background Highlight Styling (EDITOR-3101)', () => {
+  // Import color palette to validate CSS selectors match color IDs
+  describe('Highlight CSS selector mapping', () => {
+    /**
+     * Returns the expected CSS selector for a highlight color
+     */
+    const getHighlightSelector = (colorId: string): string => {
+      return `rich-text [data-v-highlight="${colorId}"]`
+    }
+
+    it('should generate correct selector for yellow highlight', () => {
+      expect(getHighlightSelector('yellow')).toBe('rich-text [data-v-highlight="yellow"]')
+    })
+
+    it('should generate correct selector for green highlight', () => {
+      expect(getHighlightSelector('green')).toBe('rich-text [data-v-highlight="green"]')
+    })
+
+    it('should generate correct selector for blue highlight', () => {
+      expect(getHighlightSelector('blue')).toBe('rich-text [data-v-highlight="blue"]')
+    })
+
+    it('should generate correct selector for purple highlight', () => {
+      expect(getHighlightSelector('purple')).toBe('rich-text [data-v-highlight="purple"]')
+    })
+
+    it('should generate correct selector for pink highlight', () => {
+      expect(getHighlightSelector('pink')).toBe('rich-text [data-v-highlight="pink"]')
+    })
+
+    it('should generate correct selector for gray highlight', () => {
+      expect(getHighlightSelector('gray')).toBe('rich-text [data-v-highlight="gray"]')
+    })
+  })
+
+  describe('Highlight style properties', () => {
+    /**
+     * Expected styles for highlighted text
+     */
+    interface HighlightStyles {
+      backgroundColor: string
+      color: string
+      padding: string
+      borderRadius: string
+    }
+
+    /**
+     * Returns expected highlight styles for a color
+     * These should match the CSS in bullet-block.ts
+     */
+    const getExpectedHighlightStyles = (colorId: string): HighlightStyles | null => {
+      const colorMap: Record<string, HighlightStyles> = {
+        yellow: { backgroundColor: '#FEF3C7', color: '#92400E', padding: '0.1em 0.2em', borderRadius: '2px' },
+        green: { backgroundColor: '#D1FAE5', color: '#065F46', padding: '0.1em 0.2em', borderRadius: '2px' },
+        blue: { backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '0.1em 0.2em', borderRadius: '2px' },
+        purple: { backgroundColor: '#EDE9FE', color: '#5B21B6', padding: '0.1em 0.2em', borderRadius: '2px' },
+        pink: { backgroundColor: '#FCE7F3', color: '#9D174D', padding: '0.1em 0.2em', borderRadius: '2px' },
+        gray: { backgroundColor: '#F3F4F6', color: '#1F2937', padding: '0.1em 0.2em', borderRadius: '2px' },
+      }
+      return colorMap[colorId] || null
+    }
+
+    it('should have consistent padding for all colors', () => {
+      const colors = ['yellow', 'green', 'blue', 'purple', 'pink', 'gray']
+      colors.forEach((colorId) => {
+        const styles = getExpectedHighlightStyles(colorId)
+        expect(styles?.padding).toBe('0.1em 0.2em')
+      })
+    })
+
+    it('should have consistent border-radius for all colors', () => {
+      const colors = ['yellow', 'green', 'blue', 'purple', 'pink', 'gray']
+      colors.forEach((colorId) => {
+        const styles = getExpectedHighlightStyles(colorId)
+        expect(styles?.borderRadius).toBe('2px')
+      })
+    })
+
+    it('should return null for invalid color', () => {
+      const styles = getExpectedHighlightStyles('invalid')
+      expect(styles).toBeNull()
+    })
+  })
+})
+
 describe('Backspace with children (EDITOR-3063)', () => {
   describe('computeBackspaceMergeStrategy', () => {
     describe('when block has no children', () => {

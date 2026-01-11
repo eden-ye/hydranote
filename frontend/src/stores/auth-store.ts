@@ -57,6 +57,18 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => ({
 }))
 
 /**
+ * Selector for getting the access token from session
+ */
+export const selectAccessToken = (state: AuthState): string | null =>
+  state.session?.access_token ?? null
+
+/**
+ * Selector for checking if user is authenticated
+ */
+export const selectIsAuthenticated = (state: AuthState): boolean =>
+  state.user !== null && state.session !== null
+
+/**
  * Initialize auth by getting current session and subscribing to changes.
  * Call this once at app startup (e.g., in App.tsx or main.tsx).
  *

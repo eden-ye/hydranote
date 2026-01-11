@@ -1,15 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { AffineSchemas, PageEditorBlockSpecs } from '@blocksuite/blocks'
 import { effects as registerBlocksEffects } from '@blocksuite/blocks/effects'
 import { AffineEditorContainer } from '@blocksuite/presets'
 import { effects as registerPresetsEffects } from '@blocksuite/presets/effects'
-import { Schema, DocCollection } from '@blocksuite/store'
+import { Schema, DocCollection, Doc, type BlockModel } from '@blocksuite/store'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import '@toeverything/theme/style.css'
 
 // Import Hydra custom blocks
 import { BulletBlockSchema, BulletBlockSpec } from '@/blocks'
 import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
+// FE-406: Focus mode navigation
+import { useFocusMode } from '@/hooks/useFocusMode'
+// FE-407: Breadcrumb navigation
+import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
+// FE-409: Ghost questions
+import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
+// FE-408: Expand block hook
+import { useExpandBlock, type ExpandBlockContext } from '@/hooks/useExpandBlock'
+// Auth store for token
+import { useAuthStore, selectAccessToken } from '@/stores/auth-store'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -69,11 +79,32 @@ function ErrorIndicator({ error }: { error: Error }) {
   )
 }
 
+/**
+ * Build breadcrumb items from root to the given block
+ * FE-407: Traverses up the tree to build ancestor path
+ */
+function buildBreadcrumbPath(doc: Doc, blockId: string): BreadcrumbItem[] {
+  const items: BreadcrumbItem[] = []
+  let currentBlock = doc.getBlockById(blockId)
+
+  while (currentBlock) {
+    // Only include hydra:bullet blocks in the breadcrumb
+    if (currentBlock.flavour === 'hydra:bullet') {
+      const text = (currentBlock as BlockModel & { text?: { toString(): string } }).text?.toString() || 'Untitled'
+      items.unshift({ id: currentBlock.id, text })
+    }
+    currentBlock = currentBlock.parent
+  }
+
+  return items
+}
+
 export default function Editor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<AffineEditorContainer | null>(null)
   const collectionRef = useRef<DocCollection | null>(null)
   const persistenceRef = useRef<IndexeddbPersistence | null>(null)
+  const docRef = useRef<Doc | null>(null)
 
   const [persistenceState, setPersistenceState] = useState<{
     status: PersistenceStatus
@@ -82,6 +113,83 @@ export default function Editor() {
     status: 'loading',
     error: null,
   })
+
+  // FE-406: Focus mode state
+  const { isInFocusMode, focusedBlockId, enterFocusMode, exitFocusMode } = useFocusMode()
+
+  // FE-407: Breadcrumb items (computed when focusedBlockId changes)
+  const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([])
+
+  // FE-409: Ghost questions state
+  const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
+  const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+
+  // Update breadcrumb when focus changes
+  useEffect(() => {
+    if (isInFocusMode && focusedBlockId && docRef.current) {
+      const items = buildBreadcrumbPath(docRef.current, focusedBlockId)
+      setBreadcrumbItems(items)
+
+      // FE-409: Generate placeholder ghost questions when entering focus mode
+      // In production, these would come from AI generation
+      setIsLoadingQuestions(true)
+      setDismissedQuestions(new Set())
+
+      // Simulate AI question generation delay
+      setTimeout(() => {
+        setGhostQuestions([
+          { id: 'q1', text: 'What are the key implications of this point?' },
+          { id: 'q2', text: 'How does this relate to the broader context?' },
+          { id: 'q3', text: 'What evidence supports this idea?' },
+        ])
+        setIsLoadingQuestions(false)
+      }, 500)
+    } else {
+      setBreadcrumbItems([])
+      setGhostQuestions([])
+    }
+  }, [isInFocusMode, focusedBlockId])
+
+  // FE-407: Handle breadcrumb navigation
+  const handleBreadcrumbNavigate = useCallback((id: string) => {
+    enterFocusMode(id)
+  }, [enterFocusMode])
+
+  // FE-409: Handle ghost question click
+  const handleQuestionClick = useCallback((question: GhostQuestion) => {
+    // In production, this would trigger AI expansion
+    console.log('[GhostQuestions] Question clicked:', question.text)
+  }, [])
+
+  // FE-409: Handle ghost question dismiss
+  const handleQuestionDismiss = useCallback((questionId: string) => {
+    setDismissedQuestions(prev => new Set([...prev, questionId]))
+  }, [])
+
+  // FE-408: Expand block hook
+  // Note: isExpanding and streamedText will be used for UI feedback in future iterations
+  const { isExpanding: _isExpanding, streamedText: _streamedText, expandBlock, canExpand } = useExpandBlock()
+  const accessToken = useAuthStore(selectAccessToken)
+
+  // FE-408: Handle expand event from bullet blocks
+  const handleExpandEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<ExpandBlockContext>
+    const context = customEvent.detail
+
+    if (!accessToken) {
+      console.warn('[Expand] No access token available')
+      return
+    }
+
+    if (!canExpand) {
+      console.warn('[Expand] Cannot expand - rate limit reached or expansion in progress')
+      return
+    }
+
+    console.log('[Expand] Expanding block:', context.blockId)
+    expandBlock(context, accessToken)
+  }, [accessToken, canExpand, expandBlock])
 
   useEffect(() => {
     const container = containerRef.current
@@ -109,6 +217,7 @@ export default function Editor() {
 
     // Create a new document
     const doc = collection.createDoc()
+    docRef.current = doc
 
     // Set up IndexedDB persistence BEFORE loading
     // This allows y-indexeddb to hydrate the doc from stored state
@@ -158,8 +267,27 @@ export default function Editor() {
     // Mount the editor to the container
     container.appendChild(editor)
 
+    // FE-406: Add double-click handler for focus mode
+    const handleDoubleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      // Find the closest hydra-bullet-block element
+      const bulletBlock = target.closest('hydra-bullet-block')
+      if (bulletBlock) {
+        const blockId = bulletBlock.getAttribute('data-block-id')
+        if (blockId) {
+          enterFocusMode(blockId)
+        }
+      }
+    }
+    container.addEventListener('dblclick', handleDoubleClick)
+
+    // FE-408: Add expand event listener
+    container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
+
     // Cleanup function
     return () => {
+      container.removeEventListener('dblclick', handleDoubleClick)
+      container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
       // Destroy persistence first
       if (persistenceRef.current) {
         persistenceRef.current.destroy()
@@ -171,8 +299,9 @@ export default function Editor() {
         editorRef.current = null
       }
       collectionRef.current = null
+      docRef.current = null
     }
-  }, [])
+  }, [enterFocusMode, handleExpandEvent])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -208,16 +337,52 @@ export default function Editor() {
     )
   }
 
+  // FE-409: Filter out dismissed questions
+  const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
+
   return (
     <div
-      ref={containerRef}
-      data-testid="editor-container"
-      data-persistence-status={persistenceState.status}
+      data-testid="editor-wrapper"
       style={{
         width: '100%',
         height: '100%',
         minHeight: '500px',
+        display: 'flex',
+        flexDirection: 'column',
       }}
-    />
+    >
+      {/* FE-407: Show breadcrumb in focus mode */}
+      {isInFocusMode && breadcrumbItems.length > 0 && (
+        <Breadcrumb
+          items={breadcrumbItems}
+          onNavigate={handleBreadcrumbNavigate}
+          onExitFocusMode={exitFocusMode}
+        />
+      )}
+
+      {/* Editor container */}
+      <div
+        ref={containerRef}
+        data-testid="editor-container"
+        data-persistence-status={persistenceState.status}
+        data-focus-mode={isInFocusMode ? 'true' : 'false'}
+        data-focused-block-id={focusedBlockId || undefined}
+        style={{
+          flex: 1,
+          width: '100%',
+          minHeight: '400px',
+        }}
+      />
+
+      {/* FE-409: Show ghost questions in focus mode */}
+      {isInFocusMode && (visibleQuestions.length > 0 || isLoadingQuestions) && (
+        <GhostQuestions
+          questions={visibleQuestions}
+          isLoading={isLoadingQuestions}
+          onQuestionClick={handleQuestionClick}
+          onDismiss={handleQuestionDismiss}
+        />
+      )}
+    </div>
   )
 }

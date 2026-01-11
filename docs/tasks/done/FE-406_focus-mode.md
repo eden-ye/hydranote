@@ -35,15 +35,18 @@ Implement focus mode that zooms into a single bullet and its children. Reduces c
 ## Status
 - **Created**: 2025-01-09
 - **Code Complete**: 2026-01-10
-- **Status**: needs_integration
+- **Integration Complete**: 2026-01-11
+- **Status**: done
 - **Phase**: 5
 
-## Integration Required
+## Integration Completed
 
-Hook and store are implemented but NOT wired into Editor.tsx.
+Hook and store integrated into Editor.tsx.
 
-**Integration tasks:**
-- [ ] Import `useFocusMode` in Editor.tsx
-- [ ] Add double-click handler on bullets to enter focus mode
-- [ ] Filter visible blocks based on `focusedBlockId`
-- [ ] Render Breadcrumb when in focus mode (FE-407)
+**Completed integration tasks:**
+- [x] Import `useFocusMode` in Editor.tsx
+- [x] Add double-click handler on bullets to enter focus mode
+- [x] Filter visible blocks based on `focusedBlockId`
+- [x] Render Breadcrumb when in focus mode (FE-407)
+
+**Integration Commit**: `cdf1b0c` feat(fe): FE-406-409 - Integrate focus mode, breadcrumb, expand button, ghost questions (#42)

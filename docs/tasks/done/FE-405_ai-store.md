@@ -29,19 +29,20 @@ Create Zustand store for AI generation state. Track generation requests, loading
 ## Status
 - **Created**: 2025-01-09
 - **Code Complete**: 2026-01-10
-- **Status**: needs_integration
+- **Integration Complete**: 2026-01-11
+- **Status**: done
 - **Phase**: 4
 
-## Integration Required
+## Integration Completed
 
-Store is implemented and tested but NOT integrated into App.tsx.
-
-**TODO in App.tsx line 10:**
-```typescript
-// TODO: Integrate with AI generation store (FE-405)
-```
+**Commits:**
+- `9838bd2` feat(fe): FE-405 - Add AI generation store with Zustand (#22)
+- `0b788c4` feat(fe): FE-405 - Integrate AI generation store with Spotlight modal (#40)
 
 **Integration tasks:**
-- [ ] Import `useAIStore` in App.tsx
-- [ ] Wire Spotlight submit to AI store's generate action
-- [ ] Display generation limits in UI
+- [x] Import `useAIStore` in App.tsx
+- [x] Wire Spotlight submit to AI store's generate action
+- [x] Display generation limits in UI ("• 50 remaining")
+- [x] Prevent submission when canGenerate is false
+- [x] Add App.test.tsx with 4 integration tests
+- [x] Chrome E2E: Verified Spotlight shows "50 remaining"

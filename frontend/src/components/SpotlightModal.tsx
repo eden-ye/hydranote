@@ -11,6 +11,8 @@ interface SpotlightModalProps {
   onClose: () => void
   onSubmit: (query: string) => void
   isLoading?: boolean
+  generationsRemaining?: number
+  canGenerate?: boolean
 }
 
 export function SpotlightModal({
@@ -18,6 +20,8 @@ export function SpotlightModal({
   onClose,
   onSubmit,
   isLoading = false,
+  generationsRemaining,
+  canGenerate = true,
 }: SpotlightModalProps) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,6 +50,7 @@ export function SpotlightModal({
   const handleSubmit = () => {
     const trimmedQuery = query.trim()
     if (!trimmedQuery) return
+    if (!canGenerate) return
 
     onSubmit(trimmedQuery)
     setQuery('')
@@ -151,7 +156,12 @@ export function SpotlightModal({
             justifyContent: 'space-between',
           }}
         >
-          <span>Press Enter to generate</span>
+          <span>
+            {canGenerate ? 'Press Enter to generate' : 'Generation limit reached'}
+            {generationsRemaining !== undefined && (
+              <span data-testid="generations-remaining"> • {generationsRemaining} remaining</span>
+            )}
+          </span>
           <span>Esc to close</span>
         </div>
       </div>

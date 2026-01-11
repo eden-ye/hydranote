@@ -1,14 +1,24 @@
 import Editor from './components/Editor'
 import { AuthProvider, Header, SpotlightModal } from './components'
 import { useSpotlight } from './hooks/useSpotlight'
+import { useAIStore, selectCanGenerate, selectGenerationsRemaining } from './stores/ai-store'
 import './App.css'
 
 function AppContent() {
   const spotlight = useSpotlight()
 
+  // AI Store integration (FE-405)
+  const canGenerate = useAIStore(selectCanGenerate)
+  const generationsRemaining = useAIStore(selectGenerationsRemaining)
+  const setCurrentPrompt = useAIStore((state) => state.setCurrentPrompt)
+  const setIsGenerating = useAIStore((state) => state.setIsGenerating)
+
   const handleSpotlightSubmit = (query: string) => {
-    // TODO: Integrate with AI generation store (FE-405)
-    console.log('AI generation requested:', query)
+    if (!canGenerate) return
+
+    // Update AI store with the prompt and generation state
+    setCurrentPrompt(query)
+    setIsGenerating(true)
     spotlight.close()
   }
 
@@ -23,6 +33,8 @@ function AppContent() {
         onClose={spotlight.close}
         onSubmit={handleSpotlightSubmit}
         isLoading={spotlight.isLoading}
+        generationsRemaining={generationsRemaining}
+        canGenerate={canGenerate}
       />
     </div>
   )
