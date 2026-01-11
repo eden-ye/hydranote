@@ -151,8 +151,9 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
 - NEVER commit `docs/api/` to git - contains sensitive API documentation (in .gitignore)
 - NEVER include API keys, secrets, or credentials in any documentation
 - NEVER say you Complete all TDD if you are missing Chrome testing but working on EDITOR ticket
-- NEVEV use `git reset --hard <commit_number>`, remember you have your peers work on other file
+- NEVER use `git reset --hard <commit_number>`, remember you have your peers work on other file
 - Do `rm -rf node_modules/.vite` Rerun the frontend in local when you have updated the code and using Chrome to validate it
+- **For unfamiliar framework features (BlockSuite, etc.), do a 5-minute spike test in the browser console BEFORE writing tests and implementation.** This prevents wasted hours discovering architectural limitations after full implementation. Example: try `formatText({background: '#FEF3C7'})` in console first to verify it renders, before writing 300 lines of code.
 
 ## Documentation Requirements
 

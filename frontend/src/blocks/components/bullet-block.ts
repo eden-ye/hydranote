@@ -15,6 +15,8 @@ import { type ColorId, getColorById } from '../utils/color-palette'
 // EDITOR-3102: Import zod and baseTextAttributes for schema extension
 import { z } from 'zod'
 import { baseTextAttributes } from '@blocksuite/inline'
+// EDITOR-3201: Import descriptor utilities
+import { getDescriptorLabel, getDescriptorPrefix } from '../utils/descriptor'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -104,6 +106,49 @@ export function shouldHandleFoldShortcut(event: {
   const isCorrectKey = event.key === '.'
   const hasModifier = event.metaKey || event.ctrlKey
   return isCorrectKey && hasModifier
+}
+
+// ============================================================================
+// EDITOR-3057: Undo/Redo Support - Pure Logic Functions
+// ============================================================================
+
+/**
+ * Check if keyboard event is the undo shortcut (Cmd+Z / Ctrl+Z)
+ * Note: Cmd+Shift+Z is redo, not undo
+ */
+export function shouldHandleUndoShortcut(event: {
+  key: string
+  metaKey: boolean
+  ctrlKey: boolean
+  shiftKey: boolean
+}): boolean {
+  const isCorrectKey = event.key === 'z' || event.key === 'Z'
+  const hasModifier = event.metaKey || event.ctrlKey
+  const noShift = !event.shiftKey
+  return isCorrectKey && hasModifier && noShift
+}
+
+/**
+ * Check if keyboard event is the redo shortcut (Cmd+Shift+Z / Ctrl+Shift+Z)
+ */
+export function shouldHandleRedoShortcut(event: {
+  key: string
+  metaKey: boolean
+  ctrlKey: boolean
+  shiftKey: boolean
+}): boolean {
+  const isCorrectKey = event.key === 'z' || event.key === 'Z'
+  const hasModifier = event.metaKey || event.ctrlKey
+  const hasShift = event.shiftKey
+  return isCorrectKey && hasModifier && hasShift
+}
+
+/**
+ * Returns whether undo/redo is enabled for the rich-text component.
+ * EDITOR-3057: Changed from false to true to enable undo/redo for inline formatting.
+ */
+export function isUndoRedoEnabled(): boolean {
+  return true
 }
 
 // ============================================================================
@@ -444,6 +489,29 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     .bullet-children.collapsed {
       display: none;
+    }
+
+    /* EDITOR-3201: Descriptor block styles */
+    .descriptor-prefix {
+      color: var(--affine-text-secondary-color, #6B7280);
+      font-weight: 600;
+      font-size: 0.95em;
+      user-select: none;
+      flex-shrink: 0;
+      margin-right: 4px;
+    }
+
+    .descriptor-label {
+      color: var(--affine-text-secondary-color, #6B7280);
+      font-weight: 500;
+      font-size: 0.95em;
+      user-select: none;
+      flex-shrink: 0;
+      margin-right: 8px;
+    }
+
+    .bullet-container.descriptor-block .bullet-toggle {
+      color: var(--affine-text-secondary-color, #6B7280);
     }
 
     .inline-preview {
@@ -1491,6 +1559,27 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  /**
+   * EDITOR-3201: Render descriptor prefix and label
+   * Shows "| What", "| Why", etc. for descriptor blocks
+   */
+  private _renderDescriptorPrefix(): TemplateResult | typeof nothing {
+    if (!this.model.isDescriptor || !this.model.descriptorType) {
+      return nothing
+    }
+
+    const prefix = getDescriptorPrefix()
+    const label = getDescriptorLabel(
+      this.model.descriptorType,
+      this.model.descriptorLabel
+    )
+
+    return html`
+      <span class="descriptor-prefix">${prefix}</span>
+      <span class="descriptor-label">${label}</span>
+    `
+  }
+
   override renderBlock(): TemplateResult {
     // Additional guard (render() guard should catch this, but being defensive)
     if (!this.model) {
@@ -1498,19 +1587,24 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
+    // EDITOR-3201: Add descriptor class for styling
+    const containerClass = this.model.isDescriptor
+      ? 'bullet-container descriptor-block'
+      : 'bullet-container'
 
     // EDITOR-3053: Use rich-text component instead of contenteditable
     // This provides InlineEditor which routes input based on selection, not DOM focus
     // EDITOR-3102: Pass extended schema to enable background/color attributes
     return html`
-      <div class="bullet-container">
+      <div class="${containerClass}">
         ${this._renderToggle()}
+        ${this._renderDescriptorPrefix()}
         <rich-text
           .yText=${this.model.text.yText}
           .attributesSchema=${hydraTextAttributesSchema}
           .enableFormat=${true}
           .enableClipboard=${true}
-          .enableUndoRedo=${false}
+          .enableUndoRedo=${true}
           .readonly=${false}
         ></rich-text>
         ${this._renderInlinePreview()}
