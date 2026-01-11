@@ -530,6 +530,42 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       color: var(--affine-text-secondary-color, #6B7280);
     }
 
+    /* EDITOR-3303: Visibility toggle icon styles */
+    .visibility-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      color: var(--affine-icon-color, #888);
+      border-radius: 4px;
+      flex-shrink: 0;
+      user-select: none;
+      margin-left: auto;
+      margin-right: 4px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .bullet-container.descriptor-block:hover .visibility-toggle,
+    .bullet-container.descriptor-block:focus-within .visibility-toggle {
+      display: flex;
+    }
+
+    .visibility-toggle:hover {
+      background-color: var(--affine-hover-color, #f0f0f0);
+      color: var(--affine-text-primary-color, #333);
+    }
+
+    .visibility-toggle.hidden {
+      color: var(--affine-text-disable-color, #c0c0c0);
+    }
+
+    .visibility-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+
     .inline-preview {
       color: var(--affine-text-secondary-color, #666);
       font-size: 0.9em;
@@ -1411,6 +1447,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * Compute the inline preview text from children.
    * Returns truncated preview of child content when collapsed.
    * EDITOR-3301: Use cheatsheet format when children include descriptors.
+   * EDITOR-3303: Include visibility flag for filtering.
    */
   private _getInlinePreview(): string {
     if (this.model.isExpanded || !this._hasChildren) {
@@ -1418,12 +1455,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     // EDITOR-3301: Convert children to DescriptorChild format for cheatsheet
+    // EDITOR-3303: Include cheatsheetVisible for filtering
     const descriptorChildren: DescriptorChild[] = this.model.children.map((child) => {
       const bulletChild = child as BulletBlockModel
       return {
         text: bulletChild.text?.toString() ?? '',
         descriptorType: bulletChild.isDescriptor ? bulletChild.descriptorType : null,
         isDescriptor: bulletChild.isDescriptor ?? false,
+        cheatsheetVisible: bulletChild.cheatsheetVisible,
       }
     })
 
@@ -1446,6 +1485,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3302: Get cheatsheet segments with color info for descriptor children.
+   * EDITOR-3303: Include visibility flag for filtering.
    * Returns null if not collapsed, no children, or no descriptors.
    */
   private _getCheatsheetSegments(): CheatsheetSegment[] | null {
@@ -1454,12 +1494,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     // Convert children to DescriptorChild format
+    // EDITOR-3303: Include cheatsheetVisible for filtering
     const descriptorChildren: DescriptorChild[] = this.model.children.map((child) => {
       const bulletChild = child as BulletBlockModel
       return {
         text: bulletChild.text?.toString() ?? '',
         descriptorType: bulletChild.isDescriptor ? bulletChild.descriptorType : null,
         isDescriptor: bulletChild.isDescriptor ?? false,
+        cheatsheetVisible: bulletChild.cheatsheetVisible,
       }
     })
 
@@ -1907,6 +1949,63 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  /**
+   * EDITOR-3303: Toggle visibility of this descriptor in cheatsheet
+   */
+  private _toggleCheatsheetVisibility(e: Event): void {
+    e.stopPropagation()
+
+    this.doc.updateBlock(this.model, {
+      cheatsheetVisible: !this.model.cheatsheetVisible,
+    })
+  }
+
+  /**
+   * EDITOR-3303: Render visibility toggle icon for descriptor blocks
+   * Shows eye icon (visible) or eye-off icon (hidden)
+   * Only visible on hover or when focused
+   */
+  private _renderVisibilityToggle(): TemplateResult | typeof nothing {
+    if (!this.model.isDescriptor) {
+      return nothing
+    }
+
+    const isVisible = this.model.cheatsheetVisible !== false
+    const toggleClass = isVisible ? 'visibility-toggle' : 'visibility-toggle hidden'
+    const title = isVisible ? 'Hide from cheatsheet' : 'Show in cheatsheet'
+    const ariaLabel = isVisible ? 'Hide this descriptor from cheatsheet' : 'Show this descriptor in cheatsheet'
+
+    // Eye icon (visible) or Eye-off icon (hidden)
+    const icon = isVisible
+      ? html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>`
+      : html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>`
+
+    return html`
+      <div
+        class="${toggleClass}"
+        @click=${this._toggleCheatsheetVisibility}
+        title=${title}
+        role="button"
+        aria-label=${ariaLabel}
+        tabindex="0"
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            this._toggleCheatsheetVisibility(e)
+          }
+        }}
+      >
+        ${icon}
+      </div>
+    `
+  }
+
   override renderBlock(): TemplateResult {
     // Additional guard (render() guard should catch this, but being defensive)
     if (!this.model) {
@@ -1923,6 +2022,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // This provides InlineEditor which routes input based on selection, not DOM focus
     // EDITOR-3102: Pass extended schema to enable background/color attributes
     // EDITOR-3103: Add contextmenu handler for color picker
+    // EDITOR-3303: Add visibility toggle for descriptor blocks
     return html`
       <div class="${containerClass}">
         ${this._renderToggle()}
@@ -1937,6 +2037,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           @contextmenu=${this._handleContextMenu}
         ></rich-text>
         ${this._renderInlinePreview()}
+        ${this._renderVisibilityToggle()}
         ${this._renderExpandButton()}
       </div>
       <div class="bullet-children ${childrenClass}">
