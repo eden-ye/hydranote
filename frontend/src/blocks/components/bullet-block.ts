@@ -11,7 +11,8 @@ import {
   getInlineEditorByModel,
 } from '@blocksuite/affine-components/rich-text'
 // EDITOR-3102: Import color palette for highlight shortcuts
-import { type ColorId, getColorById } from '../utils/color-palette'
+// EDITOR-3103: Also import COLOR_PALETTE for context menu
+import { type ColorId, getColorById, COLOR_PALETTE } from '../utils/color-palette'
 // EDITOR-3102: Import zod and baseTextAttributes for schema extension
 import { z } from 'zod'
 import { baseTextAttributes } from '@blocksuite/inline'
@@ -322,6 +323,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    */
   static _pendingFocusBlockId: string | null = null
 
+  /**
+   * EDITOR-3103: Context menu state for color picker
+   */
+  private _contextMenuVisible = false
+  private _contextMenuX = 0
+  private _contextMenuY = 0
+
   static override styles = css`
     :host {
       display: block;
@@ -523,6 +531,78 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 50%;
+    }
+
+    /* EDITOR-3103: Context menu color picker styles */
+    .color-context-menu {
+      position: fixed;
+      z-index: 1000;
+      background: white;
+      border: 1px solid var(--affine-border-color, #e0e0e0);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 160px;
+    }
+
+    .color-menu-label {
+      font-size: 11px;
+      color: var(--affine-text-secondary-color, #666);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      margin-bottom: 4px;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 6px;
+      padding: 4px 8px;
+    }
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.1s ease, border-color 0.1s ease;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.15);
+      border-color: var(--affine-primary-color, #1976d2);
+    }
+
+    .color-menu-divider {
+      height: 1px;
+      background: var(--affine-border-color, #e0e0e0);
+      margin: 4px 0;
+    }
+
+    .color-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--affine-text-primary-color, #333);
+      transition: background-color 0.15s ease;
+    }
+
+    .color-menu-item:hover {
+      background: var(--affine-hover-color, #f5f5f5);
+    }
+
+    .color-menu-item svg {
+      width: 16px;
+      height: 16px;
+      color: var(--affine-icon-color, #888);
     }
   `
 
@@ -853,6 +933,124 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       requestAnimationFrame(() => this._applyHighlightStyles())
       console.log('[Highlight] Applied:', colorId, colorDef.backgroundColor)
     }
+  }
+
+  // ============================================================================
+  // EDITOR-3103: Context Menu Color Picker
+  // ============================================================================
+
+  /**
+   * Show the context menu at the specified position
+   */
+  private _showContextMenu(x: number, y: number): void {
+    this._contextMenuX = x
+    this._contextMenuY = y
+    this._contextMenuVisible = true
+    this.requestUpdate()
+
+    // Add global listeners for dismissing
+    document.addEventListener('click', this._handleDocumentClick)
+    document.addEventListener('keydown', this._handleDocumentKeydown)
+  }
+
+  /**
+   * Hide the context menu
+   */
+  private _hideContextMenu(): void {
+    this._contextMenuVisible = false
+    this.requestUpdate()
+
+    // Remove global listeners
+    document.removeEventListener('click', this._handleDocumentClick)
+    document.removeEventListener('keydown', this._handleDocumentKeydown)
+  }
+
+  /**
+   * Handle contextmenu event on rich-text area
+   */
+  private _handleContextMenu = (e: MouseEvent): void => {
+    // Only show custom menu when text is selected
+    const richText = this.querySelector('rich-text') as RichText | null
+    if (!richText?.inlineEditor) return
+
+    const range = richText.inlineEditor.getInlineRange()
+    if (!range || range.length === 0) {
+      // No selection, use browser default
+      return
+    }
+
+    // Prevent browser context menu
+    e.preventDefault()
+
+    // Show our custom menu at cursor position
+    this._showContextMenu(e.clientX, e.clientY)
+  }
+
+  /**
+   * Handle document click to dismiss menu
+   */
+  private _handleDocumentClick = (e: MouseEvent): void => {
+    const menu = this.shadowRoot?.querySelector('.color-context-menu')
+    if (menu && !menu.contains(e.target as Node)) {
+      this._hideContextMenu()
+    }
+  }
+
+  /**
+   * Handle document keydown to dismiss menu on Escape
+   */
+  private _handleDocumentKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this._hideContextMenu()
+    }
+  }
+
+  /**
+   * Handle color selection from context menu
+   */
+  private _handleColorSelect(colorId: ColorId | null): void {
+    this._applyHighlight(colorId)
+    this._hideContextMenu()
+  }
+
+  /**
+   * Render the context menu
+   */
+  private _renderContextMenu(): TemplateResult {
+    if (!this._contextMenuVisible) {
+      return html``
+    }
+
+    return html`
+      <div
+        class="color-context-menu"
+        style="left: ${this._contextMenuX}px; top: ${this._contextMenuY}px;"
+        @click=${(e: Event) => e.stopPropagation()}
+      >
+        <div class="color-menu-label">Highlight Color</div>
+        <div class="color-swatches">
+          ${COLOR_PALETTE.map(color => html`
+            <div
+              class="color-swatch"
+              style="background-color: ${color.backgroundColor};"
+              title="${color.name} (Cmd+Alt+${color.shortcutKey})"
+              @click=${() => this._handleColorSelect(color.id as ColorId)}
+            ></div>
+          `)}
+        </div>
+        <div class="color-menu-divider"></div>
+        <div
+          class="color-menu-item"
+          @click=${() => this._handleColorSelect(null)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Remove Highlight
+        </div>
+      </div>
+    `
   }
 
   /**
@@ -1595,6 +1793,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // EDITOR-3053: Use rich-text component instead of contenteditable
     // This provides InlineEditor which routes input based on selection, not DOM focus
     // EDITOR-3102: Pass extended schema to enable background/color attributes
+    // EDITOR-3103: Add contextmenu handler for color picker
     return html`
       <div class="${containerClass}">
         ${this._renderToggle()}
@@ -1606,6 +1805,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           .enableClipboard=${true}
           .enableUndoRedo=${true}
           .readonly=${false}
+          @contextmenu=${this._handleContextMenu}
         ></rich-text>
         ${this._renderInlinePreview()}
         ${this._renderExpandButton()}
@@ -1613,6 +1813,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       <div class="bullet-children ${childrenClass}">
         ${this.std ? this.renderChildren(this.model) : nothing}
       </div>
+      ${this._renderContextMenu()}
     `
   }
 }
