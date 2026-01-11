@@ -8,3 +8,6 @@ export * from './components'
 
 // Specs register blocks with BlockSuite
 export * from './specs'
+
+// Utils for block operations (EDITOR-3101: color palette)
+export * from './utils'
