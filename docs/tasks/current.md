@@ -5,9 +5,9 @@
 
 ## Summary
 
-**Completed**: 40 tickets in `done/`
+**Completed**: 43 tickets in `done/`
 **Active**: 2 tickets remaining (1 MVP1 bug, 1 already done)
-**Backlog (MVP2)**: 22 tickets (ready after MVP1 complete)
+**Backlog (MVP2)**: 20 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
 ## Recently Completed (moved to done/)
@@ -35,6 +35,13 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - Defined 6 colors with semantic names and hex values
 - Created color-palette.ts utility with helper functions
 - Added CSS styles for data-v-highlight attribute
+
+**2026-01-11**: EDITOR-3401-3403 (Portal Block) - MVP2 Portal epic tickets completed (#60)
+- EDITOR-3401: Portal Block Schema - sourceDocId, sourceBlockId, isCollapsed, syncStatus
+- EDITOR-3402: Portal Rendering - distinctive border, collapse/expand, source hints
+- EDITOR-3403: Live Sync - Yjs observation for real-time updates
+- Chrome E2E tested: portal creation, live sync, collapse toggle, orphaned state rendering
+- Follow-up ticket EDITOR-3406 created for runtime orphan detection enhancement
 
 **2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
 - Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
@@ -99,7 +106,7 @@ cd frontend && npm run build
 
 ---
 
-## MVP2 Backlog (22 tickets)
+## MVP2 Backlog (19 tickets)
 
 **Prerequisites**: Complete MVP1 first (BUG-EDITOR-3064, EDITOR-307)
 
@@ -108,7 +115,7 @@ cd frontend && npm run build
 | Background Coloring | EDITOR-3102 to 3103 (3101 done) | 2 |
 | Descriptor System | EDITOR-3201 to 3204 | 4 |
 | Cheatsheet | EDITOR-3301 to 3304 | 4 |
-| Portal | EDITOR-3401 to 3405 | 5 |
+| Portal | EDITOR-3404-3405 (3401-3403 done), 3406 (enhancement) | 3 |
 | Semantic Linking | API-301, API-302, EDITOR-3501, FE-501 | 4 |
 | Auto AI Generation | EDITOR-3601, 3602, FE-502 | 3 |
 

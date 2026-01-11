@@ -39,3 +39,9 @@ Part of Epic 4: Portal. Originally planned for MVP4, pulled into MVP2 for semant
 - **Status**: completed
 - **Epic**: MVP2 - Portal
 - **PR**: https://github.com/eden-ye/hydranote/pull/60
+
+## E2E Testing Results (2026-01-11)
+- ✅ Portal block created via JavaScript API
+- ✅ Portal stores source reference (document ID + block ID)
+- ✅ Collapsed state persists correctly
+- ✅ Sync status transitions (synced → orphaned) verified
