@@ -5,8 +5,8 @@
 
 ## Summary
 
-**Completed**: 39 tickets in `done/`
-**Active**: 3 tickets remaining (3 MVP1)
+**Completed**: 40 tickets in `done/`
+**Active**: 2 tickets remaining (1 MVP1 bug, 1 already done)
 **Backlog (MVP2)**: 22 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
@@ -36,6 +36,12 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - Created color-palette.ts utility with helper functions
 - Added CSS styles for data-v-highlight attribute
 
+**2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
+- Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
+- Added selection state (`selectedBlockIds`, `setSelectedBlocks`, `clearSelection`)
+- Added `EditorMode` type and `selectEditorMode` selector
+- 27 editor store tests (up from 9), 318 total frontend tests
+
 ## Active Tickets (3)
 
 ### MVP1 Core (3)
@@ -43,13 +49,12 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
 | BUG-EDITOR-3064 | Null Model Render Error | open | "Cannot read properties of null" in production |
-| EDITOR-307 | Editor Store | pending | Zustand store for document/selection state |
+| EDITOR-307 | Editor Store | done | Document ID, selection state, editor mode tracking |
 | EDITOR-3056 | Inline Formatting | done | Bold/italic/underline (Cmd+B/I/U) support - already completed |
 
 ## Next Steps
 
 1. **BUG-EDITOR-3064**: Fix null model render error in production
-2. **EDITOR-307**: Create editor Zustand store
 
 ## Recently Verified Complete (Phase 3)
 
@@ -69,10 +74,10 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 
 **Quick Start**:
 1. Phase 2-5 keyboard behaviors and auth are complete
-2. Active MVP1: BUG-EDITOR-3064, EDITOR-307
+2. Active MVP1: BUG-EDITOR-3064 only (EDITOR-307 ✅ DONE)
 3. FE-405-409 ✅ ALL DONE - Full UI integration complete
 4. INFRA-001, INFRA-501 ✅ DONE - Deployment complete
-5. Backlog: 23 MVP2 tickets (ready after MVP1 complete)
+5. Backlog: 22 MVP2 tickets (ready after MVP1 complete)
 
 **Test Commands**:
 ```bash
