@@ -7,3 +7,6 @@ export * from './color-palette'
 
 // EDITOR-3201: Descriptor system
 export * from './descriptor'
+
+// EDITOR-3202: Descriptor repository
+export * from './descriptor-repository'
