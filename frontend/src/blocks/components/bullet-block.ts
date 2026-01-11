@@ -18,6 +18,8 @@ import { z } from 'zod'
 import { baseTextAttributes } from '@blocksuite/inline'
 // EDITOR-3201: Import descriptor utilities
 import { getDescriptorLabel, getDescriptorPrefix } from '../utils/descriptor'
+// EDITOR-3301: Import cheatsheet utilities
+import { computeCheatsheet, type DescriptorChild } from '../utils/cheatsheet'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -1402,12 +1404,32 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   /**
    * Compute the inline preview text from children.
    * Returns truncated preview of child content when collapsed.
+   * EDITOR-3301: Use cheatsheet format when children include descriptors.
    */
   private _getInlinePreview(): string {
     if (this.model.isExpanded || !this._hasChildren) {
       return ''
     }
 
+    // EDITOR-3301: Convert children to DescriptorChild format for cheatsheet
+    const descriptorChildren: DescriptorChild[] = this.model.children.map((child) => {
+      const bulletChild = child as BulletBlockModel
+      return {
+        text: bulletChild.text?.toString() ?? '',
+        descriptorType: bulletChild.isDescriptor ? bulletChild.descriptorType : null,
+        isDescriptor: bulletChild.isDescriptor ?? false,
+      }
+    })
+
+    // Check if any children are descriptors
+    const hasDescriptors = descriptorChildren.some((c) => c.isDescriptor)
+
+    if (hasDescriptors) {
+      // EDITOR-3301: Use cheatsheet format for descriptor children
+      return computeCheatsheet(descriptorChildren)
+    }
+
+    // Fallback to simple inline preview for non-descriptor children
     const childTexts = this.model.children.map((child) => ({
       text: (child as BulletBlockModel).text?.toString() ?? '',
     }))

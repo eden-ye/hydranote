@@ -148,6 +148,14 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
 
 ## YOU MUST
 
+- **Always pull origin main before starting a new ticket** - ensures you have the latest code
+- **Complete tickets one by one** - If assigned multiple tickets, finish ALL TDD steps for one ticket before starting the next:
+  1. Write tests, implement, run tests & build
+  2. Chrome E2E testing
+  3. Update documentation
+  4. Create PR and resolve conflicts
+  5. Wait until all GitHub checks pass, then merge to main
+  6. Only then start the next ticket
 - NEVER commit `docs/api/` to git - contains sensitive API documentation (in .gitignore)
 - NEVER include API keys, secrets, or credentials in any documentation
 - NEVER say you Complete all TDD if you are missing Chrome testing but working on EDITOR ticket
