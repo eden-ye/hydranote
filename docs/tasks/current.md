@@ -5,9 +5,9 @@
 
 ## Summary
 
-**Completed**: 38 tickets in `done/`
+**Completed**: 39 tickets in `done/`
 **Active**: 3 tickets remaining (3 MVP1)
-**Backlog (MVP2)**: 23 tickets (ready after MVP1 complete)
+**Backlog (MVP2)**: 22 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
 ## Recently Completed (moved to done/)
@@ -30,6 +30,11 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - FE-409: Ghost questions render in focus mode
 
 **2026-01-11**: INFRA-001 & INFRA-501 - Deployment infrastructure complete
+
+**2026-01-11**: EDITOR-3101 (Color Palette System) - First MVP2 ticket completed (#43)
+- Defined 6 colors with semantic names and hex values
+- Created color-palette.ts utility with helper functions
+- Added CSS styles for data-v-highlight attribute
 
 ## Active Tickets (3)
 
@@ -74,7 +79,7 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 # Backend (125 tests)
 cd backend && python3 -m pytest tests/ -v
 
-# Frontend (224 tests)
+# Frontend (290 tests)
 cd frontend && npm run test:run
 
 # Build
@@ -83,19 +88,19 @@ cd frontend && npm run build
 
 **Ticket Folders**:
 - `docs/tasks/*.md` - Active tickets (3)
-- `docs/tasks/done/*.md` - Completed tickets (38)
-- `docs/tasks/backlog/*.md` - MVP2 tickets (23)
+- `docs/tasks/done/*.md` - Completed tickets (39)
+- `docs/tasks/backlog/*.md` - MVP2 tickets (22)
 - `docs/tasks/archive/*.md` - Obsolete tickets (2)
 
 ---
 
-## MVP2 Backlog (23 tickets)
+## MVP2 Backlog (22 tickets)
 
 **Prerequisites**: Complete MVP1 first (BUG-EDITOR-3064, EDITOR-307)
 
 | Epic | Tickets | Count |
 |------|---------|-------|
-| Background Coloring | EDITOR-3101 to 3103 | 3 |
+| Background Coloring | EDITOR-3102 to 3103 (3101 done) | 2 |
 | Descriptor System | EDITOR-3201 to 3204 | 4 |
 | Cheatsheet | EDITOR-3301 to 3304 | 4 |
 | Portal | EDITOR-3401 to 3405 | 5 |
