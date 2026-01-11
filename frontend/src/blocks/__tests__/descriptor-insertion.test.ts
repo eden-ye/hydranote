@@ -6,6 +6,17 @@ import {
 } from '../utils/descriptor-insertion'
 import type { DescriptorType } from '../utils/descriptor'
 
+// Mock block types matching ParentBlock interface from descriptor-insertion.ts
+interface MockBlockWithDescriptor {
+  id: string
+  isDescriptor?: boolean
+  descriptorType?: DescriptorType | null
+}
+
+interface MockParentBlock {
+  children: MockBlockWithDescriptor[]
+}
+
 /**
  * Tests for Descriptor Insertion (EDITOR-3204)
  *
@@ -18,54 +29,54 @@ import type { DescriptorType } from '../utils/descriptor'
 describe('Descriptor Insertion (EDITOR-3204)', () => {
   describe('findDuplicateDescriptor', () => {
     it('should return null when no children exist', () => {
-      const mockBlock = {
+      const mockBlock: MockParentBlock = {
         children: [],
       }
-      const result = findDuplicateDescriptor(mockBlock as any, 'what')
+      const result = findDuplicateDescriptor(mockBlock, 'what')
       expect(result).toBeNull()
     })
 
     it('should return null when no matching descriptor exists', () => {
-      const mockBlock = {
+      const mockBlock: MockParentBlock = {
         children: [
           { id: 'child-1', isDescriptor: false, descriptorType: null },
-          { id: 'child-2', isDescriptor: true, descriptorType: 'why' as DescriptorType },
+          { id: 'child-2', isDescriptor: true, descriptorType: 'why' },
         ],
       }
-      const result = findDuplicateDescriptor(mockBlock as any, 'what')
+      const result = findDuplicateDescriptor(mockBlock, 'what')
       expect(result).toBeNull()
     })
 
     it('should return the blockId of existing matching descriptor', () => {
-      const mockBlock = {
+      const mockBlock: MockParentBlock = {
         children: [
-          { id: 'child-1', isDescriptor: true, descriptorType: 'what' as DescriptorType },
-          { id: 'child-2', isDescriptor: true, descriptorType: 'why' as DescriptorType },
+          { id: 'child-1', isDescriptor: true, descriptorType: 'what' },
+          { id: 'child-2', isDescriptor: true, descriptorType: 'why' },
         ],
       }
-      const result = findDuplicateDescriptor(mockBlock as any, 'what')
+      const result = findDuplicateDescriptor(mockBlock, 'what')
       expect(result).toBe('child-1')
     })
 
     it('should not match non-descriptor blocks with same text', () => {
-      const mockBlock = {
+      const mockBlock: MockParentBlock = {
         children: [
-          { id: 'child-1', isDescriptor: false, descriptorType: 'what' as DescriptorType },
+          { id: 'child-1', isDescriptor: false, descriptorType: 'what' },
         ],
       }
-      const result = findDuplicateDescriptor(mockBlock as any, 'what')
+      const result = findDuplicateDescriptor(mockBlock, 'what')
       expect(result).toBeNull()
     })
 
     it('should find duplicate regardless of position', () => {
-      const mockBlock = {
+      const mockBlock: MockParentBlock = {
         children: [
-          { id: 'child-1', isDescriptor: true, descriptorType: 'how' as DescriptorType },
-          { id: 'child-2', isDescriptor: true, descriptorType: 'pros' as DescriptorType },
-          { id: 'child-3', isDescriptor: true, descriptorType: 'what' as DescriptorType },
+          { id: 'child-1', isDescriptor: true, descriptorType: 'how' },
+          { id: 'child-2', isDescriptor: true, descriptorType: 'pros' },
+          { id: 'child-3', isDescriptor: true, descriptorType: 'what' },
         ],
       }
-      const result = findDuplicateDescriptor(mockBlock as any, 'what')
+      const result = findDuplicateDescriptor(mockBlock, 'what')
       expect(result).toBe('child-3')
     })
   })
