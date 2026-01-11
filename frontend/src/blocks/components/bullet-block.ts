@@ -26,6 +26,8 @@ import {
   type DescriptorChild,
   type CheatsheetSegment,
 } from '../utils/cheatsheet'
+// EDITOR-3405: Import portal slash command utilities
+import { isPortalSlashCommand } from '../utils/portal-slash-command'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -937,6 +939,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           this._applyHighlight(null) // Clear highlight
           return true
         },
+
+        // EDITOR-3405: Cmd+Shift+P / Ctrl+Shift+P for portal creation
+        'Mod-Shift-p': (ctx) => {
+          if (!this._hasTextSelection()) return false
+          ctx.get('defaultState').event.preventDefault()
+          this._dispatchPortalPickerOpen()
+          return true
+        },
       },
       { flavour: true }
     )
@@ -1798,6 +1808,20 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return
     }
 
+    // EDITOR-3405: Detect / key for portal slash command
+    if (e.key === '/') {
+      // Check if text starts with /portal (or partial match)
+      // We need to check after the key is inserted, so delay check slightly
+      setTimeout(() => {
+        const currentText = this.model.text.toString()
+        if (isPortalSlashCommand(currentText)) {
+          this._dispatchPortalPickerOpen()
+        }
+      }, 0)
+      // Don't prevent default - let the / character be typed
+      return
+    }
+
     // Backspace at start of line merges with previous sibling
     // NOTE: This is the ONLY handler here - all other shortcuts (Enter, Tab, etc.)
     // are handled by _bindKeyboardShortcuts() via BlockSuite's bindHotKey system.
@@ -1909,6 +1933,45 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // Dispatch custom event with autocomplete context
     const event = new CustomEvent('hydra-descriptor-autocomplete-open', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        blockId: this.model.id,
+        position,
+      },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3405: Dispatch event to open portal picker
+   * Called when user types `/portal` or presses Cmd+Shift+P
+   */
+  private _dispatchPortalPickerOpen(): void {
+    // Get cursor position for dropdown positioning
+    const richText = this.querySelector('rich-text') as RichText | null
+    const selection = window.getSelection()
+    let position = { top: 0, left: 0 }
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      // Position dropdown below the cursor
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    } else if (richText) {
+      // Fallback to element position
+      const rect = richText.getBoundingClientRect()
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    }
+
+    // Dispatch custom event with portal picker context
+    const event = new CustomEvent('hydra-portal-picker-open', {
       bubbles: true,
       composed: true,
       detail: {

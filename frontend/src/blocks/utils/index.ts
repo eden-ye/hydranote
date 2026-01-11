@@ -22,3 +22,8 @@ export * from './portal-sync'
 
 // EDITOR-3404: Portal editing utilities
 export * from './portal-editing'
+
+// EDITOR-3405: Portal creation utilities
+export * from './portal-picker'
+export * from './portal-creation-shortcut'
+export * from './portal-slash-command'
