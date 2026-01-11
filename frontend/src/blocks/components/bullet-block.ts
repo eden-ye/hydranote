@@ -10,6 +10,8 @@ import {
   asyncSetInlineRange,
   getInlineEditorByModel,
 } from '@blocksuite/affine-components/rich-text'
+// EDITOR-3201: Import descriptor utilities
+import { getDescriptorLabel, getDescriptorPrefix } from '../utils/descriptor'
 
 // Re-export for type checking
 export type { RichText }
@@ -510,6 +512,29 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     .bullet-children.collapsed {
       display: none;
+    }
+
+    /* EDITOR-3201: Descriptor block styles */
+    .descriptor-prefix {
+      color: var(--affine-text-secondary-color, #6B7280);
+      font-weight: 600;
+      font-size: 0.95em;
+      user-select: none;
+      flex-shrink: 0;
+      margin-right: 4px;
+    }
+
+    .descriptor-label {
+      color: var(--affine-text-secondary-color, #6B7280);
+      font-weight: 500;
+      font-size: 0.95em;
+      user-select: none;
+      flex-shrink: 0;
+      margin-right: 8px;
+    }
+
+    .bullet-container.descriptor-block .bullet-toggle {
+      color: var(--affine-text-secondary-color, #6B7280);
     }
 
     .inline-preview {
@@ -1384,6 +1409,27 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  /**
+   * EDITOR-3201: Render descriptor prefix and label
+   * Shows "| What", "| Why", etc. for descriptor blocks
+   */
+  private _renderDescriptorPrefix(): TemplateResult | typeof nothing {
+    if (!this.model.isDescriptor || !this.model.descriptorType) {
+      return nothing
+    }
+
+    const prefix = getDescriptorPrefix()
+    const label = getDescriptorLabel(
+      this.model.descriptorType,
+      this.model.descriptorLabel
+    )
+
+    return html`
+      <span class="descriptor-prefix">${prefix}</span>
+      <span class="descriptor-label">${label}</span>
+    `
+  }
+
   override renderBlock(): TemplateResult {
     // Additional guard (render() guard should catch this, but being defensive)
     if (!this.model) {
@@ -1391,12 +1437,17 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
+    // EDITOR-3201: Add descriptor class for styling
+    const containerClass = this.model.isDescriptor
+      ? 'bullet-container descriptor-block'
+      : 'bullet-container'
 
     // EDITOR-3053: Use rich-text component instead of contenteditable
     // This provides InlineEditor which routes input based on selection, not DOM focus
     return html`
-      <div class="bullet-container">
+      <div class="${containerClass}">
         ${this._renderToggle()}
+        ${this._renderDescriptorPrefix()}
         <rich-text
           .yText=${this.model.text.yText}
           .enableFormat=${true}

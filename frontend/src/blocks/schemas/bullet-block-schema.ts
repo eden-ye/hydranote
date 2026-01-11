@@ -1,14 +1,22 @@
 import { defineBlockSchema, type SchemaToModel, type Text } from '@blocksuite/store'
+import type { DescriptorType } from '../utils/descriptor'
 
 /**
  * Props for the Hydra bullet block.
- * Each bullet supports text content, folding state, and nested children.
+ * Each bullet supports text content, folding state, nested children,
+ * and optional descriptor functionality (EDITOR-3201).
  */
 export interface BulletBlockProps {
   /** Text content with ~20 word soft limit */
   text: Text
   /** Whether children are visible (true = expanded, false = collapsed) */
   isExpanded: boolean
+  /** EDITOR-3201: Whether this bullet is a descriptor (pseudo-category bullet) */
+  isDescriptor: boolean
+  /** EDITOR-3201: Type of descriptor (what, why, how, pros, cons, custom) */
+  descriptorType: DescriptorType | null
+  /** EDITOR-3201: Custom label for 'custom' descriptor type */
+  descriptorLabel: string | undefined
 }
 
 /**
@@ -25,6 +33,10 @@ export const BulletBlockSchema = defineBlockSchema({
   props: (internal): BulletBlockProps => ({
     text: internal.Text(),
     isExpanded: true,
+    // EDITOR-3201: Descriptor props with defaults
+    isDescriptor: false,
+    descriptorType: null,
+    descriptorLabel: undefined,
   }),
   metadata: {
     version: 1,
