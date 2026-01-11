@@ -607,3 +607,76 @@ describe('Backspace with children (EDITOR-3063)', () => {
     })
   })
 })
+
+// Import undo/redo helper functions (EDITOR-3057)
+import {
+  shouldHandleUndoShortcut,
+  shouldHandleRedoShortcut,
+  isUndoRedoEnabled,
+} from '../components/bullet-block'
+
+/**
+ * Tests for undo/redo support (EDITOR-3057)
+ *
+ * Testing:
+ * - Cmd+Z for undo
+ * - Cmd+Shift+Z for redo
+ * - enableUndoRedo configuration
+ */
+describe('Undo/Redo Support (EDITOR-3057)', () => {
+  describe('shouldHandleUndoShortcut', () => {
+    it('should return true for Cmd+Z (Mac)', () => {
+      const event = { key: 'z', metaKey: true, ctrlKey: false, shiftKey: false }
+      expect(shouldHandleUndoShortcut(event)).toBe(true)
+    })
+
+    it('should return true for Ctrl+Z (Windows/Linux)', () => {
+      const event = { key: 'z', metaKey: false, ctrlKey: true, shiftKey: false }
+      expect(shouldHandleUndoShortcut(event)).toBe(true)
+    })
+
+    it('should return false for Z without modifier', () => {
+      const event = { key: 'z', metaKey: false, ctrlKey: false, shiftKey: false }
+      expect(shouldHandleUndoShortcut(event)).toBe(false)
+    })
+
+    it('should return false for Cmd+Shift+Z (that is redo)', () => {
+      const event = { key: 'z', metaKey: true, ctrlKey: false, shiftKey: true }
+      expect(shouldHandleUndoShortcut(event)).toBe(false)
+    })
+
+    it('should return false for Cmd+other key', () => {
+      const event = { key: 'a', metaKey: true, ctrlKey: false, shiftKey: false }
+      expect(shouldHandleUndoShortcut(event)).toBe(false)
+    })
+  })
+
+  describe('shouldHandleRedoShortcut', () => {
+    it('should return true for Cmd+Shift+Z (Mac)', () => {
+      const event = { key: 'z', metaKey: true, ctrlKey: false, shiftKey: true }
+      expect(shouldHandleRedoShortcut(event)).toBe(true)
+    })
+
+    it('should return true for Ctrl+Shift+Z (Windows/Linux)', () => {
+      const event = { key: 'z', metaKey: false, ctrlKey: true, shiftKey: true }
+      expect(shouldHandleRedoShortcut(event)).toBe(true)
+    })
+
+    it('should return false for Cmd+Z without Shift', () => {
+      const event = { key: 'z', metaKey: true, ctrlKey: false, shiftKey: false }
+      expect(shouldHandleRedoShortcut(event)).toBe(false)
+    })
+
+    it('should return false for Shift+Z without Cmd/Ctrl', () => {
+      const event = { key: 'z', metaKey: false, ctrlKey: false, shiftKey: true }
+      expect(shouldHandleRedoShortcut(event)).toBe(false)
+    })
+  })
+
+  describe('isUndoRedoEnabled', () => {
+    it('should return true (undo/redo is enabled)', () => {
+      // EDITOR-3057: enableUndoRedo should be true
+      expect(isUndoRedoEnabled()).toBe(true)
+    })
+  })
+})
