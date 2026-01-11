@@ -6,9 +6,49 @@
  *
  * Format: "{What children} | {Why} | {How} | {Pros} vs. {Cons}"
  * Example: "React => A JavaScript Library | Fast, Component-based vs. Steep learning curve"
+ *
+ * EDITOR-3302: Added support for auto-colors on Pros (green) and Cons (pink) sections.
  */
 
 import type { DescriptorType } from './descriptor'
+
+/**
+ * EDITOR-3302: Color definition for cheatsheet segments
+ */
+export interface CheatsheetColor {
+  backgroundColor: string
+  textColor: string
+}
+
+/**
+ * EDITOR-3302: Segment of the cheatsheet with optional color
+ */
+export interface CheatsheetSegment {
+  /** Text content of the segment */
+  text: string
+  /** Optional color for this segment (Pros = green, Cons = pink) */
+  color?: CheatsheetColor
+}
+
+/**
+ * EDITOR-3302: Auto-colors for Pros and Cons sections
+ * Uses colors from the color palette (EDITOR-3101) for consistency
+ */
+export const CHEATSHEET_COLORS: Record<string, CheatsheetColor | undefined> = {
+  pros: {
+    backgroundColor: '#D1FAE5', // Emerald-100 (same as green in color-palette)
+    textColor: '#065F46', // Emerald-800
+  },
+  cons: {
+    backgroundColor: '#FCE7F3', // Pink-100 (same as pink in color-palette)
+    textColor: '#9D174D', // Pink-800
+  },
+  // Neutral descriptors have no color
+  what: undefined,
+  why: undefined,
+  how: undefined,
+  custom: undefined,
+}
 
 /**
  * Maximum length for the cheatsheet before truncation
@@ -173,4 +213,109 @@ export function computeCheatsheet(children: DescriptorChild[]): string {
 
   // Truncate if too long
   return truncateCheatsheet(cheatsheet)
+}
+
+/**
+ * EDITOR-3302: Compute the cheatsheet as colored segments
+ *
+ * Returns an array of segments, each with text and optional color.
+ * Pros sections get green, Cons get pink, others are neutral.
+ *
+ * @param children - Array of descriptor children
+ * @returns Array of cheatsheet segments with color info
+ */
+export function computeCheatsheetSegments(
+  children: DescriptorChild[]
+): CheatsheetSegment[] {
+  const grouped = groupDescriptorsByType(children)
+  const segments: CheatsheetSegment[] = []
+
+  // Helper to add separator if segments already exist
+  const addSeparator = () => {
+    if (segments.length > 0) {
+      segments.push({ text: ` ${CHEATSHEET_SEPARATOR} ` })
+    }
+  }
+
+  // Add informational sections in order: What, Why, How (no color)
+  for (const type of DESCRIPTOR_ORDER) {
+    const items = grouped[type]
+    if (items.length > 0) {
+      addSeparator()
+      segments.push({
+        text: formatCheatsheetSection(items),
+        color: CHEATSHEET_COLORS[type],
+      })
+    }
+  }
+
+  // Handle Pros vs. Cons specially with vs. separator and colors
+  const prosText = formatCheatsheetSection(grouped.pros)
+  const consText = formatCheatsheetSection(grouped.cons)
+
+  if (prosText && consText) {
+    // Both pros and cons present
+    addSeparator()
+    segments.push({
+      text: prosText,
+      color: CHEATSHEET_COLORS.pros,
+    })
+    segments.push({ text: ` ${PROS_CONS_SEPARATOR} ` }) // vs. separator (no color)
+    segments.push({
+      text: consText,
+      color: CHEATSHEET_COLORS.cons,
+    })
+  } else if (prosText) {
+    // Only pros
+    addSeparator()
+    segments.push({
+      text: prosText,
+      color: CHEATSHEET_COLORS.pros,
+    })
+  } else if (consText) {
+    // Only cons
+    addSeparator()
+    segments.push({
+      text: consText,
+      color: CHEATSHEET_COLORS.cons,
+    })
+  }
+
+  // Add custom descriptors at the end (no color)
+  const customText = formatCheatsheetSection(grouped.custom)
+  if (customText) {
+    addSeparator()
+    segments.push({
+      text: customText,
+      color: CHEATSHEET_COLORS.custom,
+    })
+  }
+
+  // Apply truncation to the full text
+  const fullText = segments.map((s) => s.text).join('')
+  if (fullText.length > CHEATSHEET_MAX_LENGTH) {
+    // Truncate from the end, preserving segment structure as much as possible
+    let remaining = CHEATSHEET_MAX_LENGTH
+    const truncatedSegments: CheatsheetSegment[] = []
+
+    for (const segment of segments) {
+      if (remaining <= 0) break
+
+      if (segment.text.length <= remaining) {
+        truncatedSegments.push(segment)
+        remaining -= segment.text.length
+      } else {
+        // Truncate this segment
+        truncatedSegments.push({
+          text: segment.text.slice(0, remaining) + '…',
+          color: segment.color,
+        })
+        break
+      }
+    }
+
+    return truncatedSegments
+  }
+
+  return segments
 }

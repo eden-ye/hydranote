@@ -19,7 +19,13 @@ import { baseTextAttributes } from '@blocksuite/inline'
 // EDITOR-3201: Import descriptor utilities
 import { getDescriptorLabel, getDescriptorPrefix } from '../utils/descriptor'
 // EDITOR-3301: Import cheatsheet utilities
-import { computeCheatsheet, type DescriptorChild } from '../utils/cheatsheet'
+// EDITOR-3302: Added computeCheatsheetSegments and CheatsheetSegment for colored preview
+import {
+  computeCheatsheet,
+  computeCheatsheetSegments,
+  type DescriptorChild,
+  type CheatsheetSegment,
+} from '../utils/cheatsheet'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -1439,6 +1445,35 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
+   * EDITOR-3302: Get cheatsheet segments with color info for descriptor children.
+   * Returns null if not collapsed, no children, or no descriptors.
+   */
+  private _getCheatsheetSegments(): CheatsheetSegment[] | null {
+    if (this.model.isExpanded || !this._hasChildren) {
+      return null
+    }
+
+    // Convert children to DescriptorChild format
+    const descriptorChildren: DescriptorChild[] = this.model.children.map((child) => {
+      const bulletChild = child as BulletBlockModel
+      return {
+        text: bulletChild.text?.toString() ?? '',
+        descriptorType: bulletChild.isDescriptor ? bulletChild.descriptorType : null,
+        isDescriptor: bulletChild.isDescriptor ?? false,
+      }
+    })
+
+    // Check if any children are descriptors
+    const hasDescriptors = descriptorChildren.some((c) => c.isDescriptor)
+
+    if (!hasDescriptors) {
+      return null // No colored segments for non-descriptor children
+    }
+
+    return computeCheatsheetSegments(descriptorChildren)
+  }
+
+  /**
    * Get the last visible descendant of a block.
    * Traverses down through expanded children to find the deepest last child.
    * Used by Backspace to find the visually preceding bullet.
@@ -1454,8 +1489,32 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * Render inline preview element when collapsed with children.
+   * EDITOR-3302: Render colored segments for Pros (green) and Cons (pink).
    */
   private _renderInlinePreview(): TemplateResult | typeof nothing {
+    // EDITOR-3302: Try to get colored segments first
+    const segments = this._getCheatsheetSegments()
+
+    if (segments && segments.length > 0) {
+      // Render with colored segments
+      const fullText = segments.map(s => s.text).join('')
+      return html`<span class="inline-preview" title="${fullText}">${segments.map(
+        (segment) => {
+          if (segment.color) {
+            // Render colored segment
+            return html`<span
+              class="cheatsheet-segment"
+              style="background-color: ${segment.color.backgroundColor}; color: ${segment.color.textColor}; padding: 0 4px; border-radius: 3px; margin: 0 1px;"
+            >${segment.text}</span>`
+          } else {
+            // Render plain text segment
+            return html`<span>${segment.text}</span>`
+          }
+        }
+      )}</span>`
+    }
+
+    // Fallback to plain text preview
     const previewText = this._getInlinePreview()
     if (!previewText) {
       return nothing
