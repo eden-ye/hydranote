@@ -13,6 +13,9 @@ import {
   selectSelectedBlockIds,
   selectHasSelection,
   selectEditorMode,
+  selectIsAutocompleteOpen,
+  selectAutocompleteQuery,
+  selectAutocompleteBlockId,
 } from '../editor-store'
 import type { EditorMode } from '../editor-store'
 
@@ -27,6 +30,11 @@ describe('Editor Store', () => {
       focusedBlockId: null,
       currentDocumentId: null,
       selectedBlockIds: [],
+      // EDITOR-3203: Autocomplete state
+      autocompleteOpen: false,
+      autocompleteQuery: '',
+      autocompleteBlockId: null,
+      autocompleteSelectedIndex: 0,
     })
   })
 
@@ -372,6 +380,198 @@ describe('Editor Store', () => {
         })
 
         expect(assertEditorMode(selectorResult.current)).toBe('normal')
+      })
+    })
+  })
+
+  // EDITOR-3203: Descriptor autocomplete state
+  describe('Descriptor Autocomplete State (EDITOR-3203)', () => {
+    describe('Initial State', () => {
+      it('should have autocomplete closed initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autocompleteOpen).toBe(false)
+      })
+
+      it('should have empty autocomplete query initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autocompleteQuery).toBe('')
+      })
+
+      it('should have null autocomplete block ID initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autocompleteBlockId).toBeNull()
+      })
+
+      it('should have autocomplete selected index at 0 initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autocompleteSelectedIndex).toBe(0)
+      })
+    })
+
+    describe('openAutocomplete action', () => {
+      it('should open autocomplete with block ID', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openAutocomplete('block-123')
+        })
+
+        expect(result.current.autocompleteOpen).toBe(true)
+        expect(result.current.autocompleteBlockId).toBe('block-123')
+        expect(result.current.autocompleteQuery).toBe('')
+        expect(result.current.autocompleteSelectedIndex).toBe(0)
+      })
+    })
+
+    describe('closeAutocomplete action', () => {
+      it('should close autocomplete and reset state', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openAutocomplete('block-123')
+          result.current.setAutocompleteQuery('wh')
+          result.current.setAutocompleteSelectedIndex(2)
+        })
+
+        expect(result.current.autocompleteOpen).toBe(true)
+
+        act(() => {
+          result.current.closeAutocomplete()
+        })
+
+        expect(result.current.autocompleteOpen).toBe(false)
+        expect(result.current.autocompleteQuery).toBe('')
+        expect(result.current.autocompleteBlockId).toBeNull()
+        expect(result.current.autocompleteSelectedIndex).toBe(0)
+      })
+    })
+
+    describe('setAutocompleteQuery action', () => {
+      it('should update autocomplete query', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openAutocomplete('block-123')
+        })
+
+        act(() => {
+          result.current.setAutocompleteQuery('wha')
+        })
+
+        expect(result.current.autocompleteQuery).toBe('wha')
+      })
+
+      it('should reset selected index when query changes', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openAutocomplete('block-123')
+          result.current.setAutocompleteSelectedIndex(3)
+        })
+
+        expect(result.current.autocompleteSelectedIndex).toBe(3)
+
+        act(() => {
+          result.current.setAutocompleteQuery('w')
+        })
+
+        expect(result.current.autocompleteSelectedIndex).toBe(0)
+      })
+    })
+
+    describe('setAutocompleteSelectedIndex action', () => {
+      it('should update selected index', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openAutocomplete('block-123')
+        })
+
+        act(() => {
+          result.current.setAutocompleteSelectedIndex(2)
+        })
+
+        expect(result.current.autocompleteSelectedIndex).toBe(2)
+      })
+
+      it('should allow setting to any non-negative value', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutocompleteSelectedIndex(0)
+        })
+        expect(result.current.autocompleteSelectedIndex).toBe(0)
+
+        act(() => {
+          result.current.setAutocompleteSelectedIndex(4)
+        })
+        expect(result.current.autocompleteSelectedIndex).toBe(4)
+      })
+    })
+
+    describe('selectIsAutocompleteOpen selector', () => {
+      it('should return false when autocomplete is closed', () => {
+        const { result } = renderHook(() =>
+          useEditorStore(selectIsAutocompleteOpen)
+        )
+        expect(result.current).toBe(false)
+      })
+
+      it('should return true when autocomplete is open', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+        const { result: selectorResult } = renderHook(() =>
+          useEditorStore(selectIsAutocompleteOpen)
+        )
+
+        act(() => {
+          storeResult.current.openAutocomplete('block-123')
+        })
+
+        expect(selectorResult.current).toBe(true)
+      })
+    })
+
+    describe('selectAutocompleteQuery selector', () => {
+      it('should return empty string initially', () => {
+        const { result } = renderHook(() =>
+          useEditorStore(selectAutocompleteQuery)
+        )
+        expect(result.current).toBe('')
+      })
+
+      it('should return current query', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+        const { result: selectorResult } = renderHook(() =>
+          useEditorStore(selectAutocompleteQuery)
+        )
+
+        act(() => {
+          storeResult.current.setAutocompleteQuery('pro')
+        })
+
+        expect(selectorResult.current).toBe('pro')
+      })
+    })
+
+    describe('selectAutocompleteBlockId selector', () => {
+      it('should return null initially', () => {
+        const { result } = renderHook(() =>
+          useEditorStore(selectAutocompleteBlockId)
+        )
+        expect(result.current).toBeNull()
+      })
+
+      it('should return block ID when autocomplete is open', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+        const { result: selectorResult } = renderHook(() =>
+          useEditorStore(selectAutocompleteBlockId)
+        )
+
+        act(() => {
+          storeResult.current.openAutocomplete('block-xyz')
+        })
+
+        expect(selectorResult.current).toBe('block-xyz')
       })
     })
   })
