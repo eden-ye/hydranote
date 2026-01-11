@@ -392,6 +392,55 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       opacity: 0.8;
     }
 
+    /* EDITOR-3101: Background highlight colors */
+    /* Yellow highlight - Cmd+Alt+1 */
+    rich-text [data-v-highlight="yellow"] {
+      background-color: #FEF3C7;
+      color: #92400E;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Green highlight - Cmd+Alt+2 */
+    rich-text [data-v-highlight="green"] {
+      background-color: #D1FAE5;
+      color: #065F46;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Blue highlight - Cmd+Alt+3 */
+    rich-text [data-v-highlight="blue"] {
+      background-color: #DBEAFE;
+      color: #1E40AF;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Purple highlight - Cmd+Alt+4 */
+    rich-text [data-v-highlight="purple"] {
+      background-color: #EDE9FE;
+      color: #5B21B6;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Pink highlight - Cmd+Alt+5 */
+    rich-text [data-v-highlight="pink"] {
+      background-color: #FCE7F3;
+      color: #9D174D;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
+    /* Gray highlight - Cmd+Alt+6 */
+    rich-text [data-v-highlight="gray"] {
+      background-color: #F3F4F6;
+      color: #1F2937;
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+
     /* Placeholder styling - rich-text handles this internally */
     rich-text .inline-editor.empty::before {
       content: 'Type here...';
