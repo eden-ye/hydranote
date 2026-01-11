@@ -314,6 +314,48 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       display: block;
     }
 
+    /* EDITOR-3056: Inline formatting styles */
+    /* Bold - Cmd+B */
+    rich-text [data-v-bold="true"] {
+      font-weight: bold;
+    }
+
+    /* Italic - Cmd+I */
+    rich-text [data-v-italic="true"] {
+      font-style: italic;
+    }
+
+    /* Underline - Cmd+U */
+    rich-text [data-v-underline="true"] {
+      text-decoration: underline;
+    }
+
+    /* Strikethrough */
+    rich-text [data-v-strike="true"] {
+      text-decoration: line-through;
+    }
+
+    /* Code formatting */
+    rich-text [data-v-code="true"] {
+      font-family: 'SF Mono', Monaco, Menlo, Consolas, 'Liberation Mono', monospace;
+      background: var(--affine-code-background, rgba(135, 131, 120, 0.15));
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+
+    /* Link formatting */
+    rich-text [data-v-link] {
+      color: var(--affine-link-color, #0066cc);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    rich-text [data-v-link]:hover {
+      text-decoration: underline;
+      opacity: 0.8;
+    }
+
     /* Placeholder styling - rich-text handles this internally */
     rich-text .inline-editor.empty::before {
       content: 'Type here...';
@@ -1161,7 +1203,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         ${this._renderToggle()}
         <rich-text
           .yText=${this.model.text.yText}
-          .enableFormat=${false}
+          .enableFormat=${true}
           .enableClipboard=${true}
           .enableUndoRedo=${false}
           .readonly=${false}
