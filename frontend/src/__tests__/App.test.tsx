@@ -49,6 +49,18 @@ vi.mock('@/stores/auth-store', () => ({
   selectIsAuthenticated: (state: MockAuthState) => state.user !== null && state.session !== null,
 }))
 
+// Mock @supabase/supabase-js to prevent URL validation error
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      signInWithOAuth: vi.fn(),
+      signOut: vi.fn(),
+    },
+  })),
+}))
+
 // Mock supabase service
 vi.mock('@/services/supabase', () => ({
   supabase: {
@@ -61,6 +73,23 @@ vi.mock('@/services/supabase', () => ({
   signOut: vi.fn(),
   getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
   onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+}))
+
+// Mock y-indexeddb to avoid IndexedDB dependency in test environment
+vi.mock('y-indexeddb', () => ({
+  IndexeddbPersistence: class MockIndexeddbPersistence {
+    on() { return this }
+    once() { return this }
+    off() { return this }
+    destroy() { return Promise.resolve() }
+    synced = Promise.resolve()
+    whenSynced = Promise.resolve()
+  },
+}))
+
+// Mock Editor component to avoid BlockSuite complexity in integration tests
+vi.mock('@/components/Editor', () => ({
+  default: () => <div data-testid="mock-editor">Mock Editor</div>,
 }))
 
 // Import App after mocks are set up

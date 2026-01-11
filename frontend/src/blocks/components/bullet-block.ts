@@ -88,6 +88,49 @@ export function shouldHandleFoldShortcut(event: {
 }
 
 // ============================================================================
+// EDITOR-3057: Undo/Redo Support - Pure Logic Functions
+// ============================================================================
+
+/**
+ * Check if keyboard event is the undo shortcut (Cmd+Z / Ctrl+Z)
+ * Note: Cmd+Shift+Z is redo, not undo
+ */
+export function shouldHandleUndoShortcut(event: {
+  key: string
+  metaKey: boolean
+  ctrlKey: boolean
+  shiftKey: boolean
+}): boolean {
+  const isCorrectKey = event.key === 'z' || event.key === 'Z'
+  const hasModifier = event.metaKey || event.ctrlKey
+  const noShift = !event.shiftKey
+  return isCorrectKey && hasModifier && noShift
+}
+
+/**
+ * Check if keyboard event is the redo shortcut (Cmd+Shift+Z / Ctrl+Shift+Z)
+ */
+export function shouldHandleRedoShortcut(event: {
+  key: string
+  metaKey: boolean
+  ctrlKey: boolean
+  shiftKey: boolean
+}): boolean {
+  const isCorrectKey = event.key === 'z' || event.key === 'Z'
+  const hasModifier = event.metaKey || event.ctrlKey
+  const hasShift = event.shiftKey
+  return isCorrectKey && hasModifier && hasShift
+}
+
+/**
+ * Returns whether undo/redo is enabled for the rich-text component.
+ * EDITOR-3057: Changed from false to true to enable undo/redo for inline formatting.
+ */
+export function isUndoRedoEnabled(): boolean {
+  return true
+}
+
+// ============================================================================
 // EDITOR-306: Keyboard Shortcuts - Pure Logic Functions
 // ============================================================================
 
@@ -1358,7 +1401,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           .yText=${this.model.text.yText}
           .enableFormat=${true}
           .enableClipboard=${true}
-          .enableUndoRedo=${false}
+          .enableUndoRedo=${true}
           .readonly=${false}
         ></rich-text>
         ${this._renderInlinePreview()}
