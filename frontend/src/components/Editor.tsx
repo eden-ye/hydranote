@@ -8,7 +8,7 @@ import { IndexeddbPersistence } from 'y-indexeddb'
 import '@toeverything/theme/style.css'
 
 // Import Hydra custom blocks
-import { BulletBlockSchema, BulletBlockSpec } from '@/blocks'
+import { BulletBlockSchema, BulletBlockSpec, PortalBlockSchema, PortalBlockSpec } from '@/blocks'
 import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
 // FE-406: Focus mode navigation
 import { useFocusMode } from '@/hooks/useFocusMode'
@@ -325,13 +325,19 @@ export default function Editor() {
     // Create schema with Affine block schemas and Hydra custom blocks
     const schema = new Schema()
       .register(AffineSchemas)
-      .register([BulletBlockSchema])
+      .register([BulletBlockSchema, PortalBlockSchema])
 
-    // Extend affine:note to accept hydra:bullet as children
+    // Extend affine:note to accept hydra:bullet and hydra:portal as children
     // This is required because BlockSuite validates schemas bidirectionally
     const noteSchema = schema.flavourSchemaMap?.get('affine:note')
     if (noteSchema?.model?.children && Array.isArray(noteSchema.model.children)) {
-      noteSchema.model.children.push('hydra:bullet')
+      noteSchema.model.children.push('hydra:bullet', 'hydra:portal')
+    }
+
+    // Extend hydra:bullet to accept hydra:portal as children
+    const bulletSchema = schema.flavourSchemaMap?.get('hydra:bullet')
+    if (bulletSchema?.model?.children && Array.isArray(bulletSchema.model.children)) {
+      bulletSchema.model.children.push('hydra:portal')
     }
 
     // Create document collection
@@ -385,7 +391,7 @@ export default function Editor() {
     const editor = document.createElement('affine-editor-container') as AffineEditorContainer
     editor.doc = doc
     // Extend page specs with Hydra custom blocks
-    editor.pageSpecs = [...PageEditorBlockSpecs, ...BulletBlockSpec]
+    editor.pageSpecs = [...PageEditorBlockSpecs, ...BulletBlockSpec, ...PortalBlockSpec]
     editorRef.current = editor
 
     // Mount the editor to the container

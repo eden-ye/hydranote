@@ -4,11 +4,11 @@
 Implement real-time synchronization from source block to portal.
 
 ## Acceptance Criteria
-- [ ] Portal updates in real-time when source block is edited
-- [ ] Changes to source text immediately reflected in portal
-- [ ] Changes to source children reflected in portal
-- [ ] Handle source block deletion gracefully (show orphaned state)
-- [ ] Efficient sync via Yjs observation (not polling)
+- [x] Portal updates in real-time when source block is edited
+- [x] Changes to source text immediately reflected in portal
+- [x] Changes to source children reflected in portal
+- [x] Handle source block deletion gracefully (show orphaned state)
+- [x] Efficient sync via Yjs observation (not polling)
 
 ## Technical Details
 - Subscribe to source block's Yjs Y.Text and children changes
@@ -29,5 +29,7 @@ Part of Epic 4: Portal. Core sync mechanism.
 
 ## Status
 - **Created**: 2026-01-10
-- **Status**: pending
+- **Completed**: 2026-01-11
+- **Status**: completed
 - **Epic**: MVP2 - Portal
+- **PR**: https://github.com/eden-ye/hydranote/pull/60

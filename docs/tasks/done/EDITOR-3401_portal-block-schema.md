@@ -4,11 +4,11 @@
 Create the data model for portal blocks - live-syncing embeds that reference other bullets.
 
 ## Acceptance Criteria
-- [ ] New block type: `portal`
-- [ ] Portal stores source reference (document ID + block ID)
-- [ ] Portal metadata: collapsed state, sync status
-- [ ] Schema supports both same-document and cross-document portals
-- [ ] Graceful handling when source is deleted
+- [x] New block type: `portal`
+- [x] Portal stores source reference (document ID + block ID)
+- [x] Portal metadata: collapsed state, sync status
+- [x] Schema supports both same-document and cross-document portals
+- [x] Graceful handling when source is deleted
 
 ## Technical Details
 ```typescript
@@ -35,5 +35,7 @@ Part of Epic 4: Portal. Originally planned for MVP4, pulled into MVP2 for semant
 
 ## Status
 - **Created**: 2026-01-10
-- **Status**: pending
+- **Completed**: 2026-01-11
+- **Status**: completed
 - **Epic**: MVP2 - Portal
+- **PR**: https://github.com/eden-ye/hydranote/pull/60

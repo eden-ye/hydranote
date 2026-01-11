@@ -16,3 +16,6 @@ export * from './descriptor-autocomplete'
 
 // EDITOR-3204: Descriptor insertion
 export * from './descriptor-insertion'
+
+// EDITOR-3403: Portal sync utilities
+export * from './portal-sync'
