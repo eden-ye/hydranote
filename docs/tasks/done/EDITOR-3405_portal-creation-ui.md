@@ -32,7 +32,7 @@ Part of Epic 4: Portal. For semantic linking, portals are created automatically 
 - **Completed**: 2026-01-11
 - **Status**: completed
 - **Epic**: MVP2 - Portal
-- **PR**: (pending creation)
+- **PR**: https://github.com/eden-ye/hydranote/pull/64
 
 ## Implementation Summary
 
