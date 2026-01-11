@@ -5,8 +5,8 @@
 
 ## Summary
 
-**Completed**: 36 tickets in `done/`
-**Active**: 5 tickets remaining (5 MVP1)
+**Completed**: 38 tickets in `done/`
+**Active**: 3 tickets remaining (3 MVP1)
 **Backlog (MVP2)**: 23 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
@@ -29,36 +29,22 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - FE-408: Expand button (+) appears on bullet hover
 - FE-409: Ghost questions render in focus mode
 
-## Infrastructure (Blocking)
+**2026-01-11**: INFRA-001 & INFRA-501 - Deployment infrastructure complete
 
-| Ticket | Title | Status | Notes |
-|--------|-------|--------|-------|
-| INFRA-001 | SAT/PROD Deployment Separation | 🔧 in_progress | Frontend ✅ live on Vercel, Backend ❌ Railway token missing |
+## Active Tickets (3)
 
-**Deployment Status** (Verified 2026-01-10):
-- **Frontend**: ✅ LIVE at https://frontend-taylorye.vercel.app
-- **Backend**: ❌ FAILED - Missing RAILWAY_TOKEN secret in GitHub Actions
-  - Custom domains (api.hydranote.app, api-sat.hydranote.app) not resolving
-  - Action Required: Add RAILWAY_TOKEN to GitHub repository secrets
-
-## Active Tickets (5)
-
-### MVP1 Core (5)
+### MVP1 Core (3)
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
 | BUG-EDITOR-3064 | Null Model Render Error | open | "Cannot read properties of null" in production |
 | EDITOR-307 | Editor Store | pending | Zustand store for document/selection state |
-| EDITOR-3056 | Inline Formatting | pending | Bold/italic/underline (Cmd+B/I/U) support |
-| INFRA-001 | SAT/PROD Deployment | in_progress | Needs GitHub secrets added |
-| INFRA-501 | CI/CD Duplication Fix | open | Railway auto-deploy + GitHub Actions both running |
+| EDITOR-3056 | Inline Formatting | done | Bold/italic/underline (Cmd+B/I/U) support - already completed |
 
 ## Next Steps
 
-1. **INFRA-001**: Add GitHub secrets (RAILWAY_TOKEN, etc.) - user action required
-2. **INFRA-501**: Disable Railway auto-deploy or GitHub Actions workflow
-3. **EDITOR-307**: Create editor Zustand store
-4. **EDITOR-3056**: Enable inline formatting on rich-text
+1. **BUG-EDITOR-3064**: Fix null model render error in production
+2. **EDITOR-307**: Create editor Zustand store
 
 ## Recently Verified Complete (Phase 3)
 
@@ -70,13 +56,18 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - FE-406-409: ✅ DONE - Integrated into Editor.tsx (PR #42)
   - Focus mode, breadcrumb, expand button, ghost questions all working
 
+### INFRA - Deployment Complete ✅
+- INFRA-001: ✅ DONE - SAT/PROD deployment separation
+- INFRA-501: ✅ DONE - CI/CD duplication fixed
+
 ## Notes for Claude Code
 
 **Quick Start**:
 1. Phase 2-5 keyboard behaviors and auth are complete
-2. Active MVP1: BUG-EDITOR-3064, EDITOR-307, EDITOR-3056, INFRA-001, INFRA-501
+2. Active MVP1: BUG-EDITOR-3064, EDITOR-307
 3. FE-405-409 ✅ ALL DONE - Full UI integration complete
-4. Backlog: 23 MVP2 tickets (ready after MVP1 complete)
+4. INFRA-001, INFRA-501 ✅ DONE - Deployment complete
+5. Backlog: 23 MVP2 tickets (ready after MVP1 complete)
 
 **Test Commands**:
 ```bash
@@ -91,8 +82,8 @@ cd frontend && npm run build
 ```
 
 **Ticket Folders**:
-- `docs/tasks/*.md` - Active tickets (5)
-- `docs/tasks/done/*.md` - Completed tickets (36)
+- `docs/tasks/*.md` - Active tickets (3)
+- `docs/tasks/done/*.md` - Completed tickets (38)
 - `docs/tasks/backlog/*.md` - MVP2 tickets (23)
 - `docs/tasks/archive/*.md` - Obsolete tickets (2)
 
@@ -100,7 +91,7 @@ cd frontend && npm run build
 
 ## MVP2 Backlog (23 tickets)
 
-**Prerequisites**: Complete MVP1 first (EDITOR-307, EDITOR-3056, INFRA-001, INFRA-501)
+**Prerequisites**: Complete MVP1 first (BUG-EDITOR-3064, EDITOR-307)
 
 | Epic | Tickets | Count |
 |------|---------|-------|
