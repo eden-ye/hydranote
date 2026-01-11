@@ -6,17 +6,6 @@ import {
 } from '../utils/descriptor-insertion'
 import type { DescriptorType } from '../utils/descriptor'
 
-// Mock block types matching ParentBlock interface from descriptor-insertion.ts
-interface MockBlockWithDescriptor {
-  id: string
-  isDescriptor?: boolean
-  descriptorType?: DescriptorType | null
-}
-
-interface MockParentBlock {
-  children: MockBlockWithDescriptor[]
-}
-
 /**
  * Tests for Descriptor Insertion (EDITOR-3204)
  *
@@ -26,10 +15,21 @@ interface MockParentBlock {
  * - Insertion result structure
  */
 
+// Mock block type for testing
+interface MockChild {
+  id: string
+  isDescriptor: boolean
+  descriptorType: DescriptorType | null
+}
+
+interface MockBlock {
+  children: MockChild[]
+}
+
 describe('Descriptor Insertion (EDITOR-3204)', () => {
   describe('findDuplicateDescriptor', () => {
     it('should return null when no children exist', () => {
-      const mockBlock: MockParentBlock = {
+      const mockBlock: MockBlock = {
         children: [],
       }
       const result = findDuplicateDescriptor(mockBlock, 'what')
@@ -37,7 +37,7 @@ describe('Descriptor Insertion (EDITOR-3204)', () => {
     })
 
     it('should return null when no matching descriptor exists', () => {
-      const mockBlock: MockParentBlock = {
+      const mockBlock: MockBlock = {
         children: [
           { id: 'child-1', isDescriptor: false, descriptorType: null },
           { id: 'child-2', isDescriptor: true, descriptorType: 'why' },
@@ -48,7 +48,7 @@ describe('Descriptor Insertion (EDITOR-3204)', () => {
     })
 
     it('should return the blockId of existing matching descriptor', () => {
-      const mockBlock: MockParentBlock = {
+      const mockBlock: MockBlock = {
         children: [
           { id: 'child-1', isDescriptor: true, descriptorType: 'what' },
           { id: 'child-2', isDescriptor: true, descriptorType: 'why' },
@@ -59,7 +59,7 @@ describe('Descriptor Insertion (EDITOR-3204)', () => {
     })
 
     it('should not match non-descriptor blocks with same text', () => {
-      const mockBlock: MockParentBlock = {
+      const mockBlock: MockBlock = {
         children: [
           { id: 'child-1', isDescriptor: false, descriptorType: 'what' },
         ],
@@ -69,7 +69,7 @@ describe('Descriptor Insertion (EDITOR-3204)', () => {
     })
 
     it('should find duplicate regardless of position', () => {
-      const mockBlock: MockParentBlock = {
+      const mockBlock: MockBlock = {
         children: [
           { id: 'child-1', isDescriptor: true, descriptorType: 'how' },
           { id: 'child-2', isDescriptor: true, descriptorType: 'pros' },

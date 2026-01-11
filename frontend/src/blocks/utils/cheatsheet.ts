@@ -21,13 +21,21 @@ export interface CheatsheetColor {
 }
 
 /**
+ * EDITOR-3304: Type of separator for styling
+ */
+export type SeparatorType = 'pipe' | 'versus' | 'arrow'
+
+/**
  * EDITOR-3302: Segment of the cheatsheet with optional color
+ * EDITOR-3304: Added separatorType for styled separators
  */
 export interface CheatsheetSegment {
   /** Text content of the segment */
   text: string
   /** Optional color for this segment (Pros = green, Cons = pink) */
   color?: CheatsheetColor
+  /** EDITOR-3304: Type of separator for CSS styling (pipe, versus, arrow) */
+  separatorType?: SeparatorType
 }
 
 /**
@@ -75,6 +83,8 @@ export interface DescriptorChild {
   descriptorType: DescriptorType | null
   /** Whether this child is a descriptor */
   isDescriptor: boolean
+  /** EDITOR-3303: Whether this descriptor is visible in cheatsheet (default: true) */
+  cheatsheetVisible?: boolean
 }
 
 /**
@@ -102,6 +112,7 @@ const DESCRIPTOR_ORDER: (keyof GroupedDescriptors)[] = [
 
 /**
  * Group descriptor children by their type
+ * EDITOR-3303: Added visibility filtering - hidden descriptors are excluded
  *
  * @param children - Array of descriptor children
  * @returns Grouped descriptors by type
@@ -121,6 +132,11 @@ export function groupDescriptorsByType(
   for (const child of children) {
     // Skip non-descriptors
     if (!child.isDescriptor || !child.descriptorType) {
+      continue
+    }
+
+    // EDITOR-3303: Skip hidden descriptors (default to visible if undefined)
+    if (child.cheatsheetVisible === false) {
       continue
     }
 
@@ -217,9 +233,11 @@ export function computeCheatsheet(children: DescriptorChild[]): string {
 
 /**
  * EDITOR-3302: Compute the cheatsheet as colored segments
+ * EDITOR-3304: Added separatorType for styled separators
  *
  * Returns an array of segments, each with text and optional color.
  * Pros sections get green, Cons get pink, others are neutral.
+ * Separators are marked with their type for CSS styling.
  *
  * @param children - Array of descriptor children
  * @returns Array of cheatsheet segments with color info
@@ -230,10 +248,10 @@ export function computeCheatsheetSegments(
   const grouped = groupDescriptorsByType(children)
   const segments: CheatsheetSegment[] = []
 
-  // Helper to add separator if segments already exist
+  // EDITOR-3304: Helper to add pipe separator if segments already exist
   const addSeparator = () => {
     if (segments.length > 0) {
-      segments.push({ text: ` ${CHEATSHEET_SEPARATOR} ` })
+      segments.push({ text: ` ${CHEATSHEET_SEPARATOR} `, separatorType: 'pipe' })
     }
   }
 
@@ -260,7 +278,8 @@ export function computeCheatsheetSegments(
       text: prosText,
       color: CHEATSHEET_COLORS.pros,
     })
-    segments.push({ text: ` ${PROS_CONS_SEPARATOR} ` }) // vs. separator (no color)
+    // EDITOR-3304: Mark vs. separator with versus type
+    segments.push({ text: ` ${PROS_CONS_SEPARATOR} `, separatorType: 'versus' })
     segments.push({
       text: consText,
       color: CHEATSHEET_COLORS.cons,
@@ -309,6 +328,7 @@ export function computeCheatsheetSegments(
         truncatedSegments.push({
           text: segment.text.slice(0, remaining) + '…',
           color: segment.color,
+          separatorType: segment.separatorType,
         })
         break
       }

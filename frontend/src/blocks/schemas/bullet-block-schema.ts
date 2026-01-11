@@ -17,6 +17,8 @@ export interface BulletBlockProps {
   descriptorType: DescriptorType | null
   /** EDITOR-3201: Custom label for 'custom' descriptor type */
   descriptorLabel: string | undefined
+  /** EDITOR-3303: Whether this descriptor appears in cheatsheet (default: true) */
+  cheatsheetVisible: boolean
 }
 
 /**
@@ -37,6 +39,8 @@ export const BulletBlockSchema = defineBlockSchema({
     isDescriptor: false,
     descriptorType: null,
     descriptorLabel: undefined,
+    // EDITOR-3303: Default to visible in cheatsheet
+    cheatsheetVisible: true,
   }),
   metadata: {
     version: 1,
