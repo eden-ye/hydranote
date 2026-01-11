@@ -1,23 +1,25 @@
 # Current Tasks
 
-**Current Phase**: Phase 2 - Core Editor
+**Current Phase**: Phase 2 - Core Editor (Keyboard Behaviors Complete)
 **Last Updated**: 2026-01-10
 
-## Recently Completed
+## Summary
 
-| Ticket | Title | Status | Notes |
-|--------|-------|--------|-------|
-| EDITOR-3051 | Persistence & Text Sync Fix | ✅ completed | Fixed text reversal bug, persistence timing, hydra:bullet as default |
-| EDITOR-306 | Keyboard Shortcuts | ✅ completed | Full BlockSuite integration, Tab/Shift+Tab, Enter, Cmd+Enter, arrows, Cmd+. |
-| EDITOR-305 | IndexedDB Persistence | ✅ completed | y-indexeddb integration, loading indicator, error handling |
-| EDITOR-304 | Inline Detail View | ✅ completed | Inline preview for collapsed bullets |
-| EDITOR-303 | Folding/Collapse | ✅ completed | Keyboard shortcut (Cmd+.), accessibility, tests passing |
-| EDITOR-302 | Bullet Block Schema | ✅ completed | Schema, component, spec, tests all passing |
-| EDITOR-301 | BlockSuite Integration | ✅ completed | Foundation for editor |
-| API-201 | Claude AI Service | ✅ completed | Full CRUD API, tests passing |
-| API-202 | Prompt Builder | ✅ completed | Prompt templates for AI generation |
-| API-204 | Generate Endpoint | ✅ completed | POST /api/ai/generate, 8 tests, Bruno+E2E tests, PR #28 (0ec48e0) |
-| API-205 | Expand Endpoint | ✅ completed | POST /api/ai/expand, 8 tests, Bruno+E2E tests, PR #28 (0ec48e0) |
+**Completed**: 31 tickets in `done/`
+**Active**: 10 tickets remaining (5 MVP1 + 5 needs_integration)
+**Backlog (MVP2)**: 23 tickets (ready after MVP1 complete)
+**Archived**: 2 obsolete tickets
+
+## Recently Completed (moved to done/)
+
+All keyboard behavior tickets (EDITOR-3051-3063) are now complete:
+- Enter key: creates sibling, splits text, creates first child when parent has children
+- Backspace: merges with previous, navigates to last visible descendant, handles selection
+- Delete: merges with next, unindents children instead of deleting them
+- Arrow keys: normal text navigation (no expand/collapse on arrows)
+- Cmd+Enter: toggles fold
+
+Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store, login UI, spotlight)
 
 ## Infrastructure (Blocking)
 
@@ -31,69 +33,83 @@
   - Custom domains (api.hydranote.app, api-sat.hydranote.app) not resolving
   - Action Required: Add RAILWAY_TOKEN to GitHub repository secrets
 
-## Active (Phase 2 - EDITOR)
+## Active Tickets (10)
 
-| Ticket | Title | Status | Deps |
-|--------|-------|--------|------|
-| EDITOR-307 | Editor Store | pending | EDITOR-301 ✅ |
+### MVP1 Core (5)
 
-**Next up**: EDITOR-307 (Editor Store)
+| Ticket | Title | Status | Notes |
+|--------|-------|--------|-------|
+| BUG-EDITOR-3064 | Null Model Render Error | open | "Cannot read properties of null" in production |
+| EDITOR-307 | Editor Store | pending | Zustand store for document/selection state |
+| EDITOR-3056 | Inline Formatting | pending | Bold/italic/underline (Cmd+B/I/U) support |
+| INFRA-001 | SAT/PROD Deployment | in_progress | Needs GitHub secrets added |
+| INFRA-501 | CI/CD Duplication Fix | open | Railway auto-deploy + GitHub Actions both running |
 
-**EDITOR-306 completed**: All keyboard shortcuts implemented using BlockSuite's bindHotKey system
+### Needs Integration (5) - Code Complete, Not Wired
 
-## Parallel Work Opportunities
+| Ticket | Title | Status | Notes |
+|--------|-------|--------|-------|
+| FE-405 | AI Generation Store | needs_integration | Hook/store exist, not wired in App.tsx |
+| FE-406 | Focus Mode Navigation | needs_integration | Hook/store exist, not wired in Editor.tsx |
+| FE-407 | Breadcrumb Component | needs_integration | Component exists, not rendered in Editor.tsx |
+| FE-408 | Expand Button Logic | needs_integration | Hook exists, expand button not added to bullets |
+| FE-409 | Ghost Questions | needs_integration | Component exists, not rendered in Editor.tsx |
 
-While Phase 2 (EDITOR) is in progress, these can start in parallel:
+## Next Steps
 
-### AUTH (Phase 3) - Different worktree, backend focused
-- AUTH-101: Supabase Client (Backend) - No deps, can start now
-- AUTH-102, 103, 104 follow sequentially
+1. **INFRA-001**: Add GitHub secrets (RAILWAY_TOKEN, etc.) - user action required
+2. **INFRA-501**: Disable Railway auto-deploy or GitHub Actions workflow
+3. **EDITOR-307**: Create editor Zustand store
+4. **EDITOR-3056**: Enable inline formatting on rich-text
 
-### API (Phase 4) - Different worktree, backend focused
-- ~~API-201: Claude AI Service~~ - ✅ COMPLETED
-- ~~API-202: Prompt Builder~~ - ✅ COMPLETED
-- API-203: WebSocket Streaming - Can start now
-- ~~API-204: Generate Endpoint~~ - ✅ COMPLETED
-- ~~API-205: Expand Endpoint~~ - ✅ COMPLETED
+## Recently Verified Complete (Phase 3)
 
-### FE (Phase 3) - Different worktree, frontend services
-- FE-401: Supabase Client (Frontend) - No deps, can start now
-- FE-402, 403 follow
+### AUTH (Phase 3) - Backend ✅
+- AUTH-101, 102, 103, 104: All completed with 125 backend tests passing
 
-## Blocked
-<!-- Items waiting on dependencies or decisions -->
-None currently blocked.
+### FE (Phase 4-5) - Code Complete, Needs Integration
+- FE-405-409: Unit tests pass (219 frontend tests) but NOT integrated into UI
+- See "Needs Integration" section above for specific integration tasks
 
 ## Notes for Claude Code
 
 **Quick Start**:
-1. EDITOR-301 through EDITOR-306 are complete
-2. Remaining: EDITOR-307 (Editor Store)
-3. Backend work (AUTH, API) can start in parallel immediately
-
-**Infrastructure Completed**:
-- MongoDB Atlas connected and working
-- Blocks CRUD API implemented with tree queries
-- Auth middleware ready (needs JWT validation wiring)
-- IndexedDB persistence for local-first storage
-
-**Worktree Commands**:
-```bash
-# Create worktrees for parallel development
-git worktree add ../hydra-editor editor
-git worktree add ../hydra-auth auth
-git worktree add ../hydra-api api
-git worktree add ../hydra-fe fe
-```
+1. Phase 2-5 keyboard behaviors and auth are complete
+2. Active MVP1: BUG-EDITOR-3064, EDITOR-307, EDITOR-3056, INFRA-001, INFRA-501
+3. Needs Integration: FE-405-409 (code complete, not wired into UI)
+4. Backlog: 23 MVP2 tickets (ready after MVP1 complete)
 
 **Test Commands**:
 ```bash
-# Backend
+# Backend (125 tests)
 cd backend && python3 -m pytest tests/ -v
 
-# Frontend
-cd frontend && npm run build
+# Frontend (219 tests)
+cd frontend && npm run test:run
 
-# Docker (requires Docker Desktop running)
-docker build -t hydra-backend ./backend
+# Build
+cd frontend && npm run build
 ```
+
+**Ticket Folders**:
+- `docs/tasks/*.md` - Active tickets (10)
+- `docs/tasks/done/*.md` - Completed tickets (31)
+- `docs/tasks/backlog/*.md` - MVP2 tickets (23)
+- `docs/tasks/archive/*.md` - Obsolete tickets (2)
+
+---
+
+## MVP2 Backlog (23 tickets)
+
+**Prerequisites**: Complete MVP1 first (EDITOR-307, EDITOR-3056, INFRA-001, INFRA-501)
+
+| Epic | Tickets | Count |
+|------|---------|-------|
+| Background Coloring | EDITOR-3101 to 3103 | 3 |
+| Descriptor System | EDITOR-3201 to 3204 | 4 |
+| Cheatsheet | EDITOR-3301 to 3304 | 4 |
+| Portal | EDITOR-3401 to 3405 | 5 |
+| Semantic Linking | API-301, API-302, EDITOR-3501, FE-501 | 4 |
+| Auto AI Generation | EDITOR-3601, 3602, FE-502 | 3 |
+
+See `docs/roadmap.md` for full MVP2 feature breakdown.
