@@ -22,6 +22,20 @@ import {
   type SubtreeFetchResult,
   DEFAULT_MAX_DEPTH,
 } from '../utils/portal-subtree'
+import {
+  type SubtreeEditingState,
+  type SubtreeYTextCache,
+  createInitialSubtreeEditingState,
+  isSubtreeNodeEditable,
+  shouldShowSubtreeEditWarning,
+  handleSubtreeNodeFocus,
+  handleSubtreeNodeBlur,
+  dismissSubtreeEditWarning,
+  getSubtreeNodeEditingClasses,
+  getSubtreeEditWarningMessage,
+  getCachedSubtreeNodeYText,
+  clearSubtreeYTextCache,
+} from '../utils/portal-subtree-editing'
 import type { Text } from '@blocksuite/store'
 
 /**
@@ -402,6 +416,72 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       color: #6b7280;
       font-size: 13px;
     }
+
+    /* EDITOR-3505: Subtree editing styles */
+    .portal-subtree-editable {
+      cursor: text;
+    }
+
+    .portal-subtree-editable:hover {
+      background: rgba(99, 102, 241, 0.06);
+    }
+
+    .portal-subtree-editing {
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 4px;
+    }
+
+    .portal-subtree-node rich-text {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #374151;
+      outline: none;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .portal-subtree-edit-indicator {
+      font-size: 10px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: #dbeafe;
+      color: #1e40af;
+      margin-left: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Subtree edit warning - reuse portal edit warning styles */
+    .portal-subtree-edit-warning {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #fef3c7;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #92400e;
+      margin-bottom: 8px;
+    }
+
+    .portal-subtree-edit-warning-icon {
+      flex-shrink: 0;
+    }
+
+    .portal-subtree-edit-warning-dismiss {
+      margin-left: auto;
+      padding: 2px 8px;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .portal-subtree-edit-warning-dismiss:hover {
+      background: #d97706;
+    }
   `
 
   private _isLoading = true
@@ -427,6 +507,10 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   // This is separate from the source block's actual isExpanded state
   // to allow per-level collapse in the portal view
   private _collapsedSubtreeNodes: Set<string> = new Set()
+
+  // EDITOR-3505: Subtree editing state
+  private _subtreeEditingState: SubtreeEditingState = createInitialSubtreeEditingState()
+  private _subtreeYTextCache: SubtreeYTextCache = new Map()
 
   /**
    * Safe model accessor that catches BlockSuiteError when model is missing.
@@ -647,6 +731,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
 
   /**
    * EDITOR-3504: Render the subtree of the source block
+   * EDITOR-3505: Added subtree editing support
    */
   private _renderSubtree(): TemplateResult {
     // Fetch subtree if not already loaded
@@ -683,8 +768,15 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       ? this._flattenChildren(subtreeWithCollapseState)
       : []
 
+    // EDITOR-3505: Check if we need to show the edit warning
+    const showSubtreeWarning = shouldShowSubtreeEditWarning({
+      hasShownEditWarning: this._subtreeEditingState.hasShownEditWarning,
+      warningDismissed: this._subtreeEditingState.warningDismissed,
+    }) && this._subtreeEditingState.editingNodeId !== null
+
     return html`
       <div class="portal-subtree">
+        ${showSubtreeWarning ? this._renderSubtreeEditWarning() : nothing}
         ${nodesToRender.map((node) => this._renderSubtreeNode(node))}
         ${this._subtreeResult.depthLimited
           ? html`
@@ -738,6 +830,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
 
   /**
    * EDITOR-3504: Render a single subtree node
+   * EDITOR-3505: Updated to support editing with rich-text
    */
   private _renderSubtreeNode(node: SubtreeNode): TemplateResult {
     const isLeaf = node.children.length === 0
@@ -745,9 +838,26 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     const icon = isLeaf ? '•' : isCollapsed ? '▶' : '▼'
     const indent = getIndentationPx(node.depth - 1, 20) // -1 because we skip root
 
+    const model = this._safeModel
+
+    // EDITOR-3505: Check if this node is editable and get Y.Text
+    const isEditable = isSubtreeNodeEditable({
+      portalIsOrphaned: model?.syncStatus === 'orphaned',
+      portalIsLoading: this._isLoading,
+      portalIsCollapsed: model?.isCollapsed ?? false,
+      nodeExists: true,
+    })
+
+    const isEditing = this._subtreeEditingState.editingNodeId === node.id
+    const editingClasses = getSubtreeNodeEditingClasses({ isEditing, isEditable })
+    const nodeClasses = ['portal-subtree-node', ...editingClasses].join(' ')
+
+    // Get Y.Text for this subtree node (cached)
+    const yText = isEditable ? getCachedSubtreeNodeYText(this._subtreeYTextCache, this.doc, node.id) : null
+
     return html`
       <div
-        class="portal-subtree-node"
+        class="${nodeClasses}"
         style="padding-left: ${indent}px"
       >
         <span
@@ -756,12 +866,29 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
         >
           ${icon}
         </span>
-        <span class="portal-subtree-text ${isCollapsed && !isLeaf ? 'collapsed' : ''}">
-          ${node.text || '(empty)'}
-          ${isCollapsed && node.children.length > 0
-            ? html`<span class="portal-subtree-children-count">(${this._countAllDescendants(node)} items)</span>`
-            : nothing}
-        </span>
+        ${yText
+          ? html`
+              <rich-text
+                .yText=${yText.yText}
+                .enableFormat=${true}
+                .enableClipboard=${true}
+                .enableUndoRedo=${true}
+                .readonly=${false}
+                @focus=${() => this._handleSubtreeNodeFocus(node.id)}
+                @blur=${this._handleSubtreeNodeBlur}
+              ></rich-text>
+              ${isEditing
+                ? html`<span class="portal-subtree-edit-indicator">Editing source</span>`
+                : nothing}
+            `
+          : html`
+              <span class="portal-subtree-text ${isCollapsed && !isLeaf ? 'collapsed' : ''}">
+                ${node.text || '(empty)'}
+              </span>
+            `}
+        ${isCollapsed && node.children.length > 0
+          ? html`<span class="portal-subtree-children-count">(${this._countAllDescendants(node)} items)</span>`
+          : nothing}
       </div>
     `
   }
@@ -791,12 +918,15 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
 
   /**
    * EDITOR-3504: Fetch the subtree from the source block
+   * EDITOR-3505: Also clear Y.Text cache when refetching
    */
   private _fetchSubtree(): void {
     const model = this._safeModel
     if (!model) return
 
     this._subtreeLoading = true
+    // EDITOR-3505: Clear cache when refetching
+    clearSubtreeYTextCache(this._subtreeYTextCache)
     this.requestUpdate()
 
     // Use setTimeout to not block the main thread
@@ -810,6 +940,48 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       this._subtreeLoading = false
       this.requestUpdate()
     }, 0)
+  }
+
+  /**
+   * EDITOR-3505: Render the edit warning for subtree editing
+   */
+  private _renderSubtreeEditWarning(): TemplateResult {
+    return html`
+      <div class="portal-subtree-edit-warning">
+        <span class="portal-subtree-edit-warning-icon">⚠️</span>
+        <span>${getSubtreeEditWarningMessage()}</span>
+        <button
+          class="portal-subtree-edit-warning-dismiss"
+          @click=${this._dismissSubtreeWarning}
+        >
+          Got it
+        </button>
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3505: Handle focus on a subtree node (entering edit mode)
+   */
+  private _handleSubtreeNodeFocus(nodeId: string): void {
+    this._subtreeEditingState = handleSubtreeNodeFocus(this._subtreeEditingState, nodeId)
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3505: Handle blur on a subtree node (leaving edit mode)
+   */
+  private _handleSubtreeNodeBlur(): void {
+    this._subtreeEditingState = handleSubtreeNodeBlur(this._subtreeEditingState)
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3505: Dismiss the subtree edit warning
+   */
+  private _dismissSubtreeWarning(): void {
+    this._subtreeEditingState = dismissSubtreeEditWarning(this._subtreeEditingState)
+    this.requestUpdate()
   }
 
   /**
@@ -941,6 +1113,9 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     this._subtreeResult = null
     this._subtreeLoading = false
     this._collapsedSubtreeNodes.clear()
+    // EDITOR-3505: Clear subtree editing state on cleanup
+    this._subtreeEditingState = createInitialSubtreeEditingState()
+    clearSubtreeYTextCache(this._subtreeYTextCache)
   }
 }
 
