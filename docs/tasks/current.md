@@ -5,9 +5,9 @@
 
 ## Summary
 
-**Completed**: 45 tickets in `done/`
-**Active**: 2 tickets remaining (1 MVP1 bug, 1 already done)
-**Backlog (MVP2)**: 25 tickets (ready after MVP1 complete)
+**Completed**: 46 tickets in `done/`
+**Active**: 0 tickets remaining (MVP1 complete!)
+**Backlog (MVP2)**: 25 tickets (ready to start)
 **Archived**: 2 obsolete tickets
 
 ## Recently Completed (moved to done/)
@@ -66,6 +66,14 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - 8 new endpoint tests, all 146 backend tests passing
 - Bruno API test created for integration testing
 
+**2026-01-12**: BUG-EDITOR-3064 (Null Model Render Error) - MVP1 bug fixed (#79)
+- Added defensive model getter to prevent "Cannot read properties of null (reading 'id')" error
+- Created `createDummyModel()` pure function with cached dummy object
+- Created `isDummyModel()` helper for guard checks in shouldUpdate/renderBlock
+- Updated all model access points to use isDummyModel() check
+- Note: Remaining console errors are from BlockSuite internals, not our bullet-block
+- All 749 frontend tests passing, build succeeds
+
 **2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
 - Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
 - Added selection state (`selectedBlockIds`, `setSelectedBlocks`, `clearSelection`)
@@ -74,17 +82,17 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 
 ## Active Tickets (3)
 
-### MVP1 Core (3)
+### MVP1 Core (3) - ALL COMPLETE
 
 | Ticket | Title | Status | Notes |
 |--------|-------|--------|-------|
-| BUG-EDITOR-3064 | Null Model Render Error | open | "Cannot read properties of null" in production |
+| BUG-EDITOR-3064 | Null Model Render Error | done | Fixed with defensive model getter (#79) |
 | EDITOR-307 | Editor Store | done | Document ID, selection state, editor mode tracking |
 | EDITOR-3056 | Inline Formatting | done | Bold/italic/underline (Cmd+B/I/U) support - already completed |
 
 ## Next Steps
 
-1. **BUG-EDITOR-3064**: Fix null model render error in production
+1. **MVP1 Complete** - All core tickets done, ready to proceed with MVP2 Backlog
 
 ## Recently Verified Complete (Phase 3)
 
@@ -104,10 +112,10 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 
 **Quick Start**:
 1. Phase 2-5 keyboard behaviors and auth are complete
-2. Active MVP1: BUG-EDITOR-3064 only (EDITOR-307 ✅ DONE)
+2. **MVP1 COMPLETE**: BUG-EDITOR-3064 ✅ DONE, EDITOR-307 ✅ DONE
 3. FE-405-409 ✅ ALL DONE - Full UI integration complete
 4. INFRA-001, INFRA-501 ✅ DONE - Deployment complete
-5. Backlog: 22 MVP2 tickets (ready after MVP1 complete)
+5. **Ready for MVP2**: 22 tickets in backlog
 
 **Test Commands**:
 ```bash
@@ -131,7 +139,7 @@ cd frontend && npm run build
 
 ## MVP2 Backlog (25 tickets)
 
-**Prerequisites**: Complete MVP1 first (BUG-EDITOR-3064, EDITOR-307)
+**Prerequisites**: MVP1 complete! (BUG-EDITOR-3064 ✅, EDITOR-307 ✅)
 
 **NEW (2026-01-13)**: Added 7 tickets for Silent Auto-Reorg + Cmd+S Portal Search features
 
