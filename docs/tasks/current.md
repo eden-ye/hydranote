@@ -80,6 +80,12 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - Added `EditorMode` type and `selectEditorMode` selector
 - 27 editor store tests (up from 9), 318 total frontend tests
 
+**2026-01-12**: FE-501 (Semantic Linking Settings) - MVP2 settings UI completed
+- Created settings store with localStorage persistence
+- Created SettingsPanel component with toggle, slider, and number input
+- Added gear icon in header to access settings modal
+- 54 new tests (29 store + 25 component), all 964 tests passing
+
 ## Active Tickets (3)
 
 ### MVP1 Core (3)
