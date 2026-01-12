@@ -4,6 +4,7 @@
  * EDITOR-307: Document ID and Selection State
  * EDITOR-3203: Descriptor Autocomplete State
  * EDITOR-3405: Portal Picker State
+ * EDITOR-3602: Auto-Generate Settings
  *
  * Manages editor state including:
  * - Current document ID
@@ -11,8 +12,10 @@
  * - Editor mode (normal, focus)
  * - Descriptor autocomplete state
  * - Portal picker state
+ * - Auto-generate settings and status
  */
 import { create } from 'zustand'
+import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
 
 /**
  * Editor mode type
@@ -47,6 +50,13 @@ interface EditorState {
   portalPickerBlockId: string | null
   /** Currently selected index in portal picker list */
   portalPickerSelectedIndex: number
+  // EDITOR-3602: Auto-generate settings
+  /** Whether auto-generate after descriptor is enabled */
+  autoGenerateEnabled: boolean
+  /** Current auto-generate status */
+  autoGenerateStatus: AutoGenerateStatus
+  /** Block ID of the descriptor being auto-generated */
+  autoGenerateBlockId: string | null
 }
 
 /**
@@ -83,6 +93,19 @@ interface EditorActions {
   setPortalPickerQuery: (query: string) => void
   /** Set the selected index in portal picker list */
   setPortalPickerSelectedIndex: (index: number) => void
+  // EDITOR-3602: Auto-generate actions
+  /** Toggle auto-generate setting */
+  setAutoGenerateEnabled: (enabled: boolean) => void
+  /** Set auto-generate status */
+  setAutoGenerateStatus: (status: AutoGenerateStatus) => void
+  /** Start pending auto-generation for a block */
+  startAutoGenerate: (blockId: string) => void
+  /** Complete auto-generation */
+  completeAutoGenerate: () => void
+  /** Cancel auto-generation */
+  cancelAutoGenerate: () => void
+  /** Reset auto-generate state to idle */
+  resetAutoGenerate: () => void
 }
 
 /**
@@ -103,6 +126,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   portalPickerQuery: '',
   portalPickerBlockId: null,
   portalPickerSelectedIndex: 0,
+  // EDITOR-3602: Auto-generate initial state
+  autoGenerateEnabled: true, // Enabled by default
+  autoGenerateStatus: 'idle',
+  autoGenerateBlockId: null,
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -170,6 +197,35 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   setPortalPickerSelectedIndex: (index) =>
     set({ portalPickerSelectedIndex: index }),
+
+  // EDITOR-3602: Auto-generate actions
+  setAutoGenerateEnabled: (enabled) =>
+    set({ autoGenerateEnabled: enabled }),
+
+  setAutoGenerateStatus: (status) =>
+    set({ autoGenerateStatus: status }),
+
+  startAutoGenerate: (blockId) =>
+    set({
+      autoGenerateStatus: 'pending',
+      autoGenerateBlockId: blockId,
+    }),
+
+  completeAutoGenerate: () =>
+    set({
+      autoGenerateStatus: 'completed',
+    }),
+
+  cancelAutoGenerate: () =>
+    set({
+      autoGenerateStatus: 'cancelled',
+    }),
+
+  resetAutoGenerate: () =>
+    set({
+      autoGenerateStatus: 'idle',
+      autoGenerateBlockId: null,
+    }),
 }))
 
 /**
@@ -259,3 +315,29 @@ export const selectPortalPickerBlockId = (state: EditorState): string | null =>
  */
 export const selectPortalPickerSelectedIndex = (state: EditorState): number =>
   state.portalPickerSelectedIndex
+
+// EDITOR-3602: Auto-generate selectors
+
+/**
+ * Selector for checking if auto-generate is enabled
+ */
+export const selectAutoGenerateEnabled = (state: EditorState): boolean =>
+  state.autoGenerateEnabled
+
+/**
+ * Selector for getting auto-generate status
+ */
+export const selectAutoGenerateStatus = (state: EditorState): AutoGenerateStatus =>
+  state.autoGenerateStatus
+
+/**
+ * Selector for getting auto-generate block ID
+ */
+export const selectAutoGenerateBlockId = (state: EditorState): string | null =>
+  state.autoGenerateBlockId
+
+/**
+ * Selector for checking if auto-generate is currently active (pending or generating)
+ */
+export const selectIsAutoGenerating = (state: EditorState): boolean =>
+  state.autoGenerateStatus === 'pending' || state.autoGenerateStatus === 'generating'
