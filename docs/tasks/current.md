@@ -5,9 +5,9 @@
 
 ## Summary
 
-**Completed**: 45 tickets in `done/`
+**Completed**: 46 tickets in `done/`
 **Active**: 2 tickets remaining (1 MVP1 bug, 1 already done)
-**Backlog (MVP2)**: 25 tickets (ready after MVP1 complete)
+**Backlog (MVP2)**: 24 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
 ## Recently Completed (moved to done/)
@@ -73,6 +73,14 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - Rendered PortalSearchModal component in Editor.tsx
 - 30 new tests (7 portal insertion, 23 modal component), all 818 tests passing
 - E2E test expectations documented in e2e/expectations/EDITOR-3410-search-modal-integration.md
+
+**2026-01-12**: EDITOR-3408 (Auto-Reorg Integration) - MVP2 Silent Auto-Reorg Phase 5 completed
+- Created real API client (api-client.ts) for semantic search and concept extraction
+- Updated auto-reorg-service.ts to use real APIs with mock fallback
+- Integrated document observer in Editor.tsx with 2s debounce
+- Added type normalization between snake_case (API) and camelCase (frontend)
+- 14 new API client tests, all 924 frontend tests passing
+- E2E test expectations documented in e2e/expectations/EDITOR-3408_auto-reorg-integration.md
 
 **2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
 - Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
@@ -160,12 +168,12 @@ cd frontend && npm run build
 - API-303: Concept Extraction - Phase 3 (3h)
 
 **Silent Auto-Reorg (2):**
-- EDITOR-3407: Auto-Reorg Foundation (with mocks) - Phase 4 (5h)
-- EDITOR-3408: Auto-Reorg Integration (real APIs) - Phase 5 (4h)
+- EDITOR-3407: ✅ DONE - Auto-Reorg Foundation (with mocks) - Phase 4 (5h)
+- EDITOR-3408: ✅ DONE - Auto-Reorg Integration (real APIs) - Phase 5 (4h)
 
 **Cmd+S Portal Search (2):**
-- EDITOR-3409: Portal Search Modal (with mocks) - Phase 6 (6h)
-- EDITOR-3410: Search Modal Integration - Phase 7 (4h)
+- EDITOR-3409: ✅ DONE - Portal Search Modal (with mocks) - Phase 6 (6h)
+- EDITOR-3410: ✅ DONE - Search Modal Integration - Phase 7 (4h)
 
 **Other (4):**
 - EDITOR-3501: Portal subtree editing
