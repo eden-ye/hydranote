@@ -1108,3 +1108,109 @@ describe('Tab Trigger AI Generation (EDITOR-3601)', () => {
     })
   })
 })
+
+// Import null model guard utilities (BUG-EDITOR-3064)
+import {
+  createDummyModel,
+  isDummyModel,
+} from '../components/bullet-block'
+
+/**
+ * Tests for null model defensive handling (BUG-EDITOR-3064)
+ *
+ * BlockSuite's base class accesses `this.model.id` internally before our guards run.
+ * To prevent "Cannot read properties of null (reading 'id')" errors, we need a
+ * defensive model getter that returns a dummy object when the real model is null.
+ */
+describe('Null Model Defense (BUG-EDITOR-3064)', () => {
+  describe('createDummyModel', () => {
+    it('should return an object with empty id', () => {
+      const dummy = createDummyModel()
+      expect(dummy.id).toBe('')
+    })
+
+    it('should return an object with empty text', () => {
+      const dummy = createDummyModel()
+      expect(dummy.text.toString()).toBe('')
+      expect(dummy.text.length).toBe(0)
+    })
+
+    it('should return an object with isExpanded true', () => {
+      const dummy = createDummyModel()
+      expect(dummy.isExpanded).toBe(true)
+    })
+
+    it('should return an object with empty children array', () => {
+      const dummy = createDummyModel()
+      expect(dummy.children).toEqual([])
+    })
+
+    it('should have a dummy marker property', () => {
+      const dummy = createDummyModel()
+      expect(dummy.__isDummy).toBe(true)
+    })
+
+    it('should have other required properties with defaults', () => {
+      const dummy = createDummyModel()
+      // These are required by BulletBlockModel
+      expect(dummy.isDescriptor).toBe(false)
+      expect(dummy.descriptorType).toBeNull()
+      expect(dummy.descriptorLabel).toBeUndefined()
+      expect(dummy.cheatsheetVisible).toBe(true)
+    })
+  })
+
+  describe('isDummyModel', () => {
+    it('should return true for dummy model', () => {
+      const dummy = createDummyModel()
+      expect(isDummyModel(dummy)).toBe(true)
+    })
+
+    it('should return false for null', () => {
+      expect(isDummyModel(null)).toBe(false)
+    })
+
+    it('should return false for regular object without marker', () => {
+      const regular = { id: 'real-id', text: 'real text' }
+      expect(isDummyModel(regular)).toBe(false)
+    })
+
+    it('should return false for object with false __isDummy', () => {
+      const fakeMarker = { __isDummy: false, id: 'test' }
+      expect(isDummyModel(fakeMarker)).toBe(false)
+    })
+  })
+
+  describe('Null model safety behavior', () => {
+    /**
+     * Simulates what the model getter should do when model is null
+     */
+    const safeGetModel = <T>(realModel: T | null, createDummy: () => T): T => {
+      if (!realModel) {
+        return createDummy()
+      }
+      return realModel
+    }
+
+    it('should return real model when available', () => {
+      const realModel = { id: 'real-123', text: 'real text' }
+      const createDummy = () => ({ id: '', text: '' })
+      const result = safeGetModel(realModel, createDummy)
+      expect(result.id).toBe('real-123')
+    })
+
+    it('should return dummy model when real model is null', () => {
+      const createDummy = () => ({ id: '', text: '', __isDummy: true })
+      const result = safeGetModel(null, createDummy)
+      expect(result.id).toBe('')
+      expect(result.__isDummy).toBe(true)
+    })
+
+    it('should prevent null access errors', () => {
+      const createDummy = () => ({ id: '', text: '', __isDummy: true })
+      const result = safeGetModel(null, createDummy)
+      // This should not throw, even though we're accessing id on a "null" model
+      expect(() => result.id).not.toThrow()
+    })
+  })
+})
