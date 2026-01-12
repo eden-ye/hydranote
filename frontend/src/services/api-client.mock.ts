@@ -55,8 +55,11 @@ export function isMockApiEnabled(): boolean {
  * @returns Promise resolving to array of search results
  */
 export async function mockSemanticSearch(
-  _query: string
+  // Parameter intentionally unused - mock returns static data
+  query: string
 ): Promise<SemanticSearchResult[]> {
+  // Using query in a no-op to satisfy eslint while mock is static
+  void query
   // Simulate network delay (200ms)
   await new Promise((resolve) => setTimeout(resolve, 200))
 
@@ -101,7 +104,9 @@ export async function mockSemanticSearch(
  * @param text - Text to extract concepts from
  * @returns Promise resolving to array of concepts
  */
-export async function mockExtractConcepts(_text: string): Promise<Concept[]> {
+export async function mockExtractConcepts(text: string): Promise<Concept[]> {
+  // Using text in a no-op to satisfy eslint while mock is static
+  void text
   // Simulate network delay (150ms)
   await new Promise((resolve) => setTimeout(resolve, 150))
 

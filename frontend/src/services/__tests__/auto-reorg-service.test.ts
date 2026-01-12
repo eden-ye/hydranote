@@ -5,6 +5,7 @@ import {
   type AutoReorgResult,
 } from '../auto-reorg-service'
 import type { AutoReorgConfig, AutoReorgContext } from '@/blocks/utils/auto-reorg'
+import type { SemanticSearchResult } from '../api-client.mock'
 
 /**
  * Tests for Auto-Reorg Service (EDITOR-3407)
@@ -144,37 +145,37 @@ describe('Auto-Reorg Service (EDITOR-3407)', () => {
 
   describe('deduplicateAndSort', () => {
     it('should remove duplicate block IDs', () => {
-      const results = [
-        { blockId: 'block-1', documentId: 'doc-1', score: 0.9 },
-        { blockId: 'block-1', documentId: 'doc-1', score: 0.85 },
-        { blockId: 'block-2', documentId: 'doc-2', score: 0.8 },
+      const results: SemanticSearchResult[] = [
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.9, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.85, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+        { blockId: 'block-2', documentId: 'doc-2', score: 0.8, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
       ]
 
-      const deduplicated = deduplicateAndSort(results as any)
+      const deduplicated = deduplicateAndSort(results)
 
       expect(deduplicated).toHaveLength(2)
     })
 
     it('should keep highest score when deduplicating', () => {
-      const results = [
-        { blockId: 'block-1', documentId: 'doc-1', score: 0.7 },
-        { blockId: 'block-1', documentId: 'doc-1', score: 0.9 },
-        { blockId: 'block-1', documentId: 'doc-1', score: 0.8 },
+      const results: SemanticSearchResult[] = [
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.7, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.9, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.8, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
       ]
 
-      const deduplicated = deduplicateAndSort(results as any)
+      const deduplicated = deduplicateAndSort(results)
 
       expect(deduplicated[0].score).toBe(0.9)
     })
 
     it('should sort by score descending', () => {
-      const results = [
-        { blockId: 'block-1', documentId: 'doc-1', score: 0.7 },
-        { blockId: 'block-2', documentId: 'doc-2', score: 0.9 },
-        { blockId: 'block-3', documentId: 'doc-3', score: 0.8 },
+      const results: SemanticSearchResult[] = [
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.7, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+        { blockId: 'block-2', documentId: 'doc-2', score: 0.9, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+        { blockId: 'block-3', documentId: 'doc-3', score: 0.8, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
       ]
 
-      const sorted = deduplicateAndSort(results as any)
+      const sorted = deduplicateAndSort(results)
 
       expect(sorted[0].score).toBe(0.9)
       expect(sorted[1].score).toBe(0.8)
@@ -187,9 +188,11 @@ describe('Auto-Reorg Service (EDITOR-3407)', () => {
     })
 
     it('should handle single result', () => {
-      const results = [{ blockId: 'block-1', documentId: 'doc-1', score: 0.9 }]
+      const results: SemanticSearchResult[] = [
+        { blockId: 'block-1', documentId: 'doc-1', score: 0.9, bulletText: '', contextPath: '', descriptorType: null, childrenSummary: null },
+      ]
 
-      const deduplicated = deduplicateAndSort(results as any)
+      const deduplicated = deduplicateAndSort(results)
 
       expect(deduplicated).toHaveLength(1)
       expect(deduplicated[0].score).toBe(0.9)

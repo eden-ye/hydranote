@@ -45,8 +45,10 @@ export interface AutoReorgResult {
 export async function executeAutoReorg(
   context: AutoReorgContext,
   config: AutoReorgConfig,
-  _accessToken: string
+  accessToken: string
 ): Promise<AutoReorgResult> {
+  // Using accessToken in a no-op - will be used when real APIs are integrated
+  void accessToken
   const errors: string[] = []
 
   // Handle empty document
