@@ -1,7 +1,7 @@
 import json
 import re
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.services.claude import get_claude_service, ClaudeServiceError
@@ -10,6 +10,7 @@ from app.services.prompts import (
     PromptType,
     BlockContext,
 )
+from app.middleware.auth import get_current_user, UserInfo
 
 router = APIRouter()
 
@@ -156,6 +157,104 @@ async def expand_bullet(request: ExpandRequest):
 
         return ExpandResponse(
             children=children,
+            tokens_used=result["tokens_used"]
+        )
+
+    except ClaudeServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+# --- Concept Extraction (API-303) ---
+
+class ConceptExtractionRequest(BaseModel):
+    """Request model for concept extraction."""
+    text: str
+    max_concepts: int = 5
+
+
+class Concept(BaseModel):
+    """A single extracted concept."""
+    name: str
+    category: Optional[str] = None
+
+
+class ConceptExtractionResponse(BaseModel):
+    """Response model for concept extraction."""
+    concepts: List[Concept]
+    tokens_used: int
+
+
+@router.post("/extract-concepts", response_model=ConceptExtractionResponse)
+async def extract_concepts(
+    request: ConceptExtractionRequest,
+    current_user: UserInfo = Depends(get_current_user)
+):
+    """
+    Extract key concepts from note text for semantic search.
+
+    Uses Claude Haiku for fast, cheap extraction of concepts that can be used
+    to find related information in the knowledge base.
+
+    Args:
+        request: ConceptExtractionRequest with text and optional max_concepts
+        current_user: Authenticated user info from JWT token
+
+    Returns:
+        ConceptExtractionResponse with list of concepts and token usage
+
+    Raises:
+        HTTPException 401: If not authenticated
+        HTTPException 500: If parsing fails
+        HTTPException 503: If Claude service fails
+    """
+    try:
+        claude = get_claude_service()
+
+        # Build prompt for concept extraction
+        user_prompt = f"""Extract up to {request.max_concepts} key concepts from this note that would be useful for finding related information in a knowledge base.
+
+For each concept, provide:
+- name: the concept name (e.g., "Tesla Model 3", "electric vehicle")
+- category: one of [product, company, person, category, topic, other]
+
+Note text:
+{request.text}
+
+Return as a JSON array of objects with "name" and "category" fields.
+If the text is empty or too short to extract concepts, return an empty array [].
+
+Respond with ONLY the JSON array, no additional text."""
+
+        system_prompt = "You are a concept extraction assistant. Extract key concepts from text and return them as JSON."
+
+        # Call Claude API (using default Haiku model)
+        result = await claude.generate(
+            prompt=user_prompt,
+            system=system_prompt,
+            max_tokens=512,
+        )
+
+        # Parse the response
+        try:
+            concepts_data = parse_bullet_json(result["text"])
+
+            # Convert to Concept objects
+            concepts = []
+            for item in concepts_data:
+                if isinstance(item, dict) and "name" in item:
+                    concepts.append(Concept(
+                        name=item["name"],
+                        category=item.get("category")
+                    ))
+
+        except (json.JSONDecodeError, KeyError) as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to parse AI response: {str(e)}"
+            )
+
+        return ConceptExtractionResponse(
+            concepts=concepts,
             tokens_used=result["tokens_used"]
         )
 
