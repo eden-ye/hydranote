@@ -1,4 +1,5 @@
 import { BlockComponent } from '@blocksuite/block-std'
+import type { BlockModel } from '@blocksuite/store'
 import type { BulletBlockModel } from '../schemas/bullet-block-schema'
 import { html, css, nothing, type TemplateResult } from 'lit'
 import { customElement } from 'lit/decorators.js'
@@ -1670,6 +1671,32 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   // They can be added back in EDITOR-3056 for inline formatting if needed
 
   /**
+   * Find all portal blocks that reference this block as their source.
+   * Used for cascade deletion: when deleting a source block, we must delete all portals referencing it.
+   *
+   * @param blockId - ID of the block to check for portal references
+   * @returns Array of portal BlockModels that reference the given block
+   */
+  private _findPortalsReferencingBlock(blockId: string): BlockModel[] {
+    const portals: BlockModel[] = []
+    const allBlocks = this.doc.blocks.value
+
+    for (const id in allBlocks) {
+      const block = allBlocks[id]
+      const model = block.model
+
+      if (model.flavour === 'hydra:portal') {
+        const portalModel = model as any
+        if (portalModel.sourceBlockId === blockId) {
+          portals.push(model)
+        }
+      }
+    }
+
+    return portals
+  }
+
+  /**
    * Handle Backspace at the start of a bullet.
    * Behavior depends on context:
    * - Has previous sibling: Merge content with previous sibling
@@ -1722,6 +1749,17 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
       // Defer deletion to avoid render cycle crash
       requestAnimationFrame(() => {
+        // CASCADE DELETION: Delete all portals referencing this block BEFORE deleting the block
+        // This prevents orphaned portals from persisting in IndexedDB
+        const dependentPortals = this._findPortalsReferencingBlock(blockToDelete.id)
+        if (dependentPortals.length > 0) {
+          console.log(`[Cascade Deletion] Deleting ${dependentPortals.length} portal(s) that reference block ${blockToDelete.id}`)
+          dependentPortals.forEach(portal => {
+            doc.deleteBlock(portal)
+          })
+        }
+
+        // Now delete the source block
         doc.deleteBlock(blockToDelete)
         // EDITOR-3053: Use focusTextModel + asyncSetInlineRange for focus
         try {
@@ -1773,6 +1811,17 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
       // Defer deletion to avoid render cycle crash
       requestAnimationFrame(() => {
+        // CASCADE DELETION: Delete all portals referencing this block BEFORE deleting the block
+        // This prevents orphaned portals from persisting in IndexedDB
+        const dependentPortals = this._findPortalsReferencingBlock(blockToDelete.id)
+        if (dependentPortals.length > 0) {
+          console.log(`[Cascade Deletion] Deleting ${dependentPortals.length} portal(s) that reference block ${blockToDelete.id}`)
+          dependentPortals.forEach(portal => {
+            doc.deleteBlock(portal)
+          })
+        }
+
+        // Now delete the source block
         doc.deleteBlock(blockToDelete)
         // EDITOR-3053: Use focusTextModel + asyncSetInlineRange for focus
         try {

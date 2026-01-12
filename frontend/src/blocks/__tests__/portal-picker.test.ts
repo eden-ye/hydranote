@@ -229,7 +229,7 @@ describe('Portal Picker Utilities', () => {
                 {
                   id: 'b2',
                   flavour: 'hydra:bullet',
-                  text: null,
+                  text: undefined,
                   children: [],
                 },
               ],

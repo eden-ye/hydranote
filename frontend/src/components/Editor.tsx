@@ -340,8 +340,8 @@ export default function Editor() {
     const { blockId, position } = customEvent.detail
 
     const doc = docRef.current
-    if (!doc) {
-      console.warn('[PortalPicker] No doc available')
+    if (!doc || !doc.root) {
+      console.warn('[PortalPicker] No doc or doc.root available')
       return
     }
 
