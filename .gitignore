@@ -49,3 +49,7 @@ affine/
 # BMAD (local workflow tooling)
 _bmad/
 _bmad-output/
+
+# conductor
+conductor-setup.sh
+conductor.json
