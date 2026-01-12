@@ -1,35 +1,80 @@
-# EDITOR-3501: Auto-Connect on AI Generation
+# EDITOR-3501: Background Embedding Sync
 
 ## Description
-After AI generates content, automatically find related existing notes and create portal connections.
+Sync note embeddings to backend on document save and handle background catch-up for existing notes.
+
+## Automation Status
+**✅ AUTO** - 100% automated by Claude Code
 
 ## Acceptance Criteria
-- [ ] After AI generation completes, call semantic search API
-- [ ] Present related notes as portal candidates (not auto-insert)
-- [ ] User can accept/reject each suggested connection
-- [ ] Accepted connections create portal as child bullet
-- [ ] Feature respects user's setting (can be disabled)
+- [ ] On document save, send bullets to embedding API
+- [ ] Build embedding text with context path + children summary
+- [ ] Debounce saves to avoid excessive API calls
+- [ ] Background catch-up job for unindexed notes
+- [ ] Handle offline gracefully (queue for later sync)
+- [ ] Show sync status indicator (optional)
 
 ## Technical Details
-- Hook into AI generation completion event
-- Call API-302 semantic search with generated content
-- Show suggestion UI (inline or sidebar)
-- On accept: create portal block (EDITOR-3401)
-- Store user preference for feature toggle
+
+### Embedding Text Builder (Frontend)
+```typescript
+interface EmbeddingPayload {
+  document_id: string;
+  block_id: string;
+  bullet_text: string;
+  context_path: string;  // "Apple > What it is > Red Sweet Fruit"
+  descriptor_type?: string;
+  children_summary?: string;
+}
+
+function buildEmbeddingPayload(block: BulletBlock, doc: Doc): EmbeddingPayload {
+  const ancestors = getAncestors(block, doc).slice(-3);
+  const children = getChildren(block, doc).slice(0, 5);
+
+  return {
+    document_id: doc.id,
+    block_id: block.id,
+    bullet_text: block.text.toString(),
+    context_path: [...ancestors.map(a => a.text), block.text].join(' > '),
+    descriptor_type: block.descriptor,
+    children_summary: children.map(c => c.text.slice(0, 50)).join(', '),
+  };
+}
+```
+
+### Save Hook
+```typescript
+// In editor save handler
+async function onDocumentSave(doc: Doc) {
+  const bullets = getAllBullets(doc);
+  const payloads = bullets.map(b => buildEmbeddingPayload(b, doc));
+
+  // Batch send to backend
+  await fetch('/api/notes/embeddings/batch', {
+    method: 'POST',
+    body: JSON.stringify({ embeddings: payloads }),
+  });
+}
+```
+
+### Background Sync
+- On app startup, check for unindexed documents
+- Process in background with low priority
+- Show progress indicator if user opens settings
 
 ## Dependencies
-- API-302: Semantic Search Endpoint
-- EDITOR-3401: Portal Block Schema
-- EDITOR-3402: Portal Rendering
-- FE-501: Semantic Linking Settings
+- API-301: Embedding/Vector Storage Setup
 
 ## Parallel Safe With
-- AUTH-*
+- AUTH-*, API-*
 
 ## Notes
-Part of Epic 5: Semantic Linking. Core integration feature.
+Part of Epic 5: Semantic Linking. Ensures embeddings stay fresh.
+
+**Design Doc**: See `docs/design/semantic-search.md` for full architecture.
 
 ## Status
 - **Created**: 2026-01-10
+- **Updated**: 2026-01-12 (refocused on sync, not auto-connect)
 - **Status**: pending
 - **Epic**: MVP2 - Semantic Linking
