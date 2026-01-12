@@ -4,6 +4,7 @@
  * EDITOR-307: Document ID and Selection State
  * EDITOR-3203: Descriptor Autocomplete State
  * EDITOR-3405: Portal Picker State
+ * EDITOR-3409: Portal Search Modal State
  * EDITOR-3602: Auto-Generate Settings
  *
  * Manages editor state including:
@@ -12,10 +13,13 @@
  * - Editor mode (normal, focus)
  * - Descriptor autocomplete state
  * - Portal picker state
+ * - Portal search modal state
  * - Auto-generate settings and status
  */
 import { create } from 'zustand'
 import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
+import type { RecentItem } from '@/utils/frecency'
+import type { FuzzySearchResult } from '@/utils/fuzzy-search'
 
 /**
  * Editor mode type
@@ -50,6 +54,19 @@ interface EditorState {
   portalPickerBlockId: string | null
   /** Currently selected index in portal picker list */
   portalPickerSelectedIndex: number
+  // EDITOR-3409: Portal search modal state
+  /** Whether the portal search modal is open */
+  portalSearchModalOpen: boolean
+  /** Current search query in portal search modal */
+  portalSearchQuery: string
+  /** Search results from fuzzy search */
+  portalSearchResults: FuzzySearchResult[]
+  /** Recent items from frecency tracker */
+  portalSearchRecents: RecentItem[]
+  /** Currently selected index in portal search modal */
+  portalSearchSelectedIndex: number
+  /** Block ID where Cmd+S was pressed */
+  portalSearchCurrentBulletId: string | null
   // EDITOR-3602: Auto-generate settings
   /** Whether auto-generate after descriptor is enabled */
   autoGenerateEnabled: boolean
@@ -93,6 +110,19 @@ interface EditorActions {
   setPortalPickerQuery: (query: string) => void
   /** Set the selected index in portal picker list */
   setPortalPickerSelectedIndex: (index: number) => void
+  // EDITOR-3409: Portal search modal actions
+  /** Open portal search modal for a block */
+  openPortalSearchModal: (bulletId: string) => void
+  /** Close portal search modal and reset state */
+  closePortalSearchModal: () => void
+  /** Update the portal search query */
+  setPortalSearchQuery: (query: string) => void
+  /** Set the search results */
+  setPortalSearchResults: (results: FuzzySearchResult[]) => void
+  /** Set the recents list */
+  setPortalSearchRecents: (recents: RecentItem[]) => void
+  /** Set the selected index in portal search modal */
+  setPortalSearchSelectedIndex: (index: number) => void
   // EDITOR-3602: Auto-generate actions
   /** Toggle auto-generate setting */
   setAutoGenerateEnabled: (enabled: boolean) => void
@@ -126,6 +156,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   portalPickerQuery: '',
   portalPickerBlockId: null,
   portalPickerSelectedIndex: 0,
+  // EDITOR-3409: Portal search modal initial state
+  portalSearchModalOpen: false,
+  portalSearchQuery: '',
+  portalSearchResults: [],
+  portalSearchRecents: [],
+  portalSearchSelectedIndex: 0,
+  portalSearchCurrentBulletId: null,
   // EDITOR-3602: Auto-generate initial state
   autoGenerateEnabled: true, // Enabled by default
   autoGenerateStatus: 'idle',
@@ -197,6 +234,41 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   setPortalPickerSelectedIndex: (index) =>
     set({ portalPickerSelectedIndex: index }),
+
+  // EDITOR-3409: Portal search modal actions
+  openPortalSearchModal: (bulletId) =>
+    set({
+      portalSearchModalOpen: true,
+      portalSearchCurrentBulletId: bulletId,
+      portalSearchQuery: '',
+      portalSearchResults: [],
+      portalSearchSelectedIndex: 0,
+    }),
+
+  closePortalSearchModal: () =>
+    set({
+      portalSearchModalOpen: false,
+      portalSearchQuery: '',
+      portalSearchResults: [],
+      portalSearchRecents: [],
+      portalSearchCurrentBulletId: null,
+      portalSearchSelectedIndex: 0,
+    }),
+
+  setPortalSearchQuery: (query) =>
+    set({
+      portalSearchQuery: query,
+      portalSearchSelectedIndex: 0, // Reset selection when query changes
+    }),
+
+  setPortalSearchResults: (results) =>
+    set({ portalSearchResults: results }),
+
+  setPortalSearchRecents: (recents) =>
+    set({ portalSearchRecents: recents }),
+
+  setPortalSearchSelectedIndex: (index) =>
+    set({ portalSearchSelectedIndex: index }),
 
   // EDITOR-3602: Auto-generate actions
   setAutoGenerateEnabled: (enabled) =>
@@ -315,6 +387,44 @@ export const selectPortalPickerBlockId = (state: EditorState): string | null =>
  */
 export const selectPortalPickerSelectedIndex = (state: EditorState): number =>
   state.portalPickerSelectedIndex
+
+// EDITOR-3409: Portal search modal selectors
+
+/**
+ * Selector for checking if portal search modal is open
+ */
+export const selectIsPortalSearchModalOpen = (state: EditorState): boolean =>
+  state.portalSearchModalOpen
+
+/**
+ * Selector for getting the portal search query
+ */
+export const selectPortalSearchQuery = (state: EditorState): string =>
+  state.portalSearchQuery
+
+/**
+ * Selector for getting the portal search results
+ */
+export const selectPortalSearchResults = (state: EditorState): FuzzySearchResult[] =>
+  state.portalSearchResults
+
+/**
+ * Selector for getting the portal search recents
+ */
+export const selectPortalSearchRecents = (state: EditorState): RecentItem[] =>
+  state.portalSearchRecents
+
+/**
+ * Selector for getting the portal search selected index
+ */
+export const selectPortalSearchSelectedIndex = (state: EditorState): number =>
+  state.portalSearchSelectedIndex
+
+/**
+ * Selector for getting the current bullet ID for portal search
+ */
+export const selectPortalSearchCurrentBulletId = (state: EditorState): string | null =>
+  state.portalSearchCurrentBulletId
 
 // EDITOR-3602: Auto-generate selectors
 
