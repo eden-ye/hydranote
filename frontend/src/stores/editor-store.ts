@@ -6,6 +6,7 @@
  * EDITOR-3405: Portal Picker State
  * EDITOR-3409: Portal Search Modal State
  * EDITOR-3602: Auto-Generate Settings
+ * EDITOR-3407: Auto-Reorg Settings
  *
  * Manages editor state including:
  * - Current document ID
@@ -15,6 +16,7 @@
  * - Portal picker state
  * - Portal search modal state
  * - Auto-generate settings and status
+ * - Auto-reorg settings and status
  */
 import { create } from 'zustand'
 import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
@@ -25,6 +27,11 @@ import type { FuzzySearchResult } from '@/utils/fuzzy-search'
  * Editor mode type
  */
 export type EditorMode = 'normal' | 'focus'
+
+/**
+ * EDITOR-3407: Auto-reorg status type
+ */
+export type AutoReorgStatus = 'idle' | 'processing' | 'completed'
 
 /**
  * Editor Store state interface
@@ -74,6 +81,13 @@ interface EditorState {
   autoGenerateStatus: AutoGenerateStatus
   /** Block ID of the descriptor being auto-generated */
   autoGenerateBlockId: string | null
+  // EDITOR-3407: Auto-reorg settings
+  /** Whether auto-reorg is enabled */
+  autoReorgEnabled: boolean
+  /** Similarity threshold for auto-reorg (0-1) */
+  autoReorgThreshold: number
+  /** Current auto-reorg status */
+  autoReorgStatus: AutoReorgStatus
 }
 
 /**
@@ -136,6 +150,13 @@ interface EditorActions {
   cancelAutoGenerate: () => void
   /** Reset auto-generate state to idle */
   resetAutoGenerate: () => void
+  // EDITOR-3407: Auto-reorg actions
+  /** Toggle auto-reorg setting */
+  setAutoReorgEnabled: (enabled: boolean) => void
+  /** Set auto-reorg threshold (0-1) */
+  setAutoReorgThreshold: (threshold: number) => void
+  /** Set auto-reorg status */
+  setAutoReorgStatus: (status: AutoReorgStatus) => void
 }
 
 /**
@@ -167,6 +188,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   autoGenerateEnabled: true, // Enabled by default
   autoGenerateStatus: 'idle',
   autoGenerateBlockId: null,
+  // EDITOR-3407: Auto-reorg initial state
+  autoReorgEnabled: true, // Enabled by default
+  autoReorgThreshold: 0.8, // Default 0.8 threshold
+  autoReorgStatus: 'idle',
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -298,6 +323,16 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
       autoGenerateStatus: 'idle',
       autoGenerateBlockId: null,
     }),
+
+  // EDITOR-3407: Auto-reorg actions
+  setAutoReorgEnabled: (enabled) =>
+    set({ autoReorgEnabled: enabled }),
+
+  setAutoReorgThreshold: (threshold) =>
+    set({ autoReorgThreshold: threshold }),
+
+  setAutoReorgStatus: (status) =>
+    set({ autoReorgStatus: status }),
 }))
 
 /**
@@ -451,3 +486,29 @@ export const selectAutoGenerateBlockId = (state: EditorState): string | null =>
  */
 export const selectIsAutoGenerating = (state: EditorState): boolean =>
   state.autoGenerateStatus === 'pending' || state.autoGenerateStatus === 'generating'
+
+// EDITOR-3407: Auto-reorg selectors
+
+/**
+ * Selector for checking if auto-reorg is enabled
+ */
+export const selectAutoReorgEnabled = (state: EditorState): boolean =>
+  state.autoReorgEnabled
+
+/**
+ * Selector for getting auto-reorg threshold
+ */
+export const selectAutoReorgThreshold = (state: EditorState): number =>
+  state.autoReorgThreshold
+
+/**
+ * Selector for getting auto-reorg status
+ */
+export const selectAutoReorgStatus = (state: EditorState): AutoReorgStatus =>
+  state.autoReorgStatus
+
+/**
+ * Selector for checking if auto-reorg is currently processing
+ */
+export const selectIsAutoReorgProcessing = (state: EditorState): boolean =>
+  state.autoReorgStatus === 'processing'

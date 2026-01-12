@@ -575,4 +575,143 @@ describe('Editor Store', () => {
       })
     })
   })
+
+  // EDITOR-3407: Auto-reorg state
+  describe('Auto-Reorg State (EDITOR-3407)', () => {
+    beforeEach(() => {
+      // Reset auto-reorg state
+      useEditorStore.setState({
+        autoReorgEnabled: true,
+        autoReorgThreshold: 0.8,
+        autoReorgStatus: 'idle',
+      })
+    })
+
+    describe('Initial State', () => {
+      it('should have auto-reorg enabled by default', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autoReorgEnabled).toBe(true)
+      })
+
+      it('should have 0.8 threshold by default', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autoReorgThreshold).toBe(0.8)
+      })
+
+      it('should have idle status by default', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autoReorgStatus).toBe('idle')
+      })
+    })
+
+    describe('setAutoReorgEnabled action', () => {
+      it('should enable auto-reorg', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgEnabled(true)
+        })
+
+        expect(result.current.autoReorgEnabled).toBe(true)
+      })
+
+      it('should disable auto-reorg', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgEnabled(false)
+        })
+
+        expect(result.current.autoReorgEnabled).toBe(false)
+      })
+    })
+
+    describe('setAutoReorgThreshold action', () => {
+      it('should update threshold', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgThreshold(0.9)
+        })
+
+        expect(result.current.autoReorgThreshold).toBe(0.9)
+      })
+
+      it('should allow setting to 0', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgThreshold(0)
+        })
+
+        expect(result.current.autoReorgThreshold).toBe(0)
+      })
+
+      it('should allow setting to 1', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgThreshold(1)
+        })
+
+        expect(result.current.autoReorgThreshold).toBe(1)
+      })
+    })
+
+    describe('setAutoReorgStatus action', () => {
+      it('should set status to idle', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgStatus('idle')
+        })
+
+        expect(result.current.autoReorgStatus).toBe('idle')
+      })
+
+      it('should set status to processing', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgStatus('processing')
+        })
+
+        expect(result.current.autoReorgStatus).toBe('processing')
+      })
+
+      it('should set status to completed', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgStatus('completed')
+        })
+
+        expect(result.current.autoReorgStatus).toBe('completed')
+      })
+    })
+
+    describe('selectAutoReorgEnabled selector', () => {
+      it('should return enabled state', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+
+        act(() => {
+          storeResult.current.setAutoReorgEnabled(false)
+        })
+
+        expect(storeResult.current.autoReorgEnabled).toBe(false)
+      })
+    })
+
+    describe('selectAutoReorgStatus selector', () => {
+      it('should return current status', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+
+        act(() => {
+          storeResult.current.setAutoReorgStatus('processing')
+        })
+
+        expect(storeResult.current.autoReorgStatus).toBe('processing')
+      })
+    })
+  })
 })
