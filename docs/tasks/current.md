@@ -1,7 +1,7 @@
 # Current Tasks
 
 **Current Phase**: Phase 2 - Core Editor (Keyboard Behaviors Complete)
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-01-12
 
 ## Summary
 
@@ -41,7 +41,12 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - EDITOR-3402: Portal Rendering - distinctive border, collapse/expand, source hints
 - EDITOR-3403: Live Sync - Yjs observation for real-time updates
 - Chrome E2E tested: portal creation, live sync, collapse toggle, orphaned state rendering
-- Follow-up ticket EDITOR-3406 created for runtime orphan detection enhancement
+
+**2026-01-12**: EDITOR-3406 (Portal Runtime Orphan Detection) - MVP2 enhancement completed
+- Added subscription to `doc.slots.blockUpdated` for runtime block deletion detection
+- Portals now automatically transition to "orphaned" state when source block is deleted
+- No page refresh required - real-time detection via BlockSuite's slot system
+- 6 new tests added, all 700 frontend tests passing
 
 **2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
 - Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
@@ -115,7 +120,7 @@ cd frontend && npm run build
 | Background Coloring | EDITOR-3102 to 3103 (3101 done) | 2 |
 | Descriptor System | EDITOR-3201 to 3204 | 4 |
 | Cheatsheet | EDITOR-3301 to 3304 | 4 |
-| Portal | EDITOR-3404-3405 (3401-3403 done), 3406 (enhancement) | 3 |
+| Portal | EDITOR-3404-3405 (3401-3403, 3406 done) | 2 |
 | Semantic Linking | API-301, API-302, EDITOR-3501, FE-501 | 4 |
 | Auto AI Generation | EDITOR-3601, 3602, FE-502 | 3 |
 
