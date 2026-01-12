@@ -954,3 +954,157 @@ describe('Undo/Redo Support (EDITOR-3057)', () => {
     })
   })
 })
+
+// Import Tab trigger generation functions (EDITOR-3601)
+import {
+  shouldTriggerDescriptorGeneration,
+  buildDescriptorGenerationContext,
+  type DescriptorGenerationContext,
+  type TabTriggerInput,
+} from '../components/bullet-block'
+
+/**
+ * Tests for Tab trigger AI generation at deepest level (EDITOR-3601)
+ *
+ * When user presses Tab and cannot indent further (no previous sibling),
+ * AND the parent is a descriptor block, trigger AI generation.
+ */
+describe('Tab Trigger AI Generation (EDITOR-3601)', () => {
+  describe('shouldTriggerDescriptorGeneration', () => {
+    it('should return true when cannot indent and parent is a descriptor', () => {
+      const input: TabTriggerInput = {
+        canIndent: false,
+        parentIsDescriptor: true,
+        parentDescriptorType: 'what',
+      }
+      expect(shouldTriggerDescriptorGeneration(input)).toBe(true)
+    })
+
+    it('should return false when can indent (normal indent behavior)', () => {
+      const input: TabTriggerInput = {
+        canIndent: true,
+        parentIsDescriptor: true,
+        parentDescriptorType: 'what',
+      }
+      expect(shouldTriggerDescriptorGeneration(input)).toBe(false)
+    })
+
+    it('should return false when parent is not a descriptor', () => {
+      const input: TabTriggerInput = {
+        canIndent: false,
+        parentIsDescriptor: false,
+        parentDescriptorType: null,
+      }
+      expect(shouldTriggerDescriptorGeneration(input)).toBe(false)
+    })
+
+    it('should return false when both conditions fail', () => {
+      const input: TabTriggerInput = {
+        canIndent: true,
+        parentIsDescriptor: false,
+        parentDescriptorType: null,
+      }
+      expect(shouldTriggerDescriptorGeneration(input)).toBe(false)
+    })
+
+    it('should work with all descriptor types', () => {
+      const descriptorTypes = ['what', 'why', 'how', 'pros', 'cons', 'custom'] as const
+      descriptorTypes.forEach((type) => {
+        const input: TabTriggerInput = {
+          canIndent: false,
+          parentIsDescriptor: true,
+          parentDescriptorType: type,
+        }
+        expect(shouldTriggerDescriptorGeneration(input)).toBe(true)
+      })
+    })
+  })
+
+  describe('buildDescriptorGenerationContext', () => {
+    it('should build context with all required fields', () => {
+      const context = buildDescriptorGenerationContext({
+        blockId: 'block-1',
+        blockText: 'Current block text',
+        parentDescriptorType: 'what',
+        parentDescriptorLabel: undefined,
+        parentText: 'Parent descriptor text',
+        grandparentText: 'Grandparent context',
+        siblingTexts: ['Sibling 1', 'Sibling 2'],
+      })
+
+      expect(context.blockId).toBe('block-1')
+      expect(context.blockText).toBe('Current block text')
+      expect(context.descriptorType).toBe('what')
+      expect(context.descriptorLabel).toBeUndefined()
+      expect(context.parentText).toBe('Parent descriptor text')
+      expect(context.grandparentText).toBe('Grandparent context')
+      expect(context.siblingTexts).toEqual(['Sibling 1', 'Sibling 2'])
+    })
+
+    it('should handle custom descriptor type with label', () => {
+      const context = buildDescriptorGenerationContext({
+        blockId: 'block-1',
+        blockText: 'Current block text',
+        parentDescriptorType: 'custom',
+        parentDescriptorLabel: 'My Custom Label',
+        parentText: 'Parent descriptor text',
+        grandparentText: null,
+        siblingTexts: [],
+      })
+
+      expect(context.descriptorType).toBe('custom')
+      expect(context.descriptorLabel).toBe('My Custom Label')
+    })
+
+    it('should handle empty sibling texts', () => {
+      const context = buildDescriptorGenerationContext({
+        blockId: 'block-1',
+        blockText: 'Current block text',
+        parentDescriptorType: 'how',
+        parentDescriptorLabel: undefined,
+        parentText: 'Parent descriptor text',
+        grandparentText: 'Topic',
+        siblingTexts: [],
+      })
+
+      expect(context.siblingTexts).toEqual([])
+    })
+
+    it('should handle null grandparent text', () => {
+      const context = buildDescriptorGenerationContext({
+        blockId: 'block-1',
+        blockText: 'Current block text',
+        parentDescriptorType: 'why',
+        parentDescriptorLabel: undefined,
+        parentText: 'Parent descriptor text',
+        grandparentText: null,
+        siblingTexts: ['Sibling'],
+      })
+
+      expect(context.grandparentText).toBeNull()
+    })
+  })
+
+  describe('DescriptorGenerationContext interface', () => {
+    it('should have all required properties for AI prompt building', () => {
+      const context: DescriptorGenerationContext = {
+        blockId: 'block-1',
+        blockText: 'test',
+        descriptorType: 'what',
+        descriptorLabel: undefined,
+        parentText: 'parent',
+        grandparentText: 'grandparent',
+        siblingTexts: [],
+      }
+
+      // All properties should be defined
+      expect(context).toHaveProperty('blockId')
+      expect(context).toHaveProperty('blockText')
+      expect(context).toHaveProperty('descriptorType')
+      expect(context).toHaveProperty('descriptorLabel')
+      expect(context).toHaveProperty('parentText')
+      expect(context).toHaveProperty('grandparentText')
+      expect(context).toHaveProperty('siblingTexts')
+    })
+  })
+})
