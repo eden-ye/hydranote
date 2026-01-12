@@ -86,7 +86,15 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - Added gear icon in header to access settings modal
 - 54 new tests (29 store + 25 component), all 964 tests passing
 
-## Active Tickets (3)
+**2026-01-12**: FE-502 (Auto-Generation Settings) - MVP2 settings UI completed
+- Added auto-generation state, actions, and selectors to settings store
+- Added Auto Generation UI section to SettingsPanel
+- Toggle for auto-generate, bullets count input, 5 descriptor trigger checkboxes
+- All controls disabled when toggle is OFF
+- E2E tested via Chrome automation
+- **BUG-002 discovered**: Settings don't hydrate from localStorage on page refresh
+
+## Active Tickets (4)
 
 ### MVP1 Core (3)
 
@@ -95,6 +103,12 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 | BUG-EDITOR-3064 | Null Model Render Error | open | "Cannot read properties of null" in production |
 | EDITOR-307 | Editor Store | done | Document ID, selection state, editor mode tracking |
 | EDITOR-3056 | Inline Formatting | done | Bold/italic/underline (Cmd+B/I/U) support - already completed |
+
+### Bugs (0)
+
+| Ticket | Title | Status | Notes |
+|--------|-------|--------|-------|
+| BUG-002 | Settings Persistence Hydration | **FIXED** | Fix: `getInitialState()` loads from localStorage on store init |
 
 ## Next Steps
 
