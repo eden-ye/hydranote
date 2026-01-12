@@ -34,6 +34,13 @@ import type { BulletBlockModel } from '@/blocks/schemas/bullet-block-schema'
 import { PortalPicker } from './PortalPicker'
 import { extractBulletsFromDoc, filterBullets, type BulletItem, type DocumentWithRoot } from '@/blocks/utils/portal-picker'
 import { removePortalSlashCommand } from '@/blocks/utils/portal-slash-command'
+// EDITOR-3602: Auto-generate after descriptor
+import {
+  shouldAutoGenerate,
+  buildAutoGenerateContext,
+  createDebouncedAutoGenerate,
+  DEFAULT_AUTO_GENERATE_SETTINGS,
+} from '@/blocks/utils/auto-generate'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -182,7 +189,7 @@ export default function Editor() {
   }, [])
 
   // FE-408: Expand block hook
-  const { expandBlock, canExpand } = useExpandBlock()
+  const { expandBlock, canExpand, isExpanding } = useExpandBlock()
   const accessToken = useAuthStore(selectAccessToken)
 
   // EDITOR-3203: Descriptor autocomplete state
@@ -212,6 +219,31 @@ export default function Editor() {
   const [portalPickerPosition, setPortalPickerPosition] = useState({ top: 0, left: 0 })
   const [allBullets, setAllBullets] = useState<BulletItem[]>([])
   const filteredBullets = filterBullets(allBullets, portalPickerQuery)
+
+  // EDITOR-3602: Auto-generate after descriptor state
+  const {
+    autoGenerateEnabled,
+    autoGenerateStatus,
+    startAutoGenerate,
+    setAutoGenerateStatus,
+    completeAutoGenerate,
+    cancelAutoGenerate,
+    resetAutoGenerate,
+  } = useEditorStore()
+  const autoGenerateRef = useRef<{ trigger: () => void; cancel: () => void } | null>(null)
+  const wasExpandingRef = useRef(false)
+
+  // EDITOR-3602: Track expansion completion for auto-generate
+  useEffect(() => {
+    // Detect when isExpanding transitions from true to false
+    if (wasExpandingRef.current && !isExpanding && autoGenerateStatus === 'generating') {
+      console.log('[AutoGenerate] Generation completed')
+      completeAutoGenerate()
+      // Reset after a short delay
+      setTimeout(() => resetAutoGenerate(), 1000)
+    }
+    wasExpandingRef.current = isExpanding
+  }, [isExpanding, autoGenerateStatus, completeAutoGenerate, resetAutoGenerate])
 
   // FE-408: Handle expand event from bullet blocks
   const handleExpandEvent = useCallback((event: Event) => {
@@ -369,8 +401,82 @@ export default function Editor() {
       richText?.focus()
     }, 0)
 
+    // EDITOR-3602: Trigger auto-generate after descriptor insertion
+    const shouldTrigger = shouldAutoGenerate({
+      autoGenerateEnabled,
+      isGenerating: autoGenerateStatus === 'pending' || autoGenerateStatus === 'generating',
+      descriptorType,
+    })
+
+    if (shouldTrigger && accessToken && canExpand) {
+      console.log('[AutoGenerate] Starting auto-generation for descriptor:', descriptorType)
+
+      // Get parent text for context
+      const parentText = parentBlock.text?.toString() || ''
+
+      // Get grandparent text for additional context
+      const grandparent = parentBlock.parent
+      const grandparentText = grandparent?.flavour === 'hydra:bullet'
+        ? (grandparent as BulletBlockModel).text?.toString() || null
+        : null
+
+      // Build auto-generate context
+      const autoGenContext = buildAutoGenerateContext({
+        descriptorBlockId: newBlockId,
+        descriptorType,
+        parentText,
+        grandparentText,
+      })
+
+      // Start auto-generation with debounce
+      startAutoGenerate(newBlockId)
+
+      // Cancel any existing debounced call
+      if (autoGenerateRef.current) {
+        autoGenerateRef.current.cancel()
+      }
+
+      // Create new debounced call
+      autoGenerateRef.current = createDebouncedAutoGenerate(
+        () => {
+          console.log('[AutoGenerate] Debounce complete, triggering generation')
+          setAutoGenerateStatus('generating')
+
+          // Build expand context for the descriptor
+          const expandContext: ExpandBlockContext = {
+            blockId: autoGenContext.descriptorBlockId,
+            blockText: '', // Empty for new descriptor
+            siblingTexts: [],
+            parentText: autoGenContext.parentText,
+          }
+
+          // expandBlock is async via WebSocket - completion is tracked by isExpanding state
+          expandBlock(expandContext, accessToken)
+
+          // Completion will be detected via the isExpanding state change
+          // The useEffect below will handle cleanup when isExpanding becomes false
+        },
+        DEFAULT_AUTO_GENERATE_SETTINGS.debounceMs
+      )
+
+      autoGenerateRef.current.trigger()
+    }
+
     closeAutocomplete()
-  }, [autocompleteBlockId, closeAutocomplete])
+  }, [
+    autocompleteBlockId,
+    closeAutocomplete,
+    autoGenerateEnabled,
+    autoGenerateStatus,
+    accessToken,
+    canExpand,
+    startAutoGenerate,
+    setAutoGenerateStatus,
+    expandBlock,
+    completeAutoGenerate,
+    cancelAutoGenerate,
+    resetAutoGenerate,
+  ])
 
   // EDITOR-3405: Handle portal picker open event
   const handlePortalPickerOpenEvent = useCallback((event: Event) => {
@@ -553,6 +659,25 @@ export default function Editor() {
     // EDITOR-3405: Add portal picker open event listener
     container.addEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
 
+    // EDITOR-3602: Cancel auto-generation when user starts typing
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only cancel on printable characters (not modifiers, arrows, etc.)
+      if (
+        autoGenerateStatus === 'pending' &&
+        event.key.length === 1 &&
+        !event.metaKey &&
+        !event.ctrlKey
+      ) {
+        console.log('[AutoGenerate] Cancelling due to user typing')
+        if (autoGenerateRef.current) {
+          autoGenerateRef.current.cancel()
+        }
+        cancelAutoGenerate()
+        resetAutoGenerate()
+      }
+    }
+    container.addEventListener('keydown', handleKeyDown)
+
     // Cleanup function
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
@@ -560,6 +685,7 @@ export default function Editor() {
       container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+      container.removeEventListener('keydown', handleKeyDown)
       // Destroy persistence first
       if (persistenceRef.current) {
         persistenceRef.current.destroy()
@@ -573,7 +699,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent])
+  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -632,6 +758,61 @@ export default function Editor() {
         />
       )}
 
+      {/* EDITOR-3602: Auto-generate indicator */}
+      {(autoGenerateStatus === 'pending' || autoGenerateStatus === 'generating') && (
+        <div
+          data-testid="auto-generate-indicator"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            backgroundColor: '#f0f9ff',
+            borderBottom: '1px solid #bae6fd',
+            fontSize: '13px',
+            color: '#0369a1',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              width: '12px',
+              height: '12px',
+              border: '2px solid #0ea5e9',
+              borderTopColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <span>
+            {autoGenerateStatus === 'pending'
+              ? 'Preparing to generate content...'
+              : 'Generating content...'}
+          </span>
+          <button
+            onClick={() => {
+              if (autoGenerateRef.current) {
+                autoGenerateRef.current.cancel()
+              }
+              cancelAutoGenerate()
+              resetAutoGenerate()
+            }}
+            style={{
+              marginLeft: 'auto',
+              padding: '4px 8px',
+              backgroundColor: 'transparent',
+              border: '1px solid #0ea5e9',
+              borderRadius: '4px',
+              color: '#0369a1',
+              cursor: 'pointer',
+              fontSize: '12px',
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* Editor container */}
       <div
         ref={containerRef}
@@ -639,6 +820,7 @@ export default function Editor() {
         data-persistence-status={persistenceState.status}
         data-focus-mode={isInFocusMode ? 'true' : 'false'}
         data-focused-block-id={focusedBlockId || undefined}
+        data-auto-generate-status={autoGenerateStatus}
         style={{
           flex: 1,
           width: '100%',
