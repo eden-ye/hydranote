@@ -362,6 +362,78 @@ export function computeBackspaceMergeStrategy(input: BackspaceMergeInput): Backs
   }
 }
 
+// ============================================================================
+// BUG-EDITOR-3064: Null Model Defense - Pure Logic Functions
+// ============================================================================
+
+/**
+ * Dummy text object that mimics Yjs Text interface
+ * Used in createDummyModel to prevent null access errors
+ */
+interface DummyText {
+  toString(): string
+  length: number
+  yText?: unknown
+}
+
+/**
+ * Extended model interface with dummy marker
+ * Used to identify dummy models created during null state
+ */
+interface DummyModelMarker {
+  __isDummy?: boolean
+}
+
+/**
+ * Create a dummy model object to use when real model is null.
+ * This prevents "Cannot read properties of null (reading 'id')" errors
+ * that occur when BlockSuite's base class accesses this.model.id internally.
+ *
+ * BUG-EDITOR-3064: Returns an object that satisfies BulletBlockModel interface
+ * with safe default values, allowing render() to complete without errors.
+ */
+export function createDummyModel(): {
+  id: string
+  text: DummyText
+  isExpanded: boolean
+  children: never[]
+  isDescriptor: boolean
+  descriptorType: null
+  descriptorLabel: undefined
+  cheatsheetVisible: boolean
+  __isDummy: true
+} {
+  return {
+    id: '',
+    text: {
+      toString: () => '',
+      length: 0,
+      yText: undefined,
+    },
+    isExpanded: true,
+    children: [],
+    isDescriptor: false,
+    descriptorType: null,
+    descriptorLabel: undefined,
+    cheatsheetVisible: true,
+    __isDummy: true,
+  }
+}
+
+/**
+ * Check if a model is a dummy model created by createDummyModel.
+ * Used to skip operations that should only run on real models.
+ *
+ * @param model - Model to check
+ * @returns true if model is a dummy model
+ */
+export function isDummyModel(model: unknown): boolean {
+  if (!model || typeof model !== 'object') {
+    return false
+  }
+  return (model as DummyModelMarker).__isDummy === true
+}
+
 /**
  * Context for block navigation
  */
@@ -753,10 +825,50 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   `
 
   /**
+   * BUG-EDITOR-3064: Cached dummy model to avoid creating new objects on each access.
+   * Created lazily on first null model access.
+   */
+  private _cachedDummyModel: ReturnType<typeof createDummyModel> | null = null
+
+  /**
+   * BUG-EDITOR-3064: Override model getter to return a dummy object when null.
+   * This prevents "Cannot read properties of null (reading 'id')" errors
+   * that occur when BlockSuite's base class accesses this.model.id internally.
+   *
+   * The base class getter throws BlockSuiteError when the model isn't found
+   * in the store (orphaned blocks persisted in IndexedDB). By catching this
+   * and returning a dummy, we prevent the error from propagating.
+   */
+  override get model(): BulletBlockModel {
+    try {
+      const baseModel = super.model
+      if (!baseModel) {
+        // Return cached dummy to avoid creating new objects on each access
+        if (!this._cachedDummyModel) {
+          this._cachedDummyModel = createDummyModel()
+        }
+        return this._cachedDummyModel as unknown as BulletBlockModel
+      }
+      return baseModel
+    } catch {
+      // BlockSuiteError: MissingViewModelError or null access
+      if (!this._cachedDummyModel) {
+        this._cachedDummyModel = createDummyModel()
+      }
+      return this._cachedDummyModel as unknown as BulletBlockModel
+    }
+  }
+
+  /**
    * Check if this block has children.
    * Computed dynamically in render to stay in sync.
+   * BUG-EDITOR-3064: Safe to call now that model getter is defensive.
    */
   private get _hasChildren(): boolean {
+    // Skip check for dummy models - they have no children
+    if (isDummyModel(this.model)) {
+      return false
+    }
     return this.model.children.length > 0
   }
 
@@ -764,14 +876,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * EDITOR-3405 BUGFIX: Safe model accessor that catches BlockSuiteError.
    * The base class `model` getter throws if the model isn't found in the store,
    * which can happen for orphaned blocks persisted in IndexedDB.
+   * BUG-EDITOR-3064: Now uses the defensive model getter, so this is simpler.
    */
   private get _safeModel(): BulletBlockModel | null {
-    try {
-      return this.model
-    } catch {
-      // BlockSuiteError: MissingViewModelError
+    const m = this.model
+    // Return null for dummy models to signal "no real model"
+    if (isDummyModel(m)) {
       return null
     }
+    return m
   }
 
   override connectedCallback(): void {
@@ -2015,9 +2128,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * but Lit may still trigger an update. By returning false here, we prevent
    * the entire update/render cycle from running.
    */
+  /**
+   * Override shouldUpdate to prevent render when model is null/dummy.
+   * BUG-EDITOR-3064: Now checks for dummy model since model getter never returns null.
+   */
   override shouldUpdate(): boolean {
-    // Don't update if model is null (component being destroyed)
-    if (!this.model) {
+    // Don't update if model is a dummy (component being destroyed)
+    if (isDummyModel(this.model)) {
       return false
     }
     return true
@@ -2025,7 +2142,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3405 BUGFIX: Override render() to guard against null model.
-   * Uses _safeModel to avoid triggering the base class model getter which throws.
+   * BUG-EDITOR-3064: Uses isDummyModel check since model getter now returns dummy instead of null.
    * Returns empty template if model is unavailable (orphaned block edge case).
    */
   override render(): unknown {
@@ -2303,8 +2420,9 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   override renderBlock(): TemplateResult {
-    // Additional guard (render() guard should catch this, but being defensive)
-    if (!this.model) {
+    // BUG-EDITOR-3064: Additional guard (render() guard should catch this, but being defensive)
+    // Uses isDummyModel since model getter always returns something now
+    if (isDummyModel(this.model)) {
       return html``
     }
 
