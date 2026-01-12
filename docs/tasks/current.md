@@ -66,6 +66,14 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - 8 new endpoint tests, all 146 backend tests passing
 - Bruno API test created for integration testing
 
+**2026-01-12**: EDITOR-3410 (Search Modal Integration) - MVP2 Cmd+S Portal Search Phase 7 completed
+- Integrated Cmd+S keyboard shortcut to open portal search modal
+- Created portal-insertion.ts utility for sibling portal creation
+- Added handlePortalSearchSelect in Editor.tsx for selection handling
+- Rendered PortalSearchModal component in Editor.tsx
+- 30 new tests (7 portal insertion, 23 modal component), all 818 tests passing
+- E2E test expectations documented in e2e/expectations/EDITOR-3410-search-modal-integration.md
+
 **2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
 - Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
 - Added selection state (`selectedBlockIds`, `setSelectedBlocks`, `clearSelection`)
