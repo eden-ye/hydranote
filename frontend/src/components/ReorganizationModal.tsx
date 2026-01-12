@@ -12,7 +12,7 @@
  * - User can check/uncheck which connections to create
  * - "Connect Selected" and "Skip" buttons
  */
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useMemo } from 'react'
 import { useEditorStore, type ConceptMatch } from '@/stores/editor-store'
 import './ReorganizationModal.css'
 
@@ -49,15 +49,21 @@ export function ReorganizationModal({ onConnect, onClose }: ReorganizationModalP
     toggleReorgMatch,
   } = useEditorStore()
 
-  // Track which concepts are expanded
-  const [expandedConcepts, setExpandedConcepts] = useState<Set<string>>(new Set())
+  // Track which concepts are collapsed (default is expanded)
+  const [collapsedConcepts, setCollapsedConcepts] = useState<Set<string>>(new Set())
 
-  // Initialize all concepts as expanded when matches load
-  useEffect(() => {
-    if (reorgModalStatus === 'loaded' && reorgModalConceptMatches.length > 0) {
-      setExpandedConcepts(new Set(reorgModalConceptMatches.map((cm) => cm.concept)))
+  // Compute expanded state: a concept is expanded if it's not in collapsedConcepts
+  const expandedConcepts = useMemo(() => {
+    if (reorgModalStatus !== 'loaded' || reorgModalConceptMatches.length === 0) {
+      return new Set<string>()
     }
-  }, [reorgModalStatus, reorgModalConceptMatches])
+    const allConcepts = new Set(reorgModalConceptMatches.map((cm) => cm.concept))
+    // Remove collapsed ones from expanded set
+    for (const collapsed of collapsedConcepts) {
+      allConcepts.delete(collapsed)
+    }
+    return allConcepts
+  }, [reorgModalStatus, reorgModalConceptMatches, collapsedConcepts])
 
   // Calculate total selected count
   const selectedCount = reorgModalConceptMatches.reduce(
@@ -65,9 +71,9 @@ export function ReorganizationModal({ onConnect, onClose }: ReorganizationModalP
     0
   )
 
-  // Handle concept header click to toggle expansion
+  // Handle concept header click to toggle expansion (toggle collapsed state)
   const handleConceptToggle = useCallback((concept: string) => {
-    setExpandedConcepts((prev) => {
+    setCollapsedConcepts((prev) => {
       const next = new Set(prev)
       if (next.has(concept)) {
         next.delete(concept)
