@@ -89,8 +89,20 @@ Part of Epic 5: Semantic Linking. Backend foundation for context-aware search.
 
 **Design Doc**: See `docs/design/semantic-search.md` for full architecture.
 
+## Implementation Phase
+- **Phase**: Phase 1 (Backend Foundation)
+- **Time Estimate**: 6 hours
+- **Branch**: `api/API-301-embedding-vector-storage`
+- **Dependencies**: Phase 0 (user manual steps) must be complete
+
+## Deliverables
+- [x] `database/migrations/002_note_embeddings.sql` created and applied
+- [x] `backend/app/services/embedding_service.py` implemented
+- [x] Unit tests for embedding service pass
+- [x] Bruno API tests updated
+
 ## Status
 - **Created**: 2026-01-10
-- **Updated**: 2026-01-12 (context-aware schema design)
+- **Updated**: 2026-01-13 (added phase info and time estimates)
 - **Status**: pending
 - **Epic**: MVP2 - Semantic Linking

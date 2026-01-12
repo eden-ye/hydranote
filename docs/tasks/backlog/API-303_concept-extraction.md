@@ -68,7 +68,19 @@ Part of Epic 5: Semantic Linking. Enables intelligent concept extraction for aut
 
 **Design Doc**: See `docs/design/semantic-search.md` for full architecture.
 
+## Implementation Phase
+- **Phase**: Phase 3 (Concept Extraction API)
+- **Time Estimate**: 3 hours
+- **Branch**: `api/API-303-concept-extraction`
+- **Dependencies**: None (uses existing Claude service, can run parallel with Phase 1-2)
+
+## Deliverables
+- [x] POST `/api/ai/extract-concepts` endpoint added to ai.py
+- [x] Unit tests pass
+- [x] Bruno tests pass
+
 ## Status
 - **Created**: 2026-01-12
+- **Updated**: 2026-01-13 (added phase info and time estimates)
 - **Status**: pending
 - **Epic**: MVP2 - Semantic Linking

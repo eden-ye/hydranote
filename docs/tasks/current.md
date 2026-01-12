@@ -7,7 +7,7 @@
 
 **Completed**: 43 tickets in `done/`
 **Active**: 2 tickets remaining (1 MVP1 bug, 1 already done)
-**Backlog (MVP2)**: 20 tickets (ready after MVP1 complete)
+**Backlog (MVP2)**: 27 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
 ## Recently Completed (moved to done/)
@@ -105,15 +105,17 @@ cd frontend && npm run build
 
 **Ticket Folders**:
 - `docs/tasks/*.md` - Active tickets (3)
-- `docs/tasks/done/*.md` - Completed tickets (39)
-- `docs/tasks/backlog/*.md` - MVP2 tickets (22)
+- `docs/tasks/done/*.md` - Completed tickets (43)
+- `docs/tasks/backlog/*.md` - MVP2 tickets (27)
 - `docs/tasks/archive/*.md` - Obsolete tickets (2)
 
 ---
 
-## MVP2 Backlog (19 tickets)
+## MVP2 Backlog (27 tickets)
 
 **Prerequisites**: Complete MVP1 first (BUG-EDITOR-3064, EDITOR-307)
+
+**NEW (2026-01-13)**: Added 7 tickets for Silent Auto-Reorg + Cmd+S Portal Search features
 
 | Epic | Tickets | Count |
 |------|---------|-------|
@@ -121,7 +123,69 @@ cd frontend && npm run build
 | Descriptor System | EDITOR-3201 to 3204 | 4 |
 | Cheatsheet | EDITOR-3301 to 3304 | 4 |
 | Portal | EDITOR-3404-3405 (3401-3403, 3406 done) | 2 |
-| Semantic Linking | API-301, API-302, EDITOR-3501, FE-501 | 4 |
+| **Semantic Linking** | **API-301, 302, 303, EDITOR-3407-3410, EDITOR-3501, FE-501** | **11** |
 | Auto AI Generation | EDITOR-3601, 3602, FE-502 | 3 |
 
+### Semantic Linking Details (11 tickets)
+
+**Backend APIs (3):**
+- API-301: Embedding/Vector Storage (pgvector + OpenAI) - Phase 1 (6h)
+- API-302: Semantic Search Endpoint - Phase 2 (4h)
+- API-303: Concept Extraction - Phase 3 (3h)
+
+**Silent Auto-Reorg (2):**
+- EDITOR-3407: Auto-Reorg Foundation (with mocks) - Phase 4 (5h)
+- EDITOR-3408: Auto-Reorg Integration (real APIs) - Phase 5 (4h)
+
+**Cmd+S Portal Search (2):**
+- EDITOR-3409: Portal Search Modal (with mocks) - Phase 6 (6h)
+- EDITOR-3410: Search Modal Integration - Phase 7 (4h)
+
+**Other (4):**
+- EDITOR-3501: Portal subtree editing
+- EDITOR-3502-3505: Reorganization UI (moved to MVP4)
+- FE-501: Semantic linking settings
+
+**Total Estimate:** 32 hours sequential, **14 hours with 3-thread parallelism (OPTIMAL)**
+
+### 3-Thread Parallel Execution Plan (14 hours total)
+
+**Optimal Strategy for Maximum Speed:**
+
+```
+🔴 Thread 1 (Critical Path - 14h):
+   API-301 (6h) → API-302 (4h) → EDITOR-3408 (4h)
+
+🟢 Thread 2 (Support Path - 8h):
+   API-303 (3h) → EDITOR-3407 (5h)
+
+🔵 Thread 3 (Independent Path - 10h):
+   EDITOR-3409 (6h) → EDITOR-3410 (4h)
+```
+
+**Timeline:**
+- **Hour 0-6**: All 3 threads working (Phase 1, 3, 6)
+- **Hour 6-8**: Thread 1 & 2 working (Phase 2, 4), Thread 3 working (Phase 7)
+- **Hour 8-10**: Thread 1 & 3 working (Phase 2, 7), Thread 2 idle
+- **Hour 10-14**: Thread 1 only (Phase 5), others idle
+- **Total: 14 hours** (vs 32h sequential)
+
+**⚠️ One Merge Conflict:**
+- `editor-store.ts` (Hours 3-6): Thread 2 & 3 both modify
+- **Resolution**: Trivial additive merge (2 minutes)
+- **Strategy**: Let both threads proceed, resolve during PR merge
+
+**Prerequisites (Phase 0 - 15 min):**
+1. Enable pgvector in Supabase Dashboard (all environments)
+2. Add `OPENAI_API_KEY` to backend env files
+3. Verify with: `SELECT * FROM pg_extension WHERE extname = 'vector';`
+
+**Execution Order:**
+1. User completes Phase 0 (prerequisite)
+2. Launch all 3 threads simultaneously
+3. Thread 3 finishes first (Hour 10) → merge EDITOR-3409, EDITOR-3410
+4. Thread 2 finishes (Hour 8) → resolve editor-store.ts conflict → merge
+5. Thread 1 finishes last (Hour 14) → merge all API tickets and EDITOR-3408
+
 See `docs/roadmap.md` for full MVP2 feature breakdown.
+See `/Users/taylorye/.claude/plans/linear-crunching-knuth.md` for detailed implementation plan.
