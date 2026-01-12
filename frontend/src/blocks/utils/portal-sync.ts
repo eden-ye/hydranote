@@ -27,6 +27,9 @@ export interface CreateSourceObserverParams {
  * Creates an observer that watches for changes to a source block's text.
  * Uses Yjs observation for real-time sync.
  *
+ * EDITOR-3406: Also subscribes to document-level block deletion events
+ * to detect when the source block is deleted at runtime.
+ *
  * @param params - Observer configuration
  * @returns SourceObserver with dispose method for cleanup
  */
@@ -40,6 +43,7 @@ export function createSourceObserver(
 
   if (!sourceBlock) {
     // Source block doesn't exist - it's orphaned
+    // No need to subscribe to blockUpdated events since it's already orphaned
     onOrphaned()
     return { dispose: () => {} }
   }
@@ -64,6 +68,14 @@ export function createSourceObserver(
   // Observe text changes
   sourceText.yText.observe(textObserver)
 
+  // EDITOR-3406: Subscribe to document-level block deletion events
+  // to detect runtime deletion of the source block
+  const blockUpdatedSubscription = doc.slots.blockUpdated.on((event) => {
+    if (event.type === 'delete' && event.id === sourceBlockId) {
+      onOrphaned()
+    }
+  })
+
   // Initial sync - send current text
   onTextChange(sourceText.toString())
 
@@ -71,6 +83,8 @@ export function createSourceObserver(
   return {
     dispose: () => {
       sourceText.yText.unobserve(textObserver)
+      // EDITOR-3406: Cleanup blockUpdated subscription
+      blockUpdatedSubscription.dispose()
     },
   }
 }
