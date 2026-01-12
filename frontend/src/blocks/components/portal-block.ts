@@ -15,6 +15,13 @@ import {
   getEditingClasses,
   getEditWarningMessage,
 } from '../utils/portal-editing'
+import {
+  fetchSubtreeFromDoc,
+  getIndentationPx,
+  type SubtreeNode,
+  type SubtreeFetchResult,
+  DEFAULT_MAX_DEPTH,
+} from '../utils/portal-subtree'
 import type { Text } from '@blocksuite/store'
 
 /**
@@ -316,6 +323,85 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       color: #1e40af;
       margin-left: 8px;
     }
+
+    /* EDITOR-3504: Portal Subtree Styles */
+    .portal-subtree {
+      padding-left: 8px;
+      margin-top: 8px;
+    }
+
+    .portal-subtree-node {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 4px 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #374151;
+    }
+
+    .portal-subtree-node:hover {
+      background: rgba(99, 102, 241, 0.04);
+      border-radius: 4px;
+    }
+
+    .portal-subtree-icon {
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      min-width: 14px;
+      text-align: center;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    .portal-subtree-icon:hover {
+      color: #6366f1;
+    }
+
+    .portal-subtree-icon.leaf {
+      cursor: default;
+    }
+
+    .portal-subtree-icon.leaf:hover {
+      color: #9ca3af;
+    }
+
+    .portal-subtree-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .portal-subtree-text.collapsed {
+      color: #6b7280;
+    }
+
+    .portal-subtree-children-count {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-left: 4px;
+    }
+
+    .portal-subtree-depth-warning {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #fef3c7;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #92400e;
+      margin-top: 8px;
+    }
+
+    .portal-subtree-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      color: #6b7280;
+      font-size: 13px;
+    }
   `
 
   private _isLoading = true
@@ -333,6 +419,14 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   // EDITOR-3405 BUGFIX: Track model initialization errors
   // BlockSuite's model getter throws if model not found, so we need error state
   private _modelError = false
+
+  // EDITOR-3504: Subtree state
+  private _subtreeResult: SubtreeFetchResult | null = null
+  private _subtreeLoading = false
+  // Track which nodes are collapsed within the subtree (by block ID)
+  // This is separate from the source block's actual isExpanded state
+  // to allow per-level collapse in the portal view
+  private _collapsedSubtreeNodes: Set<string> = new Set()
 
   /**
    * Safe model accessor that catches BlockSuiteError when model is missing.
@@ -515,6 +609,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
 
   /**
    * EDITOR-3404: Render editable content with rich-text bound to source Y.Text
+   * EDITOR-3504: Also render subtree when source block has children
    */
   private _renderEditableContent(): TemplateResult {
     // Check if editing should show warning
@@ -528,6 +623,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       return html`
         <div class="portal-content">
           <div class="source-block-content">${this._sourceText}</div>
+          ${this._renderSubtree()}
         </div>
       `
     }
@@ -545,7 +641,175 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
           @blur=${this._handleBlur}
         ></rich-text>
       </div>
+      ${this._renderSubtree()}
     `
+  }
+
+  /**
+   * EDITOR-3504: Render the subtree of the source block
+   */
+  private _renderSubtree(): TemplateResult {
+    // Fetch subtree if not already loaded
+    if (!this._subtreeResult && !this._subtreeLoading) {
+      this._fetchSubtree()
+    }
+
+    // Loading state
+    if (this._subtreeLoading) {
+      return html`
+        <div class="portal-subtree-loading">
+          <div class="portal-loading-spinner"></div>
+          <span>Loading children...</span>
+        </div>
+      `
+    }
+
+    // No subtree data
+    if (!this._subtreeResult || !this._subtreeResult.root) {
+      return html``
+    }
+
+    // Get children of the source block (not the source block itself)
+    const sourceChildren = this._subtreeResult.root.children
+    if (sourceChildren.length === 0) {
+      return html`` // No children to display
+    }
+
+    // Apply local collapse state to subtree
+    const subtreeWithCollapseState = this._applyLocalCollapseState(this._subtreeResult.root)
+
+    // Get only the children (skip the root itself since it's already shown)
+    const nodesToRender = subtreeWithCollapseState.children.length > 0
+      ? this._flattenChildren(subtreeWithCollapseState)
+      : []
+
+    return html`
+      <div class="portal-subtree">
+        ${nodesToRender.map((node) => this._renderSubtreeNode(node))}
+        ${this._subtreeResult.depthLimited
+          ? html`
+              <div class="portal-subtree-depth-warning">
+                <span>⚠️</span>
+                <span>Depth limit (${DEFAULT_MAX_DEPTH} levels) reached. Some nested content may be hidden.</span>
+              </div>
+            `
+          : nothing}
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3504: Flatten children of a node for rendering (skipping the root)
+   */
+  private _flattenChildren(root: SubtreeNode): SubtreeNode[] {
+    const result: SubtreeNode[] = []
+
+    const traverse = (node: SubtreeNode) => {
+      // Add this node (but not the root)
+      if (node.depth > 0) {
+        result.push(node)
+      }
+
+      // Add children if expanded in local state
+      const isCollapsed = this._collapsedSubtreeNodes.has(node.id)
+      if (!isCollapsed) {
+        for (const child of node.children) {
+          traverse(child)
+        }
+      }
+    }
+
+    traverse(root)
+    return result
+  }
+
+  /**
+   * EDITOR-3504: Apply local collapse state to a subtree
+   * Returns a new tree with isExpanded reflecting local state
+   */
+  private _applyLocalCollapseState(node: SubtreeNode): SubtreeNode {
+    const isCollapsed = this._collapsedSubtreeNodes.has(node.id)
+    return {
+      ...node,
+      isExpanded: !isCollapsed,
+      children: node.children.map((child) => this._applyLocalCollapseState(child)),
+    }
+  }
+
+  /**
+   * EDITOR-3504: Render a single subtree node
+   */
+  private _renderSubtreeNode(node: SubtreeNode): TemplateResult {
+    const isLeaf = node.children.length === 0
+    const isCollapsed = this._collapsedSubtreeNodes.has(node.id)
+    const icon = isLeaf ? '•' : isCollapsed ? '▶' : '▼'
+    const indent = getIndentationPx(node.depth - 1, 20) // -1 because we skip root
+
+    return html`
+      <div
+        class="portal-subtree-node"
+        style="padding-left: ${indent}px"
+      >
+        <span
+          class="portal-subtree-icon ${isLeaf ? 'leaf' : ''}"
+          @click=${() => !isLeaf && this._toggleSubtreeNode(node.id)}
+        >
+          ${icon}
+        </span>
+        <span class="portal-subtree-text ${isCollapsed && !isLeaf ? 'collapsed' : ''}">
+          ${node.text || '(empty)'}
+          ${isCollapsed && node.children.length > 0
+            ? html`<span class="portal-subtree-children-count">(${this._countAllDescendants(node)} items)</span>`
+            : nothing}
+        </span>
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3504: Count all descendants of a node
+   */
+  private _countAllDescendants(node: SubtreeNode): number {
+    let count = node.children.length
+    for (const child of node.children) {
+      count += this._countAllDescendants(child)
+    }
+    return count
+  }
+
+  /**
+   * EDITOR-3504: Toggle collapse state of a subtree node
+   */
+  private _toggleSubtreeNode(nodeId: string): void {
+    if (this._collapsedSubtreeNodes.has(nodeId)) {
+      this._collapsedSubtreeNodes.delete(nodeId)
+    } else {
+      this._collapsedSubtreeNodes.add(nodeId)
+    }
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3504: Fetch the subtree from the source block
+   */
+  private _fetchSubtree(): void {
+    const model = this._safeModel
+    if (!model) return
+
+    this._subtreeLoading = true
+    this.requestUpdate()
+
+    // Use setTimeout to not block the main thread
+    setTimeout(() => {
+      const result = fetchSubtreeFromDoc(this.doc, model.sourceBlockId, {
+        maxDepth: DEFAULT_MAX_DEPTH,
+        includeCollapsed: true, // We handle collapse state locally
+      })
+
+      this._subtreeResult = result
+      this._subtreeLoading = false
+      this.requestUpdate()
+    }, 0)
   }
 
   /**
@@ -673,6 +937,10 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     }
     // EDITOR-3404: Clear Y.Text reference on cleanup
     this._sourceYText = null
+    // EDITOR-3504: Clear subtree state on cleanup
+    this._subtreeResult = null
+    this._subtreeLoading = false
+    this._collapsedSubtreeNodes.clear()
   }
 }
 
