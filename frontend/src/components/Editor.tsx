@@ -18,6 +18,8 @@ import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
 // FE-408: Expand block hook
 import { useExpandBlock, type ExpandBlockContext } from '@/hooks/useExpandBlock'
+// EDITOR-3601: Descriptor generation context
+import type { DescriptorGenerationContext } from '@/blocks/components/bullet-block'
 // Auth store for token
 import { useAuthStore, selectAccessToken } from '@/stores/auth-store'
 // EDITOR-3203: Descriptor autocomplete
@@ -228,6 +230,42 @@ export default function Editor() {
 
     console.log('[Expand] Expanding block:', context.blockId)
     expandBlock(context, accessToken)
+  }, [accessToken, canExpand, expandBlock])
+
+  // EDITOR-3601: Handle descriptor generation event (Tab trigger at deepest level)
+  const handleDescriptorGenerateEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<DescriptorGenerationContext>
+    const context = customEvent.detail
+
+    if (!accessToken) {
+      console.warn('[DescriptorGenerate] No access token available')
+      return
+    }
+
+    if (!canExpand) {
+      console.warn('[DescriptorGenerate] Cannot generate - rate limit reached or generation in progress')
+      return
+    }
+
+    console.log('[DescriptorGenerate] Generating for descriptor:', context.descriptorType, 'block:', context.blockId)
+
+    // Build expand context from descriptor context
+    // Use the descriptor type to build a more specific prompt
+    const expandContext: ExpandBlockContext = {
+      blockId: context.blockId,
+      blockText: context.blockText,
+      siblingTexts: context.siblingTexts,
+      parentText: context.parentText,
+    }
+
+    // Log additional context for debugging
+    console.log('[DescriptorGenerate] Context:', {
+      descriptorType: context.descriptorType,
+      descriptorLabel: context.descriptorLabel,
+      grandparentText: context.grandparentText,
+    })
+
+    expandBlock(expandContext, accessToken)
   }, [accessToken, canExpand, expandBlock])
 
   // EDITOR-3203: Handle descriptor autocomplete open event
@@ -506,6 +544,9 @@ export default function Editor() {
     // FE-408: Add expand event listener
     container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
 
+    // EDITOR-3601: Add descriptor generation event listener
+    container.addEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
+
     // EDITOR-3203: Add autocomplete open event listener
     container.addEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
 
@@ -516,6 +557,7 @@ export default function Editor() {
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
+      container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
       // Destroy persistence first
@@ -531,7 +573,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent])
+  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {

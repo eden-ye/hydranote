@@ -215,6 +215,84 @@ export function canOutdent(depth: number): boolean {
 }
 
 /**
+ * EDITOR-3601: Input for determining if Tab should trigger AI generation
+ */
+export interface TabTriggerInput {
+  /** Whether the block can be indented (has previous sibling) */
+  canIndent: boolean
+  /** Whether the parent block is a descriptor */
+  parentIsDescriptor: boolean
+  /** Type of the parent descriptor (null if not a descriptor) */
+  parentDescriptorType: 'what' | 'why' | 'how' | 'pros' | 'cons' | 'custom' | null
+}
+
+/**
+ * EDITOR-3601: Check if Tab should trigger AI generation for descriptor
+ *
+ * Triggers when:
+ * - User presses Tab but cannot indent (no previous sibling)
+ * - Parent block is a descriptor
+ *
+ * @param input - Context about the current block state
+ * @returns true if AI generation should be triggered
+ */
+export function shouldTriggerDescriptorGeneration(input: TabTriggerInput): boolean {
+  // Only trigger when cannot indent AND parent is a descriptor
+  return !input.canIndent && input.parentIsDescriptor
+}
+
+/**
+ * EDITOR-3601: Context for AI generation from descriptor
+ */
+export interface DescriptorGenerationContext {
+  /** ID of the block that triggered generation */
+  blockId: string
+  /** Text content of the current block */
+  blockText: string
+  /** Type of the parent descriptor */
+  descriptorType: 'what' | 'why' | 'how' | 'pros' | 'cons' | 'custom'
+  /** Custom label if descriptor type is 'custom' */
+  descriptorLabel: string | undefined
+  /** Text of the parent descriptor */
+  parentText: string
+  /** Text of the grandparent (topic context) */
+  grandparentText: string | null
+  /** Text of sibling bullets under the same descriptor */
+  siblingTexts: string[]
+}
+
+/**
+ * EDITOR-3601: Input for building generation context
+ */
+export interface DescriptorGenerationInput {
+  blockId: string
+  blockText: string
+  parentDescriptorType: 'what' | 'why' | 'how' | 'pros' | 'cons' | 'custom'
+  parentDescriptorLabel: string | undefined
+  parentText: string
+  grandparentText: string | null
+  siblingTexts: string[]
+}
+
+/**
+ * EDITOR-3601: Build the context for AI generation
+ *
+ * @param input - Raw input from the block context
+ * @returns Context formatted for AI prompt building
+ */
+export function buildDescriptorGenerationContext(input: DescriptorGenerationInput): DescriptorGenerationContext {
+  return {
+    blockId: input.blockId,
+    blockText: input.blockText,
+    descriptorType: input.parentDescriptorType,
+    descriptorLabel: input.parentDescriptorLabel,
+    parentText: input.parentText,
+    grandparentText: input.grandparentText,
+    siblingTexts: input.siblingTexts,
+  }
+}
+
+/**
  * Input for computing backspace merge strategy
  * EDITOR-3063: Added to handle children reparenting
  */
@@ -837,10 +915,31 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         },
 
         // Tab to indent (make child of previous sibling)
+        // EDITOR-3601: If cannot indent and parent is descriptor, trigger AI generation
         Tab: (ctx) => {
           // Guard: Only handle if this block has the text selection
           if (!this._hasTextSelection()) return false
           ctx.get('defaultState').event.preventDefault()
+
+          // EDITOR-3601: Check if Tab should trigger AI generation
+          const navCtx = this._getNavigationContext()
+          const canDoIndent = canIndent(navCtx.previousSiblingId !== null, 0)
+
+          if (!canDoIndent) {
+            // Cannot indent - check if parent is a descriptor for AI generation
+            const parent = this.model.parent
+            if (parent && parent.flavour === 'hydra:bullet') {
+              const parentBullet = parent as BulletBlockModel
+              if (parentBullet.isDescriptor && parentBullet.descriptorType) {
+                // EDITOR-3601: Trigger AI generation for descriptor
+                this._dispatchDescriptorGeneration()
+                return true
+              }
+            }
+            // Cannot indent and parent is not descriptor - do nothing
+            return true
+          }
+
           this._indent()
           return true
         },
@@ -2043,6 +2142,49 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         blockId: this.model.id,
         position,
       },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3601: Dispatch event to trigger AI generation for descriptor
+   * Called when Tab is pressed at deepest level under a descriptor
+   */
+  private _dispatchDescriptorGeneration(): void {
+    const parent = this.model.parent
+    if (!parent || parent.flavour !== 'hydra:bullet') return
+
+    const parentBullet = parent as BulletBlockModel
+    if (!parentBullet.isDescriptor || !parentBullet.descriptorType) return
+
+    // Get grandparent (topic) context
+    const grandparent = parent.parent
+    const grandparentText = grandparent?.flavour === 'hydra:bullet'
+      ? (grandparent as BulletBlockModel).text?.toString() || null
+      : null
+
+    // Get sibling texts (other children of the descriptor)
+    const siblings = parent.children.filter(c => c.flavour === 'hydra:bullet' && c.id !== this.model.id)
+    const siblingTexts = siblings
+      .map(s => (s as BulletBlockModel).text?.toString() || '')
+      .filter(text => text.length > 0)
+
+    // Build generation context
+    const context = buildDescriptorGenerationContext({
+      blockId: this.model.id,
+      blockText: this.model.text?.toString() || '',
+      parentDescriptorType: parentBullet.descriptorType,
+      parentDescriptorLabel: parentBullet.descriptorLabel,
+      parentText: parentBullet.text?.toString() || '',
+      grandparentText,
+      siblingTexts,
+    })
+
+    // Dispatch custom event with generation context
+    const event = new CustomEvent('hydra-descriptor-generate', {
+      bubbles: true,
+      composed: true,
+      detail: context,
     })
     this.dispatchEvent(event)
   }
