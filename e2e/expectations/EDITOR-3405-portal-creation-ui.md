@@ -216,3 +216,92 @@ All test scenarios pass without errors. Portal creation UI:
 - Supports keyboard and mouse navigation
 - Shows visual hierarchy for nested bullets
 - Creates portals correctly and cleans up trigger text
+
+---
+
+## Test Results (2026-01-11)
+
+**Tester:** Claude Code (Automated Chrome Testing)
+**Date:** 2026-01-11 18:22 PST
+**Environment:** macOS, Chrome, localhost:5173
+
+### Critical Blocker Found
+
+❌ **BLOCKER: JavaScript Errors Preventing Portal Picker Functionality**
+
+**Issue:**
+Repeated JavaScript TypeErrors are thrown by orphaned portal blocks, preventing the portal picker from opening.
+
+**Error Details:**
+```
+TypeError: Cannot read properties of null (reading 'id')
+    at _a.render (chunk-RLJQ3PVD.js:368:42)
+```
+
+**Reproduction:**
+1. Load application with existing orphaned portal (source block deleted)
+2. Orphaned portal continuously throws errors during render
+3. Type "/portal" in any bullet
+4. Portal picker does not open - text displays as plain text instead
+5. Console shows 12+ repeated TypeError exceptions
+
+**Impact:**
+- Portal picker cannot be triggered via `/portal` slash command
+- Unable to test any of the 10 scenarios for EDITOR-3405
+- Core functionality is broken
+
+**Screenshots:**
+- Initial state: Application loaded with orphaned portal visible
+- After typing "/portal": Text appears as plain text, no modal opens
+- Console: Multiple TypeError exceptions related to null source ID
+
+### Test Scenario Results
+
+#### ❌ Scenario 1: Portal Creation via Slash Command - BLOCKED
+- **Status:** FAILED
+- **Steps Completed:** 1-4
+- **Failure Point:** Step 5 - Portal picker did not appear
+- **Actual Result:** Text "/portal" displayed as plain text in bullet
+- **Expected:** Portal picker modal should open
+- **Root Cause:** JavaScript errors preventing event handlers from working
+
+#### ⏸️ Scenarios 2-10: NOT TESTED
+All remaining scenarios blocked by Scenario 1 failure:
+- Scenario 2: Keyboard Shortcut (Cmd+Shift+P)
+- Scenario 3: Search/Filter
+- Scenario 4: Keyboard Navigation
+- Scenario 5: Mouse Interaction
+- Scenario 6: Nested Bullets
+- Scenario 7: Preview
+- Scenario 8: Partial Slash Command
+- Scenario 9: Click Outside to Cancel
+- Scenario 10: Empty State
+
+**Reason:** Core portal picker triggering is broken
+
+### Recommendations
+
+1. **Immediate Fix Required:** Fix orphaned portal rendering to handle null source gracefully
+   - Location: `frontend/src/blocks/components/portal-block.ts` (line ~368)
+   - Add null check before accessing `source.id`
+
+2. **Clean Test Data:** Remove orphaned portals from IndexedDB for testing
+   - Or add "Delete" button for orphaned portals
+
+3. **Defensive Coding:** Ensure all portal rendering code handles edge cases:
+   - Null source (deleted)
+   - Missing block references
+   - Corrupted Yjs data
+
+4. **Retry Testing:** After fix, clear IndexedDB and retest all 10 scenarios with fresh data
+
+### Next Steps
+
+- [ ] Fix TypeError in portal block render method
+- [ ] Clear Vite cache and rebuild
+- [ ] Clear browser IndexedDB storage
+- [ ] Retry E2E testing with clean state
+- [ ] If fixed, complete all 10 scenarios for EDITOR-3405
+- [ ] Then proceed to EDITOR-3404 testing
+
+### Test Status: ❌ FAILED (Blocker Found)

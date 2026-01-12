@@ -128,8 +128,40 @@
 - [ ] Warning banner is readable by screen readers
 
 ## Test Results
-(To be filled after Chrome E2E testing)
 
-- **Tester**:
-- **Date**:
-- **Results**:
+**Tester:** Claude Code (Automated Chrome Testing)
+**Date:** 2026-01-11 18:22 PST
+**Environment:** macOS, Chrome, localhost:5173
+
+### Test Status: ⏸️ BLOCKED (Not Started)
+
+**Blocked By:** EDITOR-3405 failure - JavaScript errors from orphaned portal blocks
+
+**Summary:**
+EDITOR-3404 testing could not proceed because:
+1. Application has JavaScript errors from orphaned portal rendering
+2. These errors prevent portal picker from opening
+3. Cannot create test portals needed for editing scenarios
+4. All 10 scenarios for EDITOR-3404 require working portal creation first
+
+**Blocker Details:**
+See EDITOR-3405 E2E test results for complete error details and reproduction steps.
+
+**Next Steps:**
+1. Fix orphaned portal rendering bug (TypeError: Cannot read properties of null)
+2. Complete EDITOR-3405 testing successfully
+3. Then proceed with EDITOR-3404 testing
+
+### Scenarios Not Tested:
+- Scenario 1: Portal Content is Editable When Expanded
+- Scenario 2: Edit Warning Shows on First Edit
+- Scenario 3: Dismiss Warning Permanently
+- Scenario 4: Text Edit Syncs to Source Block
+- Scenario 5: Visual Indication While Editing
+- Scenario 6: Cursor and Selection Work
+- Scenario 7: Portal Not Editable When Collapsed
+- Scenario 8: Portal Not Editable When Orphaned
+- Scenario 9: Editing Portal Updates Source in Real-Time
+- Scenario 10: Concurrent Edit Handling (Yjs CRDT)
+
+**Reason:** Cannot create functional portals due to upstream blocker

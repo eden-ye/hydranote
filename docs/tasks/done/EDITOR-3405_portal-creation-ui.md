@@ -95,4 +95,49 @@ Part of Epic 4: Portal. For semantic linking, portals are created automatically 
 - **E2E**: 10 test scenarios documented in `e2e/expectations/EDITOR-3405-portal-creation-ui.md`
 
 ## E2E Testing Results (2026-01-11)
-- ⏳ Manual Chrome testing pending (test scenarios documented)
+
+### Automated Chrome Testing - 2026-01-11 18:22 PST
+
+**Status:** ❌ FAILED (Critical Blocker Found)
+
+**Summary:**
+E2E testing discovered a critical JavaScript error that prevents the portal picker from opening. Orphaned portal blocks (with deleted sources) throw repeated TypeErrors, breaking the application's event handling.
+
+**Test Environment:**
+- Browser: Chrome (latest)
+- Platform: macOS
+- URL: http://localhost:5173
+- Method: Automated Chrome MCP tools
+
+**Critical Issue Found:**
+```
+TypeError: Cannot read properties of null (reading 'id')
+    at _a.render (chunk-RLJQ3PVD.js:368:42)
+```
+
+**Impact:**
+- Portal picker does not open when typing `/portal`
+- Text displays as plain text instead of triggering modal
+- 12+ repeated console errors from orphaned portal rendering
+- Blocks all 10 test scenarios for EDITOR-3405
+
+**Test Results:**
+- ❌ Scenario 1: Portal Creation via Slash Command - FAILED at step 5
+- ⏸️ Scenarios 2-10: NOT TESTED (blocked by Scenario 1 failure)
+
+**Root Cause:**
+Orphaned portal block attempts to access `source.id` without null check, causing cascade of JavaScript errors that prevent other UI interactions.
+
+**Recommendations:**
+1. Add null checks in `frontend/src/blocks/components/portal-block.ts` before accessing source properties
+2. Clear IndexedDB test data containing orphaned portals
+3. Add defensive coding for all edge cases (null source, missing blocks, corrupted data)
+4. Retry E2E testing after fix with clean state
+
+**Next Actions:**
+- [ ] Fix TypeError in portal rendering
+- [ ] Clear browser storage and Vite cache
+- [ ] Retest all 10 scenarios with clean data
+- [ ] Verify portal picker opens correctly
+
+**Full Test Report:** See `e2e/expectations/EDITOR-3405-portal-creation-ui.md`

@@ -174,6 +174,9 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
 - NEVER use `git reset --hard <commit_number>`, remember you have your peers work on other file
 - Do `rm -rf node_modules/.vite` Rerun the frontend in local when you have updated the code and using Chrome to validate it
 - **For unfamiliar framework features (BlockSuite, etc.), do a 5-minute spike test in the browser console BEFORE writing tests and implementation.** This prevents wasted hours discovering architectural limitations after full implementation. Example: try `formatText({background: '#FEF3C7'})` in console first to verify it renders, before writing 300 lines of code.
+- **CRITICAL (BUG-001): Check browser console for errors during ALL Chrome testing** - Unit tests + build can pass while feature is completely broken in browser. Always verify no console errors before claiming complete.
+- **CRITICAL (BUG-001): Add null checks in Lit component `renderBlock()` methods** - `if (!this.model) return html`...`` - BlockSuite orphaned blocks can persist in IndexedDB and crash without null guards.
+- **If Chrome extension not currently connected** - it means another thread is using Chrome tools. Sleep 5 minutes and retry. Retry up to 5 times. If still failed after 5 retries, stop the task and inform the user.
 
 ## Documentation Requirements
 

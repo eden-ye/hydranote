@@ -341,6 +341,17 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   }, SYNC_DEBOUNCE_DELAY)
 
   override connectedCallback(): void {
+    // BUGFIX: Prevent base class render if model is null (orphaned portal edge case)
+    // Wrap in try-catch since the model getter may throw if dependencies aren't initialized
+    try {
+      if (!this.model) {
+        console.warn('PortalBlock: connectedCallback called with null model, skipping setup')
+        return
+      }
+    } catch (error) {
+      console.warn('PortalBlock: Error accessing model in connectedCallback, skipping setup', error)
+      return
+    }
     super.connectedCallback()
     this._setupSourceObserver()
   }
@@ -351,6 +362,20 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   }
 
   override renderBlock(): TemplateResult {
+    // BUGFIX: Add defensive null check for model
+    // Prevents crash when portal block is in invalid state (e.g., corrupted orphaned portal)
+    if (!this.model) {
+      return html`
+        <div class="portal-container portal-orphaned">
+          <div class="portal-content">
+            <div class="portal-orphaned-message">
+              Invalid portal block (missing model). Please delete this block.
+            </div>
+          </div>
+        </div>
+      `
+    }
+
     const displayState = getPortalDisplayState({
       syncStatus: this.model.syncStatus,
       isCollapsed: this.model.isCollapsed,
@@ -521,6 +546,9 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   }
 
   private _toggleCollapse(): void {
+    // BUGFIX: Guard against null model
+    if (!this.model) return
+
     this.doc.updateBlock(this.model, {
       isCollapsed: !this.model.isCollapsed,
     })
@@ -530,6 +558,8 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     const docName = this._sourceDocName
     const preview = this._sourceText
 
+    // BUGFIX: Guard against null model
+    if (!this.model) return 'Invalid source'
     if (!docName && !this.model.sourceDocId) return 'Unknown source'
     if (!preview) return `from: ${docName || 'Document'}`
 
@@ -547,6 +577,12 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     this._sourceYText = null
     this._cleanupSourceObserver()
     this.requestUpdate()
+
+    // BUGFIX: Guard against null model
+    if (!this.model) {
+      this._isLoading = false
+      return
+    }
 
     // EDITOR-3404: Get source block and its Y.Text for editing
     const sourceBlock = this.doc.getBlock(this.model.sourceBlockId)
@@ -570,9 +606,12 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       onOrphaned: () => {
         this._isLoading = false
         this._sourceYText = null
-        this.doc.updateBlock(this.model, {
-          syncStatus: 'orphaned',
-        })
+        // BUGFIX: Guard against null model
+        if (this.model) {
+          this.doc.updateBlock(this.model, {
+            syncStatus: 'orphaned',
+          })
+        }
         this.requestUpdate()
       },
     })
