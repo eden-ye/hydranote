@@ -7,18 +7,28 @@ This folder contains all project documentation for Hydra Notes. Documentation is
 ```
 docs/
 ├── README.md           ← This file
-├── roadmap.md          ← Development phases and priorities (RAG → Graph → Quiz)
+├── roadmap.md          ← Development phases and priorities
 ├── api/                ← API documentation (backend and frontend)
-│   └── supabase_setup.md
 ├── bugs/               ← Bug fix documentation
 ├── design/             ← Design documents and architecture
 ├── features/           ← Feature development logs
+├── release/            ← Release workflow (NEW)
+│   ├── README.md       ← Quick start & workflow guide
+│   ├── sprint-tracker.md  ← Active tasks (replaces tasks/current.md)
+│   ├── thread-scheduler.md ← Parallel worker scheduling
+│   ├── queues/         ← Release pipeline stages
+│   │   ├── ready-to-test-in-sat.md
+│   │   ├── ready-to-elevate.md
+│   │   ├── ready-to-test-in-prod.md
+│   │   └── done.md
+│   ├── versions/       ← Release notes by version
+│   ├── rollback/       ← Rollback tickets
+│   └── prod-support/   ← Production support tickets
 └── tasks/
-    ├── current.md      ← Active tasks and next steps (rolling update)
     ├── *.md            ← Active task tickets
-    ├── backlog/        ← Future tasks (can be picked up if have capacity)
-    ├── done/           ← Completed tasks (permanent record)
-    └── archive/        ← Obsolete tasks (roadmap changes only)
+    ├── backlog/        ← Future tasks
+    ├── done/           ← Completed tasks (permanent)
+    └── archive/        ← Obsolete tasks
 ```
 
 ## Templates
