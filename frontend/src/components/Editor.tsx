@@ -41,6 +41,11 @@ import {
   createDebouncedAutoGenerate,
   DEFAULT_AUTO_GENERATE_SETTINGS,
 } from '@/blocks/utils/auto-generate'
+// EDITOR-3409/3410: Portal search modal
+import { PortalSearchModal } from './PortalSearchModal'
+import { createPortalAsSibling, type DocWithBlocks } from '@/blocks/utils/portal-insertion'
+import type { RecentItem } from '@/utils/frecency'
+import type { FuzzySearchResult } from '@/utils/fuzzy-search'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -232,6 +237,13 @@ export default function Editor() {
   } = useEditorStore()
   const autoGenerateRef = useRef<{ trigger: () => void; cancel: () => void } | null>(null)
   const wasExpandingRef = useRef(false)
+
+  // EDITOR-3410: Portal search modal state
+  const {
+    portalSearchCurrentBulletId,
+    openPortalSearchModal,
+    closePortalSearchModal,
+  } = useEditorStore()
 
   // EDITOR-3602: Track expansion completion for auto-generate
   useEffect(() => {
@@ -551,6 +563,39 @@ export default function Editor() {
     closePortalPicker()
   }, [portalPickerBlockId, closePortalPicker])
 
+  // EDITOR-3410: Handle portal search modal selection
+  const handlePortalSearchSelect = useCallback((item: RecentItem | FuzzySearchResult) => {
+    console.log('[PortalSearchModal] Item selected:', item)
+
+    const doc = docRef.current
+    if (!doc || !portalSearchCurrentBulletId) {
+      console.warn('[PortalSearchModal] No doc or currentBulletId available')
+      closePortalSearchModal()
+      return
+    }
+
+    try {
+      // Create portal as sibling below current bullet
+      const portalId = createPortalAsSibling(
+        doc as unknown as DocWithBlocks,
+        portalSearchCurrentBulletId,
+        item.documentId,
+        item.blockId
+      )
+
+      console.log(`[PortalSearchModal] Created portal ${portalId} as sibling below ${portalSearchCurrentBulletId}`)
+
+      // Focus the new portal or the original bullet
+      setTimeout(() => {
+        const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${portalSearchCurrentBulletId}"]`)
+        const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+        richText?.focus()
+      }, 0)
+    } catch (error) {
+      console.error('[PortalSearchModal] Failed to create portal:', error)
+    }
+  }, [portalSearchCurrentBulletId, closePortalSearchModal])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -660,7 +705,26 @@ export default function Editor() {
     container.addEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
 
     // EDITOR-3602: Cancel auto-generation when user starts typing
+    // EDITOR-3410: Cmd+S portal search modal
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isCmdOrCtrl = event.metaKey || event.ctrlKey
+
+      // EDITOR-3410: Cmd+S / Ctrl+S - Open portal search modal
+      if (isCmdOrCtrl && event.key === 's') {
+        event.preventDefault() // Prevent browser save dialog
+
+        // Find currently focused bullet from DOM
+        const activeElement = document.activeElement
+        const bulletBlock = activeElement?.closest('hydra-bullet-block')
+        const currentBulletId = bulletBlock?.getAttribute('data-block-id')
+
+        if (currentBulletId) {
+          console.log('[PortalSearchModal] Opening modal for bullet:', currentBulletId)
+          openPortalSearchModal(currentBulletId)
+        }
+        return
+      }
+
       // Only cancel on printable characters (not modifiers, arrows, etc.)
       if (
         autoGenerateStatus === 'pending' &&
@@ -699,7 +763,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate])
+  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -861,6 +925,9 @@ export default function Editor() {
         onQueryChange={setPortalPickerQuery}
         onSelectedIndexChange={setPortalPickerSelectedIndex}
       />
+
+      {/* EDITOR-3410: Portal search modal (Cmd+S) */}
+      <PortalSearchModal onSelect={handlePortalSearchSelect} />
     </div>
   )
 }
