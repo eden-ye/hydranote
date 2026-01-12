@@ -1,6 +1,7 @@
 import { BlockComponent } from '@blocksuite/block-std'
 import type { BlockModel } from '@blocksuite/store'
 import type { BulletBlockModel } from '../schemas/bullet-block-schema'
+import type { PortalBlockModel } from '../schemas/portal-block-schema'
 import { html, css, nothing, type TemplateResult } from 'lit'
 import { customElement } from 'lit/decorators.js'
 // EDITOR-3053: Import rich-text component and focus utilities
@@ -1686,7 +1687,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       const model = block.model
 
       if (model.flavour === 'hydra:portal') {
-        const portalModel = model as any
+        const portalModel = model as PortalBlockModel
         if (portalModel.sourceBlockId === blockId) {
           portals.push(model)
         }
