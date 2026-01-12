@@ -46,6 +46,10 @@ import { PortalSearchModal } from './PortalSearchModal'
 import { createPortalAsSibling, type DocWithBlocks } from '@/blocks/utils/portal-insertion'
 import type { RecentItem } from '@/utils/frecency'
 import type { FuzzySearchResult } from '@/utils/fuzzy-search'
+// EDITOR-3502: Reorganization modal
+import { ReorganizationModal, type PortalConnection } from './ReorganizationModal'
+import { extractConcepts, semanticSearch } from '@/services/api-client.mock'
+import type { ConceptMatch } from '@/stores/editor-store'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -243,6 +247,18 @@ export default function Editor() {
     portalSearchCurrentBulletId,
     openPortalSearchModal,
     closePortalSearchModal,
+  } = useEditorStore()
+
+  // EDITOR-3502: Reorganization modal state
+  const {
+    reorgModalOpen,
+    reorgModalDocumentId,
+    autoReorgThreshold,
+    openReorgModal,
+    closeReorgModal,
+    setReorgModalStatus,
+    setReorgModalConceptMatches,
+    setReorgModalError,
   } = useEditorStore()
 
   // EDITOR-3602: Track expansion completion for auto-generate
@@ -596,6 +612,147 @@ export default function Editor() {
     }
   }, [portalSearchCurrentBulletId, closePortalSearchModal])
 
+  // EDITOR-3502: Run concept extraction and semantic search for reorganization modal
+  const runReorgAnalysis = useCallback(async () => {
+    const doc = docRef.current
+    if (!doc || !reorgModalDocumentId) return
+
+    try {
+      // Extract document text from all bullet blocks
+      const bullets: string[] = []
+      const extractText = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          const text = (block as BulletBlockModel).text?.toString() || ''
+          if (text.trim()) bullets.push(text)
+        }
+        block.children.forEach(extractText)
+      }
+      if (doc.root) {
+        doc.root.children.forEach(extractText)
+      }
+      const documentText = bullets.join('\n')
+
+      if (!documentText.trim()) {
+        setReorgModalStatus('loaded')
+        setReorgModalConceptMatches([])
+        return
+      }
+
+      // Step 1: Extract concepts
+      setReorgModalStatus('extracting')
+      const concepts = await extractConcepts(documentText)
+
+      if (concepts.length === 0) {
+        setReorgModalStatus('loaded')
+        setReorgModalConceptMatches([])
+        return
+      }
+
+      // Step 2: Semantic search for each concept
+      setReorgModalStatus('searching')
+      const conceptMatches: ConceptMatch[] = []
+
+      for (const concept of concepts) {
+        const results = await semanticSearch({
+          query: concept.name,
+          limit: 5,
+          threshold: autoReorgThreshold,
+          excludeDocIds: [reorgModalDocumentId],
+        })
+
+        // Pre-select top match above threshold
+        const selectedMatches = new Set<string>()
+        if (results.length > 0 && results[0].score >= autoReorgThreshold) {
+          selectedMatches.add(results[0].blockId)
+        }
+
+        conceptMatches.push({
+          concept: concept.name,
+          category: concept.category,
+          matches: results,
+          selectedMatches,
+        })
+      }
+
+      setReorgModalConceptMatches(conceptMatches)
+      setReorgModalStatus('loaded')
+    } catch (error) {
+      console.error('[ReorgModal] Analysis failed:', error)
+      setReorgModalError(error instanceof Error ? error.message : 'Analysis failed')
+      setReorgModalStatus('error')
+    }
+  }, [
+    reorgModalDocumentId,
+    autoReorgThreshold,
+    setReorgModalStatus,
+    setReorgModalConceptMatches,
+    setReorgModalError,
+  ])
+
+  // EDITOR-3502: Trigger analysis when modal opens
+  useEffect(() => {
+    if (reorgModalOpen && reorgModalDocumentId) {
+      runReorgAnalysis()
+    }
+  }, [reorgModalOpen, reorgModalDocumentId, runReorgAnalysis])
+
+  // EDITOR-3502: Handle connections from reorganization modal
+  const handleReorgConnect = useCallback((connections: PortalConnection[]) => {
+    console.log('[ReorgModal] Creating connections:', connections)
+
+    const doc = docRef.current
+    if (!doc) {
+      console.warn('[ReorgModal] No doc available')
+      return
+    }
+
+    // Find the last bullet in the document to add portals after
+    let lastBulletId: string | null = null
+    const findLastBullet = (block: BlockModel) => {
+      if (block.flavour === 'hydra:bullet') {
+        lastBulletId = block.id
+      }
+      // Continue searching in children (depth-first, so last visible bullet)
+      for (let i = block.children.length - 1; i >= 0; i--) {
+        findLastBullet(block.children[i])
+        if (lastBulletId && block.children[i].flavour === 'hydra:bullet') {
+          // Found in children, use that
+          return
+        }
+      }
+    }
+    if (doc.root) {
+      doc.root.children.forEach(findLastBullet)
+    }
+
+    if (!lastBulletId) {
+      console.warn('[ReorgModal] No bullet found to add portals after')
+      return
+    }
+
+    // Create portals for each connection
+    for (const connection of connections) {
+      try {
+        const portalId = createPortalAsSibling(
+          doc as unknown as DocWithBlocks,
+          lastBulletId,
+          connection.sourceDocId,
+          connection.sourceBlockId
+        )
+        console.log(`[ReorgModal] Created portal ${portalId} for ${connection.contextPath}`)
+        lastBulletId = portalId // Chain portals after each other
+      } catch (error) {
+        console.error('[ReorgModal] Failed to create portal:', error)
+      }
+    }
+  }, [])
+
+  // EDITOR-3502: Handle reorganization modal close
+  const handleReorgClose = useCallback(() => {
+    console.log('[ReorgModal] Modal closed')
+    closeReorgModal()
+  }, [closeReorgModal])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -706,8 +863,21 @@ export default function Editor() {
 
     // EDITOR-3602: Cancel auto-generation when user starts typing
     // EDITOR-3410: Cmd+S portal search modal
+    // EDITOR-3502: Cmd+Shift+L reorganization modal
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCmdOrCtrl = event.metaKey || event.ctrlKey
+
+      // EDITOR-3502: Cmd+Shift+L / Ctrl+Shift+L - Open reorganization modal
+      if (isCmdOrCtrl && event.shiftKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault()
+
+        const doc = docRef.current
+        if (doc) {
+          console.log('[ReorgModal] Opening reorganization modal for document:', doc.id)
+          openReorgModal(doc.id)
+        }
+        return
+      }
 
       // EDITOR-3410: Cmd+S / Ctrl+S - Open portal search modal
       if (isCmdOrCtrl && event.key === 's') {
@@ -763,7 +933,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal])
+  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -928,6 +1098,9 @@ export default function Editor() {
 
       {/* EDITOR-3410: Portal search modal (Cmd+S) */}
       <PortalSearchModal onSelect={handlePortalSearchSelect} />
+
+      {/* EDITOR-3502: Reorganization modal (Cmd+Shift+L) */}
+      <ReorganizationModal onConnect={handleReorgConnect} onClose={handleReorgClose} />
     </div>
   )
 }

@@ -7,6 +7,7 @@
  * EDITOR-3409: Portal Search Modal State
  * EDITOR-3602: Auto-Generate Settings
  * EDITOR-3407: Auto-Reorg Settings
+ * EDITOR-3502: Reorganization Modal State
  *
  * Manages editor state including:
  * - Current document ID
@@ -17,11 +18,13 @@
  * - Portal search modal state
  * - Auto-generate settings and status
  * - Auto-reorg settings and status
+ * - Reorganization modal state (Cmd+Shift+L)
  */
 import { create } from 'zustand'
 import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
 import type { RecentItem } from '@/utils/frecency'
 import type { FuzzySearchResult } from '@/utils/fuzzy-search'
+import type { SemanticSearchResult } from '@/services/api-client.mock'
 
 /**
  * Editor mode type
@@ -32,6 +35,25 @@ export type EditorMode = 'normal' | 'focus'
  * EDITOR-3407: Auto-reorg status type
  */
 export type AutoReorgStatus = 'idle' | 'processing' | 'completed'
+
+/**
+ * EDITOR-3502: Reorganization modal status type
+ */
+export type ReorgModalStatus = 'idle' | 'extracting' | 'searching' | 'loaded' | 'error'
+
+/**
+ * EDITOR-3502: Concept match for reorganization modal
+ */
+export interface ConceptMatch {
+  /** Name of the extracted concept */
+  concept: string
+  /** Category of the concept */
+  category: string
+  /** Matching search results for this concept */
+  matches: SemanticSearchResult[]
+  /** Set of selected match block IDs */
+  selectedMatches: Set<string>
+}
 
 /**
  * Editor Store state interface
@@ -88,6 +110,17 @@ interface EditorState {
   autoReorgThreshold: number
   /** Current auto-reorg status */
   autoReorgStatus: AutoReorgStatus
+  // EDITOR-3502: Reorganization modal state
+  /** Whether the reorganization modal is open */
+  reorgModalOpen: boolean
+  /** Current status of the reorganization modal */
+  reorgModalStatus: ReorgModalStatus
+  /** Document ID being reorganized */
+  reorgModalDocumentId: string | null
+  /** Concept matches with search results */
+  reorgModalConceptMatches: ConceptMatch[]
+  /** Error message if any */
+  reorgModalError: string | null
 }
 
 /**
@@ -157,6 +190,19 @@ interface EditorActions {
   setAutoReorgThreshold: (threshold: number) => void
   /** Set auto-reorg status */
   setAutoReorgStatus: (status: AutoReorgStatus) => void
+  // EDITOR-3502: Reorganization modal actions
+  /** Open reorganization modal for a document */
+  openReorgModal: (documentId: string) => void
+  /** Close reorganization modal and reset state */
+  closeReorgModal: () => void
+  /** Set reorganization modal status */
+  setReorgModalStatus: (status: ReorgModalStatus) => void
+  /** Set concept matches */
+  setReorgModalConceptMatches: (matches: ConceptMatch[]) => void
+  /** Set error message */
+  setReorgModalError: (error: string | null) => void
+  /** Toggle selection of a match for a concept */
+  toggleReorgMatch: (concept: string, blockId: string) => void
 }
 
 /**
@@ -192,6 +238,12 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   autoReorgEnabled: true, // Enabled by default
   autoReorgThreshold: 0.8, // Default 0.8 threshold
   autoReorgStatus: 'idle',
+  // EDITOR-3502: Reorganization modal initial state
+  reorgModalOpen: false,
+  reorgModalStatus: 'idle',
+  reorgModalDocumentId: null,
+  reorgModalConceptMatches: [],
+  reorgModalError: null,
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -333,6 +385,51 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   setAutoReorgStatus: (status) =>
     set({ autoReorgStatus: status }),
+
+  // EDITOR-3502: Reorganization modal actions
+  openReorgModal: (documentId) =>
+    set({
+      reorgModalOpen: true,
+      reorgModalDocumentId: documentId,
+      reorgModalStatus: 'idle',
+      reorgModalConceptMatches: [],
+      reorgModalError: null,
+    }),
+
+  closeReorgModal: () =>
+    set({
+      reorgModalOpen: false,
+      reorgModalStatus: 'idle',
+      reorgModalDocumentId: null,
+      reorgModalConceptMatches: [],
+      reorgModalError: null,
+    }),
+
+  setReorgModalStatus: (status) =>
+    set({ reorgModalStatus: status }),
+
+  setReorgModalConceptMatches: (matches) =>
+    set({ reorgModalConceptMatches: matches }),
+
+  setReorgModalError: (error) =>
+    set({ reorgModalError: error }),
+
+  toggleReorgMatch: (concept, blockId) =>
+    set((state) => {
+      const updatedMatches = state.reorgModalConceptMatches.map((cm) => {
+        if (cm.concept === concept) {
+          const newSelected = new Set(cm.selectedMatches)
+          if (newSelected.has(blockId)) {
+            newSelected.delete(blockId)
+          } else {
+            newSelected.add(blockId)
+          }
+          return { ...cm, selectedMatches: newSelected }
+        }
+        return cm
+      })
+      return { reorgModalConceptMatches: updatedMatches }
+    }),
 }))
 
 /**
@@ -512,3 +609,41 @@ export const selectAutoReorgStatus = (state: EditorState): AutoReorgStatus =>
  */
 export const selectIsAutoReorgProcessing = (state: EditorState): boolean =>
   state.autoReorgStatus === 'processing'
+
+// EDITOR-3502: Reorganization modal selectors
+
+/**
+ * Selector for checking if reorganization modal is open
+ */
+export const selectIsReorgModalOpen = (state: EditorState): boolean =>
+  state.reorgModalOpen
+
+/**
+ * Selector for getting reorganization modal status
+ */
+export const selectReorgModalStatus = (state: EditorState): ReorgModalStatus =>
+  state.reorgModalStatus
+
+/**
+ * Selector for getting reorganization modal document ID
+ */
+export const selectReorgModalDocumentId = (state: EditorState): string | null =>
+  state.reorgModalDocumentId
+
+/**
+ * Selector for getting reorganization modal concept matches
+ */
+export const selectReorgModalConceptMatches = (state: EditorState): ConceptMatch[] =>
+  state.reorgModalConceptMatches
+
+/**
+ * Selector for getting reorganization modal error
+ */
+export const selectReorgModalError = (state: EditorState): string | null =>
+  state.reorgModalError
+
+/**
+ * Selector for getting total selected matches count
+ */
+export const selectReorgModalSelectedCount = (state: EditorState): number =>
+  state.reorgModalConceptMatches.reduce((total, cm) => total + cm.selectedMatches.size, 0)
