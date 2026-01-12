@@ -128,6 +128,22 @@ function loadSettings(): Partial<SettingsState> {
 }
 
 /**
+ * Get initial state by merging defaults with persisted settings
+ * BUG-002 FIX: Load from localStorage on store initialization
+ */
+function getInitialState(): SettingsState {
+  const saved = loadSettings()
+  return {
+    semanticLinkingEnabled: saved.semanticLinkingEnabled ?? SEMANTIC_LINKING_DEFAULTS.enabled,
+    semanticLinkingThreshold: saved.semanticLinkingThreshold ?? SEMANTIC_LINKING_DEFAULTS.threshold,
+    semanticLinkingMaxSuggestions: saved.semanticLinkingMaxSuggestions ?? SEMANTIC_LINKING_DEFAULTS.maxSuggestionsPerConcept,
+    autoGenerationEnabled: saved.autoGenerationEnabled ?? AUTO_GENERATION_DEFAULTS.enabled,
+    autoGenerationCount: saved.autoGenerationCount ?? AUTO_GENERATION_DEFAULTS.count,
+    autoGenerationTriggers: saved.autoGenerationTriggers ?? { ...AUTO_GENERATION_DEFAULTS.triggers },
+  }
+}
+
+/**
  * Helper to get the full current state for persistence
  */
 function getFullState(get: () => SettingsState): SettingsState {
@@ -144,15 +160,11 @@ function getFullState(get: () => SettingsState): SettingsState {
 /**
  * Settings store combining state and actions
  */
+const initialState = getInitialState()
+
 export const useSettingsStore = create<SettingsState & SettingsActions>((set, get) => ({
-  // Initial state with defaults
-  semanticLinkingEnabled: SEMANTIC_LINKING_DEFAULTS.enabled,
-  semanticLinkingThreshold: SEMANTIC_LINKING_DEFAULTS.threshold,
-  semanticLinkingMaxSuggestions: SEMANTIC_LINKING_DEFAULTS.maxSuggestionsPerConcept,
-  // Auto-generation defaults (FE-502)
-  autoGenerationEnabled: AUTO_GENERATION_DEFAULTS.enabled,
-  autoGenerationCount: AUTO_GENERATION_DEFAULTS.count,
-  autoGenerationTriggers: { ...AUTO_GENERATION_DEFAULTS.triggers },
+  // Initial state loaded from localStorage (BUG-002 FIX)
+  ...initialState,
 
   // Actions
   setSemanticLinkingEnabled: (enabled) => {
