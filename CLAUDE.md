@@ -168,9 +168,17 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
   6. Commit, push & create PR (Step 9)
   7. Wait until all GitHub checks pass, then merge to main
   8. Only then start the next ticket
+- **CRITICAL: NEVER skip E2E tests - ALWAYS run them before merging**
+  - **For API tickets**: Run Bruno tests locally with `cd bruno && bru run collections/<collection> --env local`
+  - **For EDITOR tickets**: Run Chrome E2E tests from `e2e/expectations/`
+  - **Backend is ALWAYS available locally**: Start with `cd backend && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000`
+  - **Environment is configured**: `.env.local` exists with all credentials (Supabase, OpenAI, Anthropic)
+  - **Don't make assumptions**: If unsure whether E2E is possible, CHECK FIRST by trying to run it
+  - **Lesson learned (API-302)**: Incorrectly assumed Bruno tests couldn't run locally, skipped them initially, then discovered everything was already configured and working
 - NEVER commit `docs/api/` to git - contains sensitive API documentation (in .gitignore)
 - NEVER include API keys, secrets, or credentials in any documentation
 - NEVER say you Complete all TDD if you are missing Chrome testing but working on EDITOR ticket
+- NEVER say you Complete all TDD if you are missing Bruno testing but working on API ticket
 - NEVER use `git reset --hard <commit_number>`, remember you have your peers work on other file
 - Do `rm -rf node_modules/.vite` Rerun the frontend in local when you have updated the code and using Chrome to validate it
 - **For unfamiliar framework features (BlockSuite, etc.), do a 5-minute spike test in the browser console BEFORE writing tests and implementation.** This prevents wasted hours discovering architectural limitations after full implementation. Example: try `formatText({background: '#FEF3C7'})` in console first to verify it renders, before writing 300 lines of code.
