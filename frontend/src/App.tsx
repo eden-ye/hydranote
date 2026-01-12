@@ -2,6 +2,7 @@ import Editor from './components/Editor'
 import { AuthProvider, Header, SpotlightModal } from './components'
 import { useSpotlight } from './hooks/useSpotlight'
 import { useAIStore, selectCanGenerate, selectGenerationsRemaining } from './stores/ai-store'
+import { Toaster } from 'sonner'
 import './App.css'
 
 function AppContent() {
@@ -44,6 +45,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <Toaster position="bottom-right" richColors />
     </AuthProvider>
   )
 }

@@ -50,6 +50,8 @@ import type { FuzzySearchResult } from '@/utils/fuzzy-search'
 import { ReorganizationModal, type PortalConnection } from './ReorganizationModal'
 import { extractConcepts, semanticSearch } from '@/services/api-client.mock'
 import type { ConceptMatch } from '@/stores/editor-store'
+// EDITOR-3503: Toast notifications
+import { toast } from 'sonner'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -696,7 +698,7 @@ export default function Editor() {
     }
   }, [reorgModalOpen, reorgModalDocumentId, runReorgAnalysis])
 
-  // EDITOR-3502: Handle connections from reorganization modal
+  // EDITOR-3502/3503: Handle connections from reorganization modal
   const handleReorgConnect = useCallback((connections: PortalConnection[]) => {
     console.log('[ReorgModal] Creating connections:', connections)
 
@@ -730,7 +732,8 @@ export default function Editor() {
       return
     }
 
-    // Create portals for each connection
+    // EDITOR-3503: Create portals for each connection and track count
+    let createdCount = 0
     for (const connection of connections) {
       try {
         const portalId = createPortalAsSibling(
@@ -741,9 +744,15 @@ export default function Editor() {
         )
         console.log(`[ReorgModal] Created portal ${portalId} for ${connection.contextPath}`)
         lastBulletId = portalId // Chain portals after each other
+        createdCount++
       } catch (error) {
         console.error('[ReorgModal] Failed to create portal:', error)
       }
+    }
+
+    // EDITOR-3503: Show success toast with count
+    if (createdCount > 0) {
+      toast.success(`Created ${createdCount} connection${createdCount === 1 ? '' : 's'}`)
     }
   }, [])
 
