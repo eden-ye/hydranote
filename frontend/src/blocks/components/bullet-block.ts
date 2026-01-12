@@ -682,6 +682,20 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     return this.model.children.length > 0
   }
 
+  /**
+   * EDITOR-3405 BUGFIX: Safe model accessor that catches BlockSuiteError.
+   * The base class `model` getter throws if the model isn't found in the store,
+   * which can happen for orphaned blocks persisted in IndexedDB.
+   */
+  private get _safeModel(): BulletBlockModel | null {
+    try {
+      return this.model
+    } catch {
+      // BlockSuiteError: MissingViewModelError
+      return null
+    }
+  }
+
   override connectedCallback(): void {
     super.connectedCallback()
     // Defer binding keyboard shortcuts until std is available
@@ -1911,11 +1925,12 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * Override base render() to guard against null model.
-   * This is a secondary guard in case shouldUpdate doesn't catch all cases.
+   * EDITOR-3405 BUGFIX: Override render() to guard against null model.
+   * Uses _safeModel to avoid triggering the base class model getter which throws.
+   * Returns empty template if model is unavailable (orphaned block edge case).
    */
   override render(): unknown {
-    if (!this.model) {
+    if (!this._safeModel) {
       return html``
     }
     return super.render()

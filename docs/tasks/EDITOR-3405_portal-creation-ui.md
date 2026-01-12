@@ -95,4 +95,84 @@ Part of Epic 4: Portal. For semantic linking, portals are created automatically 
 - **E2E**: 10 test scenarios documented in `e2e/expectations/EDITOR-3405-portal-creation-ui.md`
 
 ## E2E Testing Results (2026-01-11)
-- ⏳ Manual Chrome testing pending (test scenarios documented)
+
+### Cascade Deletion Chrome Testing
+
+**Testing Date:** 2026-01-11 23:32 PST
+**Environment:** macOS, Chrome, localhost:5173
+**Branch:** `editor/EDITOR-3405-portal-creation-ui`
+**Tester:** Claude Code (Automated Chrome Testing)
+
+#### Test Objective
+Test the cascade deletion feature where deleting a source bullet automatically deletes all portal blocks referencing it.
+
+#### Critical Blocker Found
+
+**Status:** ❌ BLOCKED - Cannot test cascade deletion functionality
+
+**Issue:** Persistent orphaned portal errors prevent portal creation UI from functioning.
+
+**Error Details:**
+```
+TypeError: Cannot read properties of null (reading 'id')
+    at _a.render (chunk-T4YFB6AJ.js:368:42)
+    at _a.update (chunk-SSNIW243.js:46:24)
+    at _a.performUpdate (chunk-XQCYXLS3.js:737:14)
+```
+
+**Observed Behavior:**
+1. Clean IndexedDB fully cleared (all databases, localStorage, sessionStorage)
+2. Hard refresh performed (cmd+shift+r)
+3. Vite cache cleared (`rm -rf node_modules/.vite`) and dev server restarted
+4. **Errors still appear on fresh page load** - 6 TypeErrors on initial render
+5. Portal picker does not respond to "/portal" slash command
+6. Cannot create portals to test cascade deletion
+
+**Root Cause Analysis:**
+The errors originate from BlockSuite's compiled chunk files (`chunk-T4YFB6AJ.js:368`), not from our custom `portal-block.ts` code. This suggests:
+- The defensive null checks added in `portal-block.ts` renderBlock() method may not be catching all cases
+- Or there's a timing issue where portals attempt to render before our null guards execute
+- The error happens during Lit component lifecycle (render → update → performUpdate)
+- Errors occur even on completely fresh page loads with no existing portal data
+
+**Impact:**
+- Portal creation UI is completely broken
+- Cannot test cascade deletion feature
+- EDITOR-3405 functionality cannot be validated in Chrome
+- Same issue documented in `e2e/expectations/EDITOR-3405-portal-creation-ui.md` (lines 230-307)
+
+#### Actions Taken
+
+1. ✅ Fixed CI lint error (replaced `any` type with `PortalBlockModel` at `bullet-block.ts:1689`)
+2. ✅ Resolved merge conflicts from main branch (4 files)
+3. ✅ All CI jobs passing (lint, test-frontend, test-backend)
+4. ✅ Cleared Vite cache completely
+5. ✅ Restarted dev server with clean cache
+6. ✅ Fully cleared IndexedDB (all databases + localStorage + sessionStorage)
+7. ✅ Hard refresh browser multiple times
+8. ❌ Portal errors persist despite all cleanup efforts
+
+#### Recommendations
+
+**Immediate Actions Required:**
+1. Investigate why BlockSuite chunks are throwing null errors before our defensive code runs
+2. Check if portal blocks are being created/rendered during app initialization
+3. Add earlier null checks in the portal block constructor or connectedCallback lifecycle
+4. Consider adding error boundary or try-catch in BlockSuite rendering pipeline
+
+**Next Steps:**
+1. Debug the initialization sequence to understand when/why portals render with null models
+2. Add instrumentation/logging to trace portal block lifecycle
+3. Consider deferring portal rendering until after full document initialization
+4. Once fixed, retry full cascade deletion testing in Chrome
+5. Run complete E2E test suite from `e2e/expectations/EDITOR-3405-portal-creation-ui.md`
+
+#### Conclusion
+
+**The cascade deletion feature cannot be validated in Chrome** due to a critical initialization error that prevents portal creation UI from functioning. Despite all defensive null checks added in previous commits, the errors occur in BlockSuite's rendering pipeline before our guards can execute.
+
+The cascade deletion implementation in `bullet-block.ts:1689-1707` (specifically the `_findPortalsReferencingBlock()` and `_handleDelete()` methods) may be working correctly, but we cannot confirm this until the portal creation UI is functional.
+
+**Related Issues:**
+- See `e2e/expectations/EDITOR-3405-portal-creation-ui.md` lines 230-307 for detailed E2E test failure documentation
+- See BUG-001 documentation for defensive null check implementation
