@@ -27,3 +27,7 @@ export * from './portal-editing'
 export * from './portal-picker'
 export * from './portal-creation-shortcut'
 export * from './portal-slash-command'
+
+// EDITOR-3407: Auto-reorg foundation
+export * from './auto-reorg'
+export * from './portal-placement'

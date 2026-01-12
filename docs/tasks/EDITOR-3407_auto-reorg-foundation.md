@@ -7,11 +7,11 @@ Build foundation for silent auto-reorganization feature that automatically creat
 **✅ AUTO** - 100% automated by Claude Code
 
 ## Acceptance Criteria
-- [ ] Document observer with 2s debouncing implemented
-- [ ] Auto-reorg service orchestration logic complete (with mocks)
-- [ ] AI-driven portal placement logic (descriptor child vs bullet child)
-- [ ] Zustand store state and actions for auto-reorg
-- [ ] Unit tests for all utilities pass
+- [x] Document observer with 2s debouncing implemented
+- [x] Auto-reorg service orchestration logic complete (with mocks)
+- [x] AI-driven portal placement logic (descriptor child vs bullet child)
+- [x] Zustand store state and actions for auto-reorg
+- [x] Unit tests for all utilities pass
 
 ## Feature Overview
 Silent auto-reorg automatically:
@@ -235,5 +235,36 @@ Part of MVP2: Semantic Linking. Foundation phase allows frontend development to 
 
 ## Status
 - **Created**: 2026-01-13
-- **Status**: pending
+- **Completed**: 2026-01-12
+- **Status**: completed
 - **Epic**: MVP2 - Semantic Linking
+
+## Implementation Summary
+Implemented auto-reorg foundation utilities:
+
+### Files Created
+- `frontend/src/blocks/utils/auto-reorg.ts` - Document observer with 2s debouncing
+- `frontend/src/blocks/utils/portal-placement.ts` - AI-driven portal placement logic
+- `frontend/src/services/api-client.mock.ts` - Mock APIs for semantic search and concept extraction
+- `frontend/src/services/auto-reorg-service.ts` - Orchestration logic
+
+### Files Modified
+- `frontend/src/stores/editor-store.ts` - Added auto-reorg state (enabled, threshold, status) and actions
+- `frontend/src/blocks/utils/index.ts` - Added exports for new utilities
+
+### Test Files Created
+- `frontend/src/blocks/__tests__/auto-reorg.test.ts` (20 tests)
+- `frontend/src/blocks/__tests__/portal-placement.test.ts` (16 tests)
+- `frontend/src/services/__tests__/api-client.mock.test.ts` (15 tests)
+- `frontend/src/services/__tests__/auto-reorg-service.test.ts` (15 tests)
+
+### Test Results
+- All 815 unit tests pass
+- Build succeeds with no TypeScript errors
+- Frontend loads without console errors
+
+### Key Features
+1. **Document Observer**: 2s debounced observer for document changes
+2. **Portal Placement**: AI logic preferring descriptor children over direct bullet children
+3. **Mock APIs**: Simulated semantic search and concept extraction for development
+4. **Store Integration**: Auto-reorg enabled/disabled, threshold, and status tracking
