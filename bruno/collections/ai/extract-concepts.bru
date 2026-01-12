@@ -1,0 +1,65 @@
+meta {
+  name: Extract Concepts
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/ai/extract-concepts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "text": "I just bought a Tesla Model 3. It's an amazing electric vehicle from Tesla Inc. The autopilot feature uses machine learning for self-driving capabilities.",
+    "max_concepts": 5
+  }
+}
+
+assert {
+  res.status: in [200, 401, 503]
+}
+
+tests {
+  test("should return concepts on success or error on service unavailable", function() {
+    const status = res.getStatus();
+    const data = res.getBody();
+
+    if (status === 200) {
+      // On success, verify response structure
+      expect(data).to.have.property('concepts');
+      expect(data).to.have.property('tokens_used');
+      expect(data.concepts).to.be.an('array');
+      expect(data.tokens_used).to.be.a('number');
+
+      // Validate each concept structure
+      data.concepts.forEach(concept => {
+        expect(concept).to.have.property('name');
+        expect(concept.name).to.be.a('string');
+        expect(concept.name.length).to.be.greaterThan(0);
+
+        // Category is optional
+        if (concept.category !== null) {
+          expect(concept.category).to.be.a('string');
+          // Should be one of the expected categories
+          const validCategories = ['product', 'company', 'person', 'category', 'topic', 'other'];
+          expect(validCategories).to.include(concept.category);
+        }
+      });
+
+      // Should not exceed max_concepts
+      expect(data.concepts.length).to.be.at.most(5);
+    } else if (status === 503) {
+      // Service unavailable (API key not configured)
+      expect(data.detail).to.be.a('string');
+    } else if (status === 401) {
+      // Auth required
+      expect(data.detail).to.be.a('string');
+    }
+  });
+}
