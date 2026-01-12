@@ -30,7 +30,7 @@ import { isValidDescriptorType, type DescriptorType } from '@/blocks/utils/descr
 import type { BulletBlockModel } from '@/blocks/schemas/bullet-block-schema'
 // EDITOR-3405: Portal picker
 import { PortalPicker } from './PortalPicker'
-import { extractBulletsFromDoc, filterBullets, type BulletItem } from '@/blocks/utils/portal-picker'
+import { extractBulletsFromDoc, filterBullets, type BulletItem, type DocumentWithRoot } from '@/blocks/utils/portal-picker'
 import { removePortalSlashCommand } from '@/blocks/utils/portal-slash-command'
 
 // Register all BlockSuite custom elements
@@ -340,13 +340,13 @@ export default function Editor() {
     const { blockId, position } = customEvent.detail
 
     const doc = docRef.current
-    if (!doc) {
-      console.warn('[PortalPicker] No doc available')
+    if (!doc || !doc.root) {
+      console.warn('[PortalPicker] No doc or doc.root available')
       return
     }
 
     // Extract all bullets from document
-    const bullets = extractBulletsFromDoc(doc)
+    const bullets = extractBulletsFromDoc(doc as DocumentWithRoot)
     setAllBullets(bullets)
 
     setPortalPickerPosition(position)

@@ -39,20 +39,20 @@ export function filterBullets(bullets: BulletItem[], query: string): BulletItem[
 /**
  * Minimal block interface for extraction
  */
-interface BlockWithChildren {
+export interface BlockWithChildren {
   id: string
   flavour: string
-  text?: { toString?: () => string }
+  text?: { toString?: () => string } | null
   children?: BlockWithChildren[]
 }
 
 /**
  * Minimal document interface
  */
-interface DocumentWithRoot {
+export interface DocumentWithRoot {
   root?: {
     children?: BlockWithChildren[]
-  }
+  } | null
 }
 
 /**

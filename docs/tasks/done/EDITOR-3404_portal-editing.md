@@ -58,6 +58,43 @@ Part of Epic 4: Portal. Bidirectional sync.
 - E2E expectations documented in `e2e/expectations/EDITOR-3404-portal-editing.md`
 
 ## E2E Testing Results (2026-01-11)
+
+### Unit & Build Testing
 - ✅ Unit tests pass (33 tests in portal-editing.test.ts)
 - ✅ Build successful
-- ⏳ Manual Chrome testing pending (test scenarios documented)
+
+### Automated Chrome Testing - 2026-01-11 18:22 PST
+
+**Status:** ⏸️ BLOCKED (Testing Not Started)
+
+**Blocked By:** EDITOR-3405 failure - JavaScript errors from orphaned portal blocks
+
+**Summary:**
+EDITOR-3404 E2E testing could not proceed because:
+1. Portal picker does not open due to JavaScript errors (see EDITOR-3405 results)
+2. Cannot create test portals needed for editing scenarios
+3. All 10 EDITOR-3404 scenarios require functional portal creation first
+
+**Dependencies:**
+- EDITOR-3405 must pass before EDITOR-3404 testing can begin
+- Need working portal creation to test portal editing functionality
+
+**Scenarios Not Tested:**
+All 10 scenarios blocked:
+- Portal Content Editability
+- Edit Warnings
+- Sync Behavior
+- Visual Indicators
+- Cursor/Selection
+- Collapsed State
+- Orphaned State
+- Real-time Updates
+- Concurrent Edits
+- Performance/Accessibility
+
+**Next Actions:**
+1. Fix EDITOR-3405 blocker (orphaned portal rendering bug)
+2. Complete EDITOR-3405 E2E testing successfully
+3. Then proceed with EDITOR-3404 E2E testing
+
+**Full Test Report:** See `e2e/expectations/EDITOR-3404-portal-editing.md`

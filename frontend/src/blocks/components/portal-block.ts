@@ -330,18 +330,49 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   private _warningDismissed = false
   private _sourceYText: Text | null = null
 
+  // EDITOR-3405 BUGFIX: Track model initialization errors
+  // BlockSuite's model getter throws if model not found, so we need error state
+  private _modelError = false
+
+  /**
+   * Safe model accessor that catches BlockSuiteError when model is missing.
+   * The base class `model` getter throws if the model isn't found in the store,
+   * which happens for orphaned portal blocks persisted in IndexedDB.
+   */
+  private get _safeModel(): PortalBlockModel | null {
+    if (this._modelError) return null
+    try {
+      return this.model
+    } catch {
+      // BlockSuiteError: MissingViewModelError
+      return null
+    }
+  }
+
   private _debouncedUpdate = debounce((newText: string) => {
     this._sourceText = newText
     // Update sync status to synced after receiving the update
-    if (this.model.syncStatus === 'stale') {
-      this.doc.updateBlock(this.model, { syncStatus: 'synced' })
+    const model = this._safeModel
+    if (model && model.syncStatus === 'stale') {
+      this.doc.updateBlock(model, { syncStatus: 'synced' })
     }
     // Trigger re-render
     this.requestUpdate()
   }, SYNC_DEBOUNCE_DELAY)
 
   override connectedCallback(): void {
-    super.connectedCallback()
+    // EDITOR-3405 BUGFIX: The base class connectedCallback() accesses this.model.id
+    // which throws BlockSuiteError if model is missing (orphaned portal in IndexedDB).
+    // We must catch this error to prevent the app from crashing on load.
+    try {
+      super.connectedCallback()
+    } catch (error) {
+      console.warn('PortalBlock: Failed to connect, model may be orphaned', error)
+      this._modelError = true
+      // Still call LitElement's connectedCallback for proper Lit lifecycle
+      // but skip our observer setup since model is invalid
+      return
+    }
     this._setupSourceObserver()
   }
 
@@ -350,21 +381,61 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     this._cleanupSourceObserver()
   }
 
+  /**
+   * EDITOR-3405 BUGFIX: Override render() to guard before the renderer chain.
+   * The base class render() runs a chain of renderers that access this.model,
+   * which throws for orphaned blocks. We must guard BEFORE the chain runs.
+   */
+  override render(): TemplateResult | typeof nothing {
+    // Check if model is accessible before running parent's renderer chain
+    const model = this._safeModel
+    if (!model || this._modelError) {
+      // Render fallback UI for orphaned/invalid portals
+      return html`
+        <div class="portal-container portal-orphaned">
+          <div class="portal-content">
+            <div class="portal-orphaned-message">
+              Invalid portal block (missing model). Please delete this block.
+            </div>
+          </div>
+        </div>
+      `
+    }
+    // Model is valid, use parent's rendering chain
+    return super.render() as TemplateResult
+  }
+
   override renderBlock(): TemplateResult {
+    // Note: render() guard ensures model is valid when renderBlock is called,
+    // but we use _safeModel for extra safety and to satisfy TypeScript
+    const model = this._safeModel
+    if (!model) {
+      // This shouldn't happen due to render() guard, but handle gracefully
+      return html`
+        <div class="portal-container portal-orphaned">
+          <div class="portal-content">
+            <div class="portal-orphaned-message">
+              Invalid portal block (missing model). Please delete this block.
+            </div>
+          </div>
+        </div>
+      `
+    }
+
     const displayState = getPortalDisplayState({
-      syncStatus: this.model.syncStatus,
-      isCollapsed: this.model.isCollapsed,
+      syncStatus: model.syncStatus,
+      isCollapsed: model.isCollapsed,
       isLoading: this._isLoading,
       sourceExists: !!this._sourceText || this._isLoading,
     })
 
-    const statusLabel = getSyncStatusLabel(this.model.syncStatus)
-    const statusClass = getSyncStatusClass(this.model.syncStatus)
+    const statusLabel = getSyncStatusLabel(model.syncStatus)
+    const statusClass = getSyncStatusClass(model.syncStatus)
 
     // EDITOR-3404: Compute editing indicator and classes
     const isEditable = isPortalEditable({
-      isCollapsed: this.model.isCollapsed,
-      isOrphaned: this.model.syncStatus === 'orphaned',
+      isCollapsed: model.isCollapsed,
+      isOrphaned: model.syncStatus === 'orphaned',
       isLoading: this._isLoading,
     })
     const editingIndicator = getEditingIndicator({
@@ -389,7 +460,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       <div class=${containerClasses}>
         <div class="portal-header">
           <span class="portal-icon" @click=${this._toggleCollapse}>
-            ${this.model.isCollapsed ? '🔗' : '📎'}
+            ${model.isCollapsed ? '🔗' : '📎'}
           </span>
           <span class="portal-source-hint">
             ${this._formatSourceHint()}
@@ -521,16 +592,21 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
   }
 
   private _toggleCollapse(): void {
-    this.doc.updateBlock(this.model, {
-      isCollapsed: !this.model.isCollapsed,
+    const model = this._safeModel
+    if (!model) return
+
+    this.doc.updateBlock(model, {
+      isCollapsed: !model.isCollapsed,
     })
   }
 
   private _formatSourceHint(): string {
     const docName = this._sourceDocName
     const preview = this._sourceText
+    const model = this._safeModel
 
-    if (!docName && !this.model.sourceDocId) return 'Unknown source'
+    if (!model) return 'Invalid source'
+    if (!docName && !model.sourceDocId) return 'Unknown source'
     if (!preview) return `from: ${docName || 'Document'}`
 
     const truncatedPreview =
@@ -548,8 +624,14 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     this._cleanupSourceObserver()
     this.requestUpdate()
 
+    const model = this._safeModel
+    if (!model) {
+      this._isLoading = false
+      return
+    }
+
     // EDITOR-3404: Get source block and its Y.Text for editing
-    const sourceBlock = this.doc.getBlock(this.model.sourceBlockId)
+    const sourceBlock = this.doc.getBlock(model.sourceBlockId)
     if (sourceBlock) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sourceModel = sourceBlock.model as any
@@ -561,7 +643,7 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
     // For same-document portals, set up direct Yjs observation
     this._sourceObserver = createSourceObserver({
       doc: this.doc,
-      sourceBlockId: this.model.sourceBlockId,
+      sourceBlockId: model.sourceBlockId,
       onTextChange: (newText: string) => {
         this._isLoading = false
         this._sourceDocName = 'This document'
@@ -570,9 +652,12 @@ export class HydraPortalBlock extends BlockComponent<PortalBlockModel> {
       onOrphaned: () => {
         this._isLoading = false
         this._sourceYText = null
-        this.doc.updateBlock(this.model, {
-          syncStatus: 'orphaned',
-        })
+        const currentModel = this._safeModel
+        if (currentModel) {
+          this.doc.updateBlock(currentModel, {
+            syncStatus: 'orphaned',
+          })
+        }
         this.requestUpdate()
       },
     })
