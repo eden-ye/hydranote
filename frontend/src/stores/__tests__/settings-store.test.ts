@@ -409,3 +409,365 @@ describe('Settings Store (FE-501)', () => {
     })
   })
 })
+
+/**
+ * Tests for Auto-Generation Settings
+ * FE-502: Auto-Generation Settings
+ *
+ * Tests for the settings store that manages:
+ * - Auto-generate toggle (on/off)
+ * - Generation count (1-5 bullets per descriptor)
+ * - Trigger descriptor types (What, Why, How, Pros, Cons)
+ */
+describe('Auto-Generation Settings Store (FE-502)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorageMock.clear()
+    // Reset store to initial state
+    useSettingsStore.setState({
+      semanticLinkingEnabled: SEMANTIC_LINKING_DEFAULTS.enabled,
+      semanticLinkingThreshold: SEMANTIC_LINKING_DEFAULTS.threshold,
+      semanticLinkingMaxSuggestions: SEMANTIC_LINKING_DEFAULTS.maxSuggestionsPerConcept,
+      // Reset auto-generation settings
+      autoGenerationEnabled: false,
+      autoGenerationCount: 3,
+      autoGenerationTriggers: { what: true, why: true, how: true, pros: false, cons: false },
+    })
+  })
+
+  afterEach(() => {
+    vi.resetAllMocks()
+  })
+
+  describe('Default Values', () => {
+    it('should export AUTO_GENERATION_DEFAULTS with correct values', async () => {
+      const { AUTO_GENERATION_DEFAULTS } = await import('../settings-store')
+      expect(AUTO_GENERATION_DEFAULTS).toEqual({
+        enabled: false,
+        count: 3,
+        triggers: { what: true, why: true, how: true, pros: false, cons: false },
+      })
+    })
+  })
+
+  describe('Initial State', () => {
+    it('should have auto-generation disabled by default', () => {
+      const { result } = renderHook(() => useSettingsStore())
+      expect(result.current.autoGenerationEnabled).toBe(false)
+    })
+
+    it('should have generation count of 3 by default', () => {
+      const { result } = renderHook(() => useSettingsStore())
+      expect(result.current.autoGenerationCount).toBe(3)
+    })
+
+    it('should have What, Why, How enabled by default', () => {
+      const { result } = renderHook(() => useSettingsStore())
+      expect(result.current.autoGenerationTriggers).toEqual({
+        what: true,
+        why: true,
+        how: true,
+        pros: false,
+        cons: false,
+      })
+    })
+  })
+
+  describe('setAutoGenerationEnabled action', () => {
+    it('should enable auto-generation', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationEnabled(true)
+      })
+
+      expect(result.current.autoGenerationEnabled).toBe(true)
+    })
+
+    it('should disable auto-generation', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationEnabled(true)
+        result.current.setAutoGenerationEnabled(false)
+      })
+
+      expect(result.current.autoGenerationEnabled).toBe(false)
+    })
+
+    it('should persist to localStorage when changed', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationEnabled(true)
+      })
+
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        SETTINGS_STORAGE_KEY,
+        expect.stringContaining('"autoGenerationEnabled":true')
+      )
+    })
+  })
+
+  describe('setAutoGenerationCount action', () => {
+    it('should update generation count', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationCount(4)
+      })
+
+      expect(result.current.autoGenerationCount).toBe(4)
+    })
+
+    it('should allow setting to minimum (1)', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationCount(1)
+      })
+
+      expect(result.current.autoGenerationCount).toBe(1)
+    })
+
+    it('should allow setting to maximum (5)', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationCount(5)
+      })
+
+      expect(result.current.autoGenerationCount).toBe(5)
+    })
+
+    it('should clamp values below minimum to 1', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationCount(0)
+      })
+
+      expect(result.current.autoGenerationCount).toBe(1)
+    })
+
+    it('should clamp values above maximum to 5', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationCount(10)
+      })
+
+      expect(result.current.autoGenerationCount).toBe(5)
+    })
+
+    it('should persist to localStorage when changed', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationCount(4)
+      })
+
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        SETTINGS_STORAGE_KEY,
+        expect.stringContaining('"autoGenerationCount":4')
+      )
+    })
+  })
+
+  describe('setAutoGenerationTrigger action', () => {
+    it('should enable a descriptor type trigger', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationTrigger('pros', true)
+      })
+
+      expect(result.current.autoGenerationTriggers.pros).toBe(true)
+    })
+
+    it('should disable a descriptor type trigger', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationTrigger('what', false)
+      })
+
+      expect(result.current.autoGenerationTriggers.what).toBe(false)
+    })
+
+    it('should only affect the specified trigger', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationTrigger('pros', true)
+      })
+
+      expect(result.current.autoGenerationTriggers).toEqual({
+        what: true,
+        why: true,
+        how: true,
+        pros: true,
+        cons: false,
+      })
+    })
+
+    it('should persist to localStorage when changed', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoGenerationTrigger('pros', true)
+      })
+
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        SETTINGS_STORAGE_KEY,
+        expect.stringContaining('"pros":true')
+      )
+    })
+  })
+
+  describe('Selectors', () => {
+    it('should have selectAutoGenerationEnabled selector', async () => {
+      const { selectAutoGenerationEnabled } = await import('../settings-store')
+      const { result: storeResult } = renderHook(() => useSettingsStore())
+      const { result: selectorResult } = renderHook(() =>
+        useSettingsStore(selectAutoGenerationEnabled)
+      )
+
+      expect(selectorResult.current).toBe(false)
+
+      act(() => {
+        storeResult.current.setAutoGenerationEnabled(true)
+      })
+
+      expect(selectorResult.current).toBe(true)
+    })
+
+    it('should have selectAutoGenerationCount selector', async () => {
+      const { selectAutoGenerationCount } = await import('../settings-store')
+      const { result: storeResult } = renderHook(() => useSettingsStore())
+      const { result: selectorResult } = renderHook(() =>
+        useSettingsStore(selectAutoGenerationCount)
+      )
+
+      expect(selectorResult.current).toBe(3)
+
+      act(() => {
+        storeResult.current.setAutoGenerationCount(5)
+      })
+
+      expect(selectorResult.current).toBe(5)
+    })
+
+    it('should have selectAutoGenerationTriggers selector', async () => {
+      const { selectAutoGenerationTriggers } = await import('../settings-store')
+      const { result: storeResult } = renderHook(() => useSettingsStore())
+      const { result: selectorResult } = renderHook(() =>
+        useSettingsStore(selectAutoGenerationTriggers)
+      )
+
+      expect(selectorResult.current).toEqual({
+        what: true,
+        why: true,
+        how: true,
+        pros: false,
+        cons: false,
+      })
+
+      act(() => {
+        storeResult.current.setAutoGenerationTrigger('cons', true)
+      })
+
+      expect(selectorResult.current.cons).toBe(true)
+    })
+  })
+
+  describe('loadSettingsFromStorage with auto-generation settings', () => {
+    it('should load auto-generation settings from localStorage', () => {
+      const savedSettings = {
+        semanticLinkingEnabled: true,
+        semanticLinkingThreshold: 0.8,
+        semanticLinkingMaxSuggestions: 3,
+        autoGenerationEnabled: true,
+        autoGenerationCount: 4,
+        autoGenerationTriggers: { what: true, why: false, how: true, pros: true, cons: false },
+      }
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(savedSettings))
+
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.loadSettingsFromStorage()
+      })
+
+      expect(result.current.autoGenerationEnabled).toBe(true)
+      expect(result.current.autoGenerationCount).toBe(4)
+      expect(result.current.autoGenerationTriggers).toEqual({
+        what: true,
+        why: false,
+        how: true,
+        pros: true,
+        cons: false,
+      })
+    })
+
+    it('should use defaults for auto-generation when not in localStorage', () => {
+      const savedSettings = {
+        semanticLinkingEnabled: false,
+        semanticLinkingThreshold: 0.7,
+        semanticLinkingMaxSuggestions: 5,
+        // No auto-generation settings
+      }
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(savedSettings))
+
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.loadSettingsFromStorage()
+      })
+
+      expect(result.current.autoGenerationEnabled).toBe(false)
+      expect(result.current.autoGenerationCount).toBe(3)
+      expect(result.current.autoGenerationTriggers).toEqual({
+        what: true,
+        why: true,
+        how: true,
+        pros: false,
+        cons: false,
+      })
+    })
+  })
+
+  describe('resetToDefaults with auto-generation settings', () => {
+    it('should reset auto-generation settings to defaults', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      // Change all auto-generation settings
+      act(() => {
+        result.current.setAutoGenerationEnabled(true)
+        result.current.setAutoGenerationCount(5)
+        result.current.setAutoGenerationTrigger('what', false)
+        result.current.setAutoGenerationTrigger('pros', true)
+      })
+
+      expect(result.current.autoGenerationEnabled).toBe(true)
+      expect(result.current.autoGenerationCount).toBe(5)
+      expect(result.current.autoGenerationTriggers.what).toBe(false)
+      expect(result.current.autoGenerationTriggers.pros).toBe(true)
+
+      // Reset to defaults
+      act(() => {
+        result.current.resetToDefaults()
+      })
+
+      expect(result.current.autoGenerationEnabled).toBe(false)
+      expect(result.current.autoGenerationCount).toBe(3)
+      expect(result.current.autoGenerationTriggers).toEqual({
+        what: true,
+        why: true,
+        how: true,
+        pros: false,
+        cons: false,
+      })
+    })
+  })
+})

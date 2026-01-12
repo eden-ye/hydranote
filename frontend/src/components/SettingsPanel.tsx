@@ -1,13 +1,17 @@
 /**
  * Settings Panel Component
  * FE-501: Semantic Linking Settings
+ * FE-502: Auto-Generation Settings
  *
  * Provides UI for configuring:
  * - Toggle: Enable/disable semantic linking
  * - Slider: Similarity threshold (0.5 - 1.0)
  * - Input: Max suggestions per concept (1-10)
+ * - Toggle: Enable/disable auto-generation
+ * - Input: Generation count (1-5)
+ * - Checkboxes: Descriptor type triggers
  */
-import { useSettingsStore } from '@/stores/settings-store'
+import { useSettingsStore, type DescriptorTriggerType } from '@/stores/settings-store'
 
 interface SettingsPanelProps {
   onClose?: () => void
@@ -21,6 +25,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     setSemanticLinkingEnabled,
     setSemanticLinkingThreshold,
     setSemanticLinkingMaxSuggestions,
+    // Auto-generation settings (FE-502)
+    autoGenerationEnabled,
+    autoGenerationCount,
+    autoGenerationTriggers,
+    setAutoGenerationEnabled,
+    setAutoGenerationCount,
+    setAutoGenerationTrigger,
   } = useSettingsStore()
 
   const handleToggle = () => {
@@ -33,6 +44,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   const handleMaxSuggestionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSemanticLinkingMaxSuggestions(parseInt(e.target.value, 10))
+  }
+
+  // Auto-generation handlers (FE-502)
+  const handleAutoGenerationToggle = () => {
+    setAutoGenerationEnabled(!autoGenerationEnabled)
+  }
+
+  const handleGenerationCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAutoGenerationCount(parseInt(e.target.value, 10))
+  }
+
+  const handleTriggerChange = (type: DescriptorTriggerType) => {
+    setAutoGenerationTrigger(type, !autoGenerationTriggers[type])
   }
 
   return (
@@ -239,6 +263,133 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* Auto Generation Section (FE-502) */}
+      <div
+        style={{
+          marginTop: '24px',
+          paddingTop: '20px',
+          borderTop: '1px solid #eee',
+        }}
+      >
+        <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 600 }}>
+          Auto Generation
+        </h2>
+
+        {/* Enable/Disable Toggle */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            padding: '8px 0',
+          }}
+        >
+          <label
+            htmlFor="auto-generation-toggle"
+            style={{ fontSize: '14px', color: '#333' }}
+          >
+            Auto-generate after descriptor creation
+          </label>
+          <input
+            id="auto-generation-toggle"
+            data-testid="auto-generation-toggle"
+            type="checkbox"
+            checked={autoGenerationEnabled}
+            onChange={handleAutoGenerationToggle}
+            style={{
+              width: '20px',
+              height: '20px',
+              cursor: 'pointer',
+            }}
+          />
+        </div>
+
+        {/* Generation Count Input */}
+        <div
+          data-testid="generation-count-row"
+          className={!autoGenerationEnabled ? 'disabled' : ''}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            padding: '8px 0',
+            opacity: autoGenerationEnabled ? 1 : 0.5,
+          }}
+        >
+          <label
+            htmlFor="generation-count-input"
+            style={{ fontSize: '14px', color: '#333' }}
+          >
+            Bullets per descriptor
+          </label>
+          <input
+            id="generation-count-input"
+            data-testid="generation-count-input"
+            type="number"
+            min="1"
+            max="5"
+            value={autoGenerationCount}
+            onChange={handleGenerationCountChange}
+            disabled={!autoGenerationEnabled}
+            style={{
+              width: '60px',
+              padding: '6px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              textAlign: 'center',
+              cursor: autoGenerationEnabled ? 'text' : 'not-allowed',
+            }}
+          />
+        </div>
+
+        {/* Trigger Descriptor Types */}
+        <div
+          data-testid="triggers-row"
+          className={!autoGenerationEnabled ? 'disabled' : ''}
+          style={{
+            marginBottom: '16px',
+            padding: '8px 0',
+            opacity: autoGenerationEnabled ? 1 : 0.5,
+          }}
+        >
+          <label style={{ fontSize: '14px', color: '#333', display: 'block', marginBottom: '12px' }}>
+            Trigger on descriptor types
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            {(['what', 'why', 'how', 'pros', 'cons'] as const).map((type) => (
+              <label
+                key={type}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '14px',
+                  color: '#333',
+                  cursor: autoGenerationEnabled ? 'pointer' : 'not-allowed',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  data-testid={`trigger-${type}-checkbox`}
+                  checked={autoGenerationTriggers[type]}
+                  onChange={() => handleTriggerChange(type)}
+                  disabled={!autoGenerationEnabled}
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    cursor: autoGenerationEnabled ? 'pointer' : 'not-allowed',
+                  }}
+                />
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
