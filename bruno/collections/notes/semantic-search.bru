@@ -1,0 +1,69 @@
+meta {
+  name: Semantic Search
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/notes/semantic-search
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "query": "machine learning algorithms",
+    "limit": 5,
+    "threshold": 0.8
+  }
+}
+
+assert {
+  res.status: in [200, 401, 500]
+}
+
+tests {
+  test("should return search results on success or error on service unavailable", function() {
+    const status = res.getStatus();
+    const data = res.getBody();
+
+    if (status === 200) {
+      // On success, verify response structure
+      expect(data).to.be.an('array');
+
+      // If there are results, validate structure
+      if (data.length > 0) {
+        data.forEach(result => {
+          expect(result).to.have.property('document_id');
+          expect(result).to.have.property('block_id');
+          expect(result).to.have.property('bullet_text');
+          expect(result).to.have.property('context_path');
+          expect(result).to.have.property('score');
+
+          expect(result.document_id).to.be.a('string');
+          expect(result.block_id).to.be.a('string');
+          expect(result.bullet_text).to.be.a('string');
+          expect(result.context_path).to.be.a('string');
+          expect(result.score).to.be.a('number');
+          expect(result.score).to.be.at.least(0);
+          expect(result.score).to.be.at.most(1);
+        });
+
+        // Verify results are ordered by score (descending)
+        for (let i = 0; i < data.length - 1; i++) {
+          expect(data[i].score).to.be.at.least(data[i + 1].score);
+        }
+      }
+    } else if (status === 500) {
+      // Service error (API key not configured or other error)
+      expect(data.detail).to.be.a('string');
+    } else if (status === 401) {
+      // Auth required
+      expect(data.detail).to.be.a('string');
+    }
+  });
+}

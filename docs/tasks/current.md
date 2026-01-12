@@ -1,13 +1,13 @@
 # Current Tasks
 
 **Current Phase**: Phase 2 - Core Editor (Keyboard Behaviors Complete)
-**Last Updated**: 2026-01-12
+**Last Updated**: 2026-01-13
 
 ## Summary
 
-**Completed**: 43 tickets in `done/`
+**Completed**: 45 tickets in `done/`
 **Active**: 2 tickets remaining (1 MVP1 bug, 1 already done)
-**Backlog (MVP2)**: 27 tickets (ready after MVP1 complete)
+**Backlog (MVP2)**: 25 tickets (ready after MVP1 complete)
 **Archived**: 2 obsolete tickets
 
 ## Recently Completed (moved to done/)
@@ -47,6 +47,24 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 - Portals now automatically transition to "orphaned" state when source block is deleted
 - No page refresh required - real-time detection via BlockSuite's slot system
 - 6 new tests added, all 700 frontend tests passing
+
+**2026-01-12**: API-301 (Embedding/Vector Storage) - MVP2 semantic linking Phase 1 completed
+- Added OpenAI embedding service with text-embedding-3-small model (1536 dimensions)
+- Created context-aware embedding text builder (ancestor path + descriptor + children)
+- Added database migration for note_embeddings table with pgvector
+- Added IVFFlat index for similarity search
+- Added RLS policies for user isolation
+- 13 new embedding service tests, all 138 backend tests passing
+
+**2026-01-13**: API-302 (Semantic Search Endpoint) - MVP2 semantic linking Phase 2 completed
+- Created POST `/api/notes/semantic-search` endpoint with auth
+- Generates query embeddings using OpenAI
+- Performs vector similarity search via PostgreSQL pgvector
+- Returns ranked results with context paths and similarity scores
+- Supports optional descriptor_type filtering
+- Created `semantic_search()` PostgreSQL function for RPC calls
+- 8 new endpoint tests, all 146 backend tests passing
+- Bruno API test created for integration testing
 
 **2026-01-11**: EDITOR-307 (Editor Store) - MVP1 ticket completed
 - Added document ID tracking (`currentDocumentId`, `setCurrentDocumentId`)
@@ -93,7 +111,7 @@ Also completed: API-203 (WebSocket streaming), FE-401-404 (Supabase, auth store,
 
 **Test Commands**:
 ```bash
-# Backend (125 tests)
+# Backend (146 tests)
 cd backend && python3 -m pytest tests/ -v
 
 # Frontend (290 tests)
@@ -105,13 +123,13 @@ cd frontend && npm run build
 
 **Ticket Folders**:
 - `docs/tasks/*.md` - Active tickets (3)
-- `docs/tasks/done/*.md` - Completed tickets (43)
-- `docs/tasks/backlog/*.md` - MVP2 tickets (27)
+- `docs/tasks/done/*.md` - Completed tickets (45)
+- `docs/tasks/backlog/*.md` - MVP2 tickets (25)
 - `docs/tasks/archive/*.md` - Obsolete tickets (2)
 
 ---
 
-## MVP2 Backlog (27 tickets)
+## MVP2 Backlog (25 tickets)
 
 **Prerequisites**: Complete MVP1 first (BUG-EDITOR-3064, EDITOR-307)
 
@@ -123,14 +141,14 @@ cd frontend && npm run build
 | Descriptor System | EDITOR-3201 to 3204 | 4 |
 | Cheatsheet | EDITOR-3301 to 3304 | 4 |
 | Portal | EDITOR-3404-3405 (3401-3403, 3406 done) | 2 |
-| **Semantic Linking** | **API-301, 302, 303, EDITOR-3407-3410, EDITOR-3501, FE-501** | **11** |
+| **Semantic Linking** | **API-303, EDITOR-3407-3410, EDITOR-3501, FE-501 (301, 302 done)** | **9** |
 | Auto AI Generation | EDITOR-3601, 3602, FE-502 | 3 |
 
-### Semantic Linking Details (11 tickets)
+### Semantic Linking Details (9 remaining, 2 done)
 
 **Backend APIs (3):**
-- API-301: Embedding/Vector Storage (pgvector + OpenAI) - Phase 1 (6h)
-- API-302: Semantic Search Endpoint - Phase 2 (4h)
+- API-301: ✅ DONE - Embedding/Vector Storage (pgvector + OpenAI) - Phase 1 (6h)
+- API-302: ✅ DONE - Semantic Search Endpoint - Phase 2 (4h)
 - API-303: Concept Extraction - Phase 3 (3h)
 
 **Silent Auto-Reorg (2):**
