@@ -7,12 +7,12 @@ Sync note embeddings to backend on document save and handle background catch-up 
 **✅ AUTO** - 100% automated by Claude Code
 
 ## Acceptance Criteria
-- [ ] On document save, send bullets to embedding API
-- [ ] Build embedding text with context path + children summary
-- [ ] Debounce saves to avoid excessive API calls
-- [ ] Background catch-up job for unindexed notes
-- [ ] Handle offline gracefully (queue for later sync)
-- [ ] Show sync status indicator (optional)
+- [x] On document save, send bullets to embedding API
+- [x] Build embedding text with context path + children summary
+- [x] Debounce saves to avoid excessive API calls
+- [x] Background catch-up job for unindexed notes
+- [x] Handle offline gracefully (queue for later sync)
+- [x] Show sync status indicator (optional) - via `useEmbeddingSync` hook
 
 ## Technical Details
 
@@ -73,8 +73,32 @@ Part of Epic 5: Semantic Linking. Ensures embeddings stay fresh.
 
 **Design Doc**: See `docs/design/semantic-search.md` for full architecture.
 
+## Implementation Summary
+
+### Files Created
+- `frontend/src/services/embedding-sync.ts` - Core embedding sync service
+- `frontend/src/hooks/useEmbeddingSync.ts` - React hooks for embedding sync
+- `frontend/src/services/__tests__/embedding-sync.test.ts` - 25 unit tests
+
+### Files Modified
+- `frontend/src/services/index.ts` - Added exports for embedding sync
+
+### Key Features Implemented
+1. **Embedding Payload Builder**: Builds payloads with context path (up to 3 ancestors) and children summary (up to 5 children, 50 chars each)
+2. **Debounced Sync**: 2-second debounce to prevent excessive API calls
+3. **Offline Queue**: Queues documents when offline, processes when back online
+4. **Background Catch-up**: Method to check for unindexed documents
+5. **Sync Status Tracking**: Exposes `isSyncing`, `pendingDocs`, `failedDocs`, `lastSyncTime`
+6. **React Hooks**: `useEmbeddingSync` and `useDocumentEmbeddingSync` for easy integration
+
+### Test Results
+- 25 unit tests passing
+- All 935 frontend tests passing
+- Build successful
+
 ## Status
 - **Created**: 2026-01-10
 - **Updated**: 2026-01-12 (refocused on sync, not auto-connect)
-- **Status**: pending
+- **Completed**: 2026-01-12
+- **Status**: done
 - **Epic**: MVP2 - Semantic Linking
