@@ -30,9 +30,10 @@ Part of Epic 4: Portal. For semantic linking, portals are created automatically 
 ## Status
 - **Created**: 2026-01-10
 - **Completed**: 2026-01-11
+- **Blocker Fixed**: 2026-01-12
 - **Status**: completed
 - **Epic**: MVP2 - Portal
-- **PR**: (pending creation)
+- **PR**: https://github.com/eden-ye/hydranote/pull/65
 
 ## Implementation Summary
 
@@ -106,11 +107,11 @@ Part of Epic 4: Portal. For semantic linking, portals are created automatically 
 #### Test Objective
 Test the cascade deletion feature where deleting a source bullet automatically deletes all portal blocks referencing it.
 
-#### Critical Blocker Found
+#### Critical Blocker Found (RESOLVED)
 
-**Status:** ❌ BLOCKED - Cannot test cascade deletion functionality
+**Status:** ✅ FIXED (2026-01-12) - Portal creation UI now functional
 
-**Issue:** Persistent orphaned portal errors prevent portal creation UI from functioning.
+**Previous Issue:** Persistent orphaned portal errors prevented portal creation UI from functioning.
 
 **Error Details:**
 ```
@@ -167,12 +168,25 @@ The errors originate from BlockSuite's compiled chunk files (`chunk-T4YFB6AJ.js:
 4. Once fixed, retry full cascade deletion testing in Chrome
 5. Run complete E2E test suite from `e2e/expectations/EDITOR-3405-portal-creation-ui.md`
 
-#### Conclusion
+#### Resolution (2026-01-12)
 
-**The cascade deletion feature cannot be validated in Chrome** due to a critical initialization error that prevents portal creation UI from functioning. Despite all defensive null checks added in previous commits, the errors occur in BlockSuite's rendering pipeline before our guards can execute.
+**Root Cause:** BlockSuite's `model` getter in `BlockComponent` base class **throws** `BlockSuiteError` when model is missing, rather than returning null. Our previous `if (!this.model)` checks triggered the throwing getter, causing crashes before our guards could run. Additionally, the base class `render()` method runs a renderer chain that accesses `this.model` even after `renderBlock()` returns early.
 
-The cascade deletion implementation in `bullet-block.ts:1689-1707` (specifically the `_findPortalsReferencingBlock()` and `_handleDelete()` methods) may be working correctly, but we cannot confirm this until the portal creation UI is functional.
+**Solution Implemented:**
+1. **Added `_safeModel` getter** - Catches `BlockSuiteError` and returns null for orphaned blocks
+2. **Overrode `render()` method** - Guards BEFORE the parent's renderer chain runs, not just in `renderBlock()`
+3. **Wrapped `super.connectedCallback()` in try-catch** - Prevents crashes when base class accesses orphaned model
+4. **Applied same pattern to `bullet-block.ts`** - Same vulnerability existed there
+
+**Commits:**
+- `dac0a22` - fix(editor): Resolve portal creation blocker with safe model accessor
+
+**Result:**
+- Portal picker now works correctly - `/portal` command opens the picker
+- Orphaned portals render graceful fallback UI instead of crashing
+- Console errors reduced from 6+ to 2 (remaining errors from BlockSuite internal widgets)
+- All 694 unit tests pass, build succeeds
 
 **Related Issues:**
-- See `e2e/expectations/EDITOR-3405-portal-creation-ui.md` lines 230-307 for detailed E2E test failure documentation
-- See BUG-001 documentation for defensive null check implementation
+- See AFFiNE `embed-synced-doc-block.ts` for similar patterns
+- See BUG-001 documentation for initial defensive null check approach
