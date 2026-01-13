@@ -58,6 +58,8 @@ import { getBulletMarker } from '../utils/block-icons'
 import { isSlashTrigger } from '../utils/slash-menu'
 // EDITOR-3703: Import dashing button syntax parser
 import { parseDashingSyntax } from '../utils/dashing-button-syntax'
+// BUG-EDITOR-3508: Import editor store for focus mode state
+import { useEditorStore } from '@/stores/editor-store'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -4161,6 +4163,60 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
   }
 
+  // ============================================================================
+  // BUG-EDITOR-3508: Focus Mode Content Filtering
+  // ============================================================================
+
+  /**
+   * BUG-EDITOR-3508: Get current focus mode state from the editor store
+   * Returns whether we're in focus mode and the focused block ID
+   */
+  private _getFocusState(): { isInFocusMode: boolean; focusedBlockId: string | null } {
+    const store = useEditorStore.getState()
+    return {
+      isInFocusMode: store.focusedBlockId !== null,
+      focusedBlockId: store.focusedBlockId,
+    }
+  }
+
+  /**
+   * BUG-EDITOR-3508: Check if this block is a descendant of the ancestor block
+   * Traverses up the parent chain to find if ancestor is in the path
+   */
+  private _isDescendantOf(ancestorId: string | null): boolean {
+    if (!ancestorId) return false
+
+    // Start from this block's parent and traverse up
+    let current = this.model.parent
+    while (current) {
+      if (current.id === ancestorId) return true
+      current = current.parent
+    }
+    return false
+  }
+
+  /**
+   * BUG-EDITOR-3508: Determine if this block should render in focus mode
+   *
+   * In normal mode: render all blocks
+   * In focus mode: only render descendants of the focused block
+   *   - The focused block itself becomes the title (FocusHeader), not rendered as bullet
+   *   - All children/grandchildren of focused block are rendered
+   *   - All other blocks (siblings, ancestors, unrelated) are hidden
+   */
+  private _shouldRenderInFocusMode(): boolean {
+    const { isInFocusMode, focusedBlockId } = this._getFocusState()
+
+    // Normal mode: render all blocks
+    if (!isInFocusMode) return true
+
+    // Don't render the focused block itself (it becomes the title in FocusHeader)
+    if (this.model.id === focusedBlockId) return false
+
+    // Only render if this block is a descendant of the focused block
+    return this._isDescendantOf(focusedBlockId)
+  }
+
   /**
    * EDITOR-3511/3702: Render ghost bullet suggestions
    * EDITOR-3702: Now only renders when timer has elapsed on empty bullet
@@ -4246,6 +4302,12 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // BUG-EDITOR-3064: Additional guard (render() guard should catch this, but being defensive)
     // Uses isDummyModel since model getter always returns something now
     if (isDummyModel(this.model)) {
+      return html``
+    }
+
+    // BUG-EDITOR-3508: Check if this block should render in focus mode
+    // Only render descendants of the focused block (not the focused block itself, siblings, or ancestors)
+    if (!this._shouldRenderInFocusMode()) {
       return html``
     }
 
