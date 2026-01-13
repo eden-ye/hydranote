@@ -132,7 +132,7 @@ private _renderInlinePreviewRestoreButton(): TemplateResult | typeof nothing
    - `.inline-preview-restore`: Hidden by default, appears on row hover with 0.6 opacity
 
 ### Test Results
-- All 1345 unit tests passing
+- All 1454 unit tests passing
 - Build successful
 
 ### E2E Testing Checklist
@@ -150,4 +150,11 @@ private _renderInlinePreviewRestoreButton(): TemplateResult | typeof nothing
 - [ ] Verify hidden state persists (preview remains hidden)
 
 ### Commits
-- Schema + component implementation: `feat(editor): Add collapsible inline preview with dash separator (EDITOR-3509)`
+- Schema + component implementation: `feat(editor): Add collapsible inline preview with dash separator (EDITOR-3509)` (PR #106)
+- Bug fix for undefined property: `fix(editor): Handle undefined inlinePreviewVisible for existing blocks (EDITOR-3509)` (PR #109)
+
+### Bug Fix: Undefined Property Handling
+
+**Issue**: Existing blocks in IndexedDB don't have the `inlinePreviewVisible` property, causing `!undefined` to evaluate as `true` and hide the inline preview by default.
+
+**Fix**: Changed from falsy check (`!this.model.inlinePreviewVisible`) to explicit comparison (`this.model.inlinePreviewVisible === false`). This treats `undefined` as `true` (the default value), ensuring backward compatibility with existing blocks.
