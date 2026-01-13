@@ -24,9 +24,13 @@ const mockEditorStore = {
   isFavorite: vi.fn(() => false),
   reorderFavorites: vi.fn(),
   loadFavorites: vi.fn(),
+  pushNavigation: vi.fn(),
   // FE-504: Block data from store
   blockTitles: new Map<string, string>(),
   topLevelBlockIds: [] as string[],
+  // FE-508: Block metadata for filtering
+  blockHasChildren: new Map<string, boolean>(),
+  blockIsDescriptor: new Map<string, boolean>(),
 }
 
 describe('LeftPanel', () => {
@@ -124,10 +128,22 @@ describe('LeftPanel', () => {
         const titles = new Map<string, string>()
         titles.set('bullet-1', 'First Bullet')
         titles.set('bullet-2', 'Second Bullet')
+
+        // FE-508: Add metadata for filtering
+        const hasChildren = new Map<string, boolean>()
+        hasChildren.set('bullet-1', true) // Has children, should be shown
+        hasChildren.set('bullet-2', true) // Has children, should be shown
+
+        const isDescriptor = new Map<string, boolean>()
+        isDescriptor.set('bullet-1', false)
+        isDescriptor.set('bullet-2', false)
+
         const store = {
           ...mockEditorStore,
           blockTitles: titles,
           topLevelBlockIds: ['bullet-1', 'bullet-2'],
+          blockHasChildren: hasChildren,
+          blockIsDescriptor: isDescriptor,
         }
         if (typeof selector === 'function') {
           return selector(store as any)
@@ -151,6 +167,162 @@ describe('LeftPanel', () => {
 
       fireEvent.keyDown(document, { key: '\\', metaKey: true })
       expect(sidebar).toHaveStyle({ width: '240px' })
+    })
+  })
+
+  describe('FE-508: Filter Empty Bullets', () => {
+    it('should only show bullets that have children', () => {
+      vi.mocked(useEditorStore).mockImplementation((selector) => {
+        const titles = new Map<string, string>()
+        titles.set('bullet-1', 'Has Children')
+        titles.set('bullet-2', 'Empty Bullet')
+        titles.set('bullet-3', 'Also Has Children')
+
+        const hasChildren = new Map<string, boolean>()
+        hasChildren.set('bullet-1', true)
+        hasChildren.set('bullet-2', false)
+        hasChildren.set('bullet-3', true)
+
+        const isDescriptor = new Map<string, boolean>()
+        isDescriptor.set('bullet-1', false)
+        isDescriptor.set('bullet-2', false)
+        isDescriptor.set('bullet-3', false)
+
+        const store = {
+          ...mockEditorStore,
+          blockTitles: titles,
+          topLevelBlockIds: ['bullet-1', 'bullet-2', 'bullet-3'],
+          blockHasChildren: hasChildren,
+          blockIsDescriptor: isDescriptor,
+        }
+        if (typeof selector === 'function') {
+          return selector(store as any)
+        }
+        return store as any
+      })
+      render(<LeftPanel />)
+
+      // Should show bullets with children
+      expect(screen.getByText('Has Children')).toBeInTheDocument()
+      expect(screen.getByText('Also Has Children')).toBeInTheDocument()
+
+      // Should NOT show empty bullet
+      expect(screen.queryByText('Empty Bullet')).not.toBeInTheDocument()
+
+      // Count should reflect filtered count
+      expect(screen.getByText('2')).toBeInTheDocument()
+    })
+
+    it('should only show bullets that are descriptors', () => {
+      vi.mocked(useEditorStore).mockImplementation((selector) => {
+        const titles = new Map<string, string>()
+        titles.set('bullet-1', 'Is Descriptor')
+        titles.set('bullet-2', 'Empty Bullet')
+        titles.set('bullet-3', 'Also Descriptor')
+
+        const hasChildren = new Map<string, boolean>()
+        hasChildren.set('bullet-1', false)
+        hasChildren.set('bullet-2', false)
+        hasChildren.set('bullet-3', false)
+
+        const isDescriptor = new Map<string, boolean>()
+        isDescriptor.set('bullet-1', true)
+        isDescriptor.set('bullet-2', false)
+        isDescriptor.set('bullet-3', true)
+
+        const store = {
+          ...mockEditorStore,
+          blockTitles: titles,
+          topLevelBlockIds: ['bullet-1', 'bullet-2', 'bullet-3'],
+          blockHasChildren: hasChildren,
+          blockIsDescriptor: isDescriptor,
+        }
+        if (typeof selector === 'function') {
+          return selector(store as any)
+        }
+        return store as any
+      })
+      render(<LeftPanel />)
+
+      // Should show descriptors
+      expect(screen.getByText('Is Descriptor')).toBeInTheDocument()
+      expect(screen.getByText('Also Descriptor')).toBeInTheDocument()
+
+      // Should NOT show empty bullet
+      expect(screen.queryByText('Empty Bullet')).not.toBeInTheDocument()
+
+      // Count should be 2
+      expect(screen.getByText('2')).toBeInTheDocument()
+    })
+
+    it('should show bullets that have both children AND are descriptors', () => {
+      vi.mocked(useEditorStore).mockImplementation((selector) => {
+        const titles = new Map<string, string>()
+        titles.set('bullet-1', 'Both')
+        titles.set('bullet-2', 'Empty')
+
+        const hasChildren = new Map<string, boolean>()
+        hasChildren.set('bullet-1', true)
+        hasChildren.set('bullet-2', false)
+
+        const isDescriptor = new Map<string, boolean>()
+        isDescriptor.set('bullet-1', true)
+        isDescriptor.set('bullet-2', false)
+
+        const store = {
+          ...mockEditorStore,
+          blockTitles: titles,
+          topLevelBlockIds: ['bullet-1', 'bullet-2'],
+          blockHasChildren: hasChildren,
+          blockIsDescriptor: isDescriptor,
+        }
+        if (typeof selector === 'function') {
+          return selector(store as any)
+        }
+        return store as any
+      })
+      render(<LeftPanel />)
+
+      expect(screen.getByText('Both')).toBeInTheDocument()
+      expect(screen.queryByText('Empty')).not.toBeInTheDocument()
+      expect(screen.getByText('1')).toBeInTheDocument()
+    })
+
+    it('should hide all bullets if none have children or descriptors', () => {
+      vi.mocked(useEditorStore).mockImplementation((selector) => {
+        const titles = new Map<string, string>()
+        titles.set('bullet-1', 'Empty 1')
+        titles.set('bullet-2', 'Empty 2')
+
+        const hasChildren = new Map<string, boolean>()
+        hasChildren.set('bullet-1', false)
+        hasChildren.set('bullet-2', false)
+
+        const isDescriptor = new Map<string, boolean>()
+        isDescriptor.set('bullet-1', false)
+        isDescriptor.set('bullet-2', false)
+
+        const store = {
+          ...mockEditorStore,
+          blockTitles: titles,
+          topLevelBlockIds: ['bullet-1', 'bullet-2'],
+          blockHasChildren: hasChildren,
+          blockIsDescriptor: isDescriptor,
+        }
+        if (typeof selector === 'function') {
+          return selector(store as any)
+        }
+        return store as any
+      })
+      render(<LeftPanel />)
+
+      // Should show empty state
+      expect(screen.getByText(/no blocks yet/i)).toBeInTheDocument()
+      expect(screen.queryByText('Empty 1')).not.toBeInTheDocument()
+      expect(screen.queryByText('Empty 2')).not.toBeInTheDocument()
+
+      // Count badge should not be shown (count is 0)
+      expect(screen.queryByText('0')).not.toBeInTheDocument()
     })
   })
 })

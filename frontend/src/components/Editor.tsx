@@ -156,13 +156,21 @@ function buildBreadcrumbPath(doc: Doc, blockId: string): BreadcrumbItem[] {
 
 /**
  * FE-504: Extract top-level block IDs and titles from the document
+ * FE-508: Also extract metadata about children and descriptor status
  * Used to sync block data to the editor store for the LeftPanel sidebar
  */
-function extractTopLevelBlocks(doc: Doc): { ids: string[], titles: Map<string, string> } {
+function extractTopLevelBlocks(doc: Doc): {
+  ids: string[]
+  titles: Map<string, string>
+  hasChildren: Map<string, boolean>
+  isDescriptor: Map<string, boolean>
+} {
   const ids: string[] = []
   const titles = new Map<string, string>()
+  const hasChildren = new Map<string, boolean>()
+  const isDescriptor = new Map<string, boolean>()
 
-  if (!doc.root) return { ids, titles }
+  if (!doc.root) return { ids, titles, hasChildren, isDescriptor }
 
   // Traverse through root's children to find hydra:bullet blocks
   // Document structure: affine:page > affine:note > hydra:bullet
@@ -173,12 +181,20 @@ function extractTopLevelBlocks(doc: Doc): { ids: string[], titles: Map<string, s
           ids.push(noteChild.id)
           const text = (noteChild as BlockModel & { text?: { toString(): string } }).text?.toString() || ''
           titles.set(noteChild.id, text || `Block ${noteChild.id.slice(0, 8)}`)
+
+          // FE-508: Check if block has children
+          const childCount = noteChild.children?.length || 0
+          hasChildren.set(noteChild.id, childCount > 0)
+
+          // FE-508: Check if block is a descriptor
+          const bulletBlock = noteChild as BulletBlockModel
+          isDescriptor.set(noteChild.id, bulletBlock.isDescriptor || false)
         }
       }
     }
   }
 
-  return { ids, titles }
+  return { ids, titles, hasChildren, isDescriptor }
 }
 
 export default function Editor() {
@@ -1212,8 +1228,8 @@ export default function Editor() {
         setPersistenceState({ status: 'synced', error: null })
 
         // FE-504: Sync initial block data to store for LeftPanel
-        const { ids, titles } = extractTopLevelBlocks(doc)
-        syncBlockData(ids, titles)
+        const { ids, titles, hasChildren, isDescriptor } = extractTopLevelBlocks(doc)
+        syncBlockData(ids, titles, hasChildren, isDescriptor)
 
         // FE-504: Subscribe to block updates for sidebar sync
         // Disposes any existing subscription first
@@ -1223,8 +1239,8 @@ export default function Editor() {
         // Guard against undefined slots (can happen in tests)
         if (doc.slots?.blockUpdated) {
           blockUpdateSubscriptionRef.current = doc.slots.blockUpdated.on(() => {
-            const { ids, titles } = extractTopLevelBlocks(doc)
-            syncBlockData(ids, titles)
+            const { ids, titles, hasChildren, isDescriptor } = extractTopLevelBlocks(doc)
+            syncBlockData(ids, titles, hasChildren, isDescriptor)
           })
         }
       })
@@ -1243,14 +1259,14 @@ export default function Editor() {
       }
 
       // FE-504: Sync block data even if persistence fails
-      const { ids, titles } = extractTopLevelBlocks(doc)
-      syncBlockData(ids, titles)
+      const { ids, titles, hasChildren, isDescriptor } = extractTopLevelBlocks(doc)
+      syncBlockData(ids, titles, hasChildren, isDescriptor)
 
       // FE-504: Subscribe to block updates (guard against undefined slots in tests)
       if (doc.slots?.blockUpdated) {
         blockUpdateSubscriptionRef.current = doc.slots.blockUpdated.on(() => {
-          const { ids: newIds, titles: newTitles } = extractTopLevelBlocks(doc)
-          syncBlockData(newIds, newTitles)
+          const { ids: newIds, titles: newTitles, hasChildren: newHasChildren, isDescriptor: newIsDescriptor } = extractTopLevelBlocks(doc)
+          syncBlockData(newIds, newTitles, newHasChildren, newIsDescriptor)
         })
       }
     }
