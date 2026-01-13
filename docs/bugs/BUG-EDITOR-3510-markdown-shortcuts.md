@@ -45,4 +45,15 @@ Screenshot shows bullets with raw text `[]`, `[] My checkbox task`, `[]Test chec
 EDITOR-3510: Block Type System
 
 ## Status
-**Open** - Awaiting fix
+**Fixed** - PR #121 merged
+
+## Solution
+Added space to text before calling `parseMarkdownShortcut()` in `_handleMarkdownShortcut()`:
+```typescript
+// BUG-EDITOR-3510: Add space to text since the space key was pressed but not yet inserted
+const result = parseMarkdownShortcut(currentText + ' ')
+```
+
+## Commit
+- Branch: `editor/BUG-EDITOR-3510-markdown-shortcuts`
+- PR: https://github.com/eden-ye/hydranote/pull/121
