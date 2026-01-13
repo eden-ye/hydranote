@@ -24,12 +24,15 @@ export function AllBulletsSection({ topLevelBlocks }: AllBulletsSectionProps) {
   const enterFocusMode = useEditorStore((state) => state.enterFocusMode)
   const toggleFavorite = useEditorStore((state) => state.toggleFavorite)
   const isFavorite = useEditorStore((state) => state.isFavorite)
+  // FE-506: Track navigation history
+  const pushNavigation = useEditorStore((state) => state.pushNavigation)
 
   const handleClick = useCallback(
     (id: string) => {
+      pushNavigation(id)
       enterFocusMode(id)
     },
-    [enterFocusMode]
+    [enterFocusMode, pushNavigation]
   )
 
   const handleToggleFavorite = useCallback(

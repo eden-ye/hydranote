@@ -104,14 +104,14 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
-| FE-505 | Breadcrumb Navigation | 6h | [ ] | Clickable breadcrumb, zoom in/out |
-| FE-506 | Back/Forward Buttons | 4h | [ ] | Page navigation history |
+| FE-505 | Breadcrumb Navigation | 6h | [L] | Added 26 unit tests, Chrome E2E OK |
+| FE-506 | Back/Forward Buttons | 4h | [L] | PR #124, Chrome E2E OK, moved to done/ |
 
 ## Epic: Cheat Sheet / Dashing Button (2)
 
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
-| EDITOR-3702 | Dashing Button Position | 2h | [ ] | Move closer to bullet text |
+| EDITOR-3702 | Ghost Question Delayed Reveal | 6h | [L] | PR #126, E2E OK, moved to done/ |
 | EDITOR-3703 | == Syntax for Dashing | 4h | [ ] | Type == to create dashing + multiline |
 
 ## Epic: AI Features (1)
@@ -130,14 +130,14 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 ## Quick Filter
 
-- **Local E2E OK [L]**: API-301, API-302, API-303, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, FE-501, FE-504
+- **Local E2E OK [L]**: API-301, API-302, API-303, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, EDITOR-3702, FE-501, FE-504, FE-505, FE-506
 - **SAT Deployed [D]**: (none - awaiting Vercel deploy)
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
 - **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512, FE-503
 - **In Progress [~]**: (none)
-- **Backlog [ ]**: EDITOR-3408, EDITOR-3701, FE-508, FE-503-E2E, FE-505, FE-506, EDITOR-3702, EDITOR-3703, EDITOR-3704, FE-507
+- **Backlog [ ]**: EDITOR-3408, EDITOR-3701, FE-508, FE-503-E2E, EDITOR-3703, EDITOR-3704, FE-507
 
 ---
 
@@ -145,7 +145,8 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 | Ticket | Title | Status |
 |--------|-------|--------|
-| BUG-EDITOR-3064 | Null Model Render Error | resolved (see BUG-001) |
+| BUG-EDITOR-3064 | Null Model Render Error | [L] Local E2E OK - version-based cleanup implemented |
+| BUG-EDITOR-3510 | Markdown Shortcuts Not Converting | [x] PR #121 |
 
 ---
 

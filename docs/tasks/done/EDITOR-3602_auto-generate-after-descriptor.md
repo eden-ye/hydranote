@@ -33,7 +33,7 @@ Part of Epic 6: Auto AI Generation. Optional convenience feature.
 ## Status
 - **Created**: 2026-01-10
 - **Completed**: 2026-01-12
-- **Status**: done
+- **Status**: ⚠️ INCOMPLETE - Missing Chrome E2E testing
 - **Epic**: MVP2 - Auto AI Generation
 
 ## Implementation Summary
@@ -78,3 +78,32 @@ Part of Epic 6: Auto AI Generation. Optional convenience feature.
 ### Test Results
 - All 736 unit tests pass
 - Build successful
+
+## E2E Testing Status (2026-01-12)
+
+**Status:** ❌ NOT COMPLETED
+
+**Blocker:** Environment issues prevented E2E testing execution. Console shows 7 TypeError exceptions from stale IndexedDB data.
+
+**Test Environment Issues:**
+- Orphaned portal blocks from previous sessions cause console errors
+- Clean browser state required for reliable E2E validation
+- E2E expectations file exists but scenarios not executed
+
+**Required Actions:**
+1. Clear all browser Application data (DevTools)
+2. Test in fresh Incognito window
+3. Execute scenarios from `e2e/expectations/EDITOR-3602_auto-generate-after-descriptor.md`:
+   - Scenario 1: Auto-generation triggers after descriptor insertion
+   - Scenario 2: User can cancel pending generation by typing
+   - Scenario 3: User can cancel active generation
+   - Scenario 4: Auto-generation respects settings
+   - Scenario 5: Multiple descriptors don't cause conflicts
+4. Verify indicator shows "Preparing to generate content..."
+5. Verify 500ms debounce works correctly
+6. Capture screenshot evidence
+7. Verify no console errors
+
+**Reference:** See `e2e/results/EDITOR-3406_3601_3602_combined-e2e-report.md` for full details.
+
+**TDD Workflow:** Step 7 (Chrome E2E) is INCOMPLETE. Per CLAUDE.md rules, this ticket should NOT be in `done/` folder until E2E testing is completed.

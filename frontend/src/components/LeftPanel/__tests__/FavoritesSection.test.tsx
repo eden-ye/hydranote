@@ -21,6 +21,8 @@ const mockStore = {
   toggleFavorite: vi.fn(),
   isFavorite: vi.fn(() => true),
   reorderFavorites: vi.fn(),
+  // FE-506: Navigation history
+  pushNavigation: vi.fn(),
 }
 
 // Mock block data provider

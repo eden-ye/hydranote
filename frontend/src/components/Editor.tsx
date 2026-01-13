@@ -9,7 +9,12 @@ import '@toeverything/theme/style.css'
 
 // Import Hydra custom blocks
 import { BulletBlockSchema, BulletBlockSpec, PortalBlockSchema, PortalBlockSpec } from '@/blocks'
-import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
+import {
+  HYDRA_DB_PREFIX,
+  type PersistenceStatus,
+  checkAndClearOnVersionMismatch,
+  savePersistenceVersion,
+} from '@/hooks'
 // FE-406: Focus mode navigation
 import { useFocusMode } from '@/hooks/useFocusMode'
 // FE-407: Breadcrumb navigation
@@ -44,6 +49,12 @@ import {
   createDebouncedAutoGenerate,
   DEFAULT_AUTO_GENERATE_SETTINGS,
 } from '@/blocks/utils/auto-generate'
+// EDITOR-3408: Auto-reorg integration
+import {
+  createAutoReorgObserver,
+  type AutoReorgContext,
+} from '@/blocks/utils/auto-reorg'
+import { executeAutoReorg } from '@/services/auto-reorg-service'
 // EDITOR-3409/3410: Portal search modal
 import { PortalSearchModal } from './PortalSearchModal'
 import { createPortalAsSibling, type DocWithBlocks } from '@/blocks/utils/portal-insertion'
@@ -62,6 +73,8 @@ import { TEXT_FORMAT_CONFIGS } from '@/utils/format-commands'
 import { SlashMenu } from './SlashMenu'
 import type { SlashMenuItem } from '@/blocks/utils/slash-menu'
 import type { BlockType } from '@/blocks/utils/markdown-shortcuts'
+// FE-506: Navigation history buttons
+import { NavigationButtons } from './NavigationButtons'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -185,6 +198,39 @@ export default function Editor() {
     error: null,
   })
 
+  // BUG-EDITOR-3064: Track version check completion
+  const [versionCheckComplete, setVersionCheckComplete] = useState(false)
+
+  // BUG-EDITOR-3064: Run version check before editor initialization
+  // Clears IndexedDB if version mismatch to remove orphaned blocks
+  useEffect(() => {
+    let mounted = true
+
+    const runVersionCheck = async () => {
+      try {
+        const wasCleared = await checkAndClearOnVersionMismatch()
+        if (wasCleared) {
+          console.log('[Editor] IndexedDB cleared due to version upgrade')
+        } else {
+          // Save version on first run (when no previous version stored)
+          savePersistenceVersion()
+        }
+      } catch (error) {
+        console.error('[Editor] Version check failed:', error)
+      }
+
+      if (mounted) {
+        setVersionCheckComplete(true)
+      }
+    }
+
+    runVersionCheck()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   // FE-406: Focus mode state
   const { isInFocusMode, focusedBlockId, enterFocusMode, exitFocusMode } = useFocusMode()
 
@@ -199,6 +245,16 @@ export default function Editor() {
   // const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
   // const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
   // const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+
+  // FE-506: Navigation history state
+  // Must be declared before callbacks that use them
+  const {
+    pushNavigation,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  } = useEditorStore()
 
   // Update breadcrumb and title when focus changes
   useEffect(() => {
@@ -225,8 +281,25 @@ export default function Editor() {
 
   // FE-407: Handle breadcrumb navigation
   const handleBreadcrumbNavigate = useCallback((id: string) => {
+    pushNavigation(id)
     enterFocusMode(id)
-  }, [enterFocusMode])
+  }, [enterFocusMode, pushNavigation])
+
+  // FE-506: Handle back button click
+  const handleNavigationBack = useCallback(() => {
+    const blockId = goBack()
+    if (blockId) {
+      enterFocusMode(blockId)
+    }
+  }, [goBack, enterFocusMode])
+
+  // FE-506: Handle forward button click
+  const handleNavigationForward = useCallback(() => {
+    const blockId = goForward()
+    if (blockId) {
+      enterFocusMode(blockId)
+    }
+  }, [goForward, enterFocusMode])
 
   // FE-409/EDITOR-3511: Ghost question click now handled inline in bullet-block.ts
   // const handleQuestionClick = useCallback((question: GhostQuestion) => {
@@ -303,6 +376,14 @@ export default function Editor() {
     closePortalSearchModal,
   } = useEditorStore()
 
+  // EDITOR-3408: Auto-reorg state
+  const {
+    autoReorgEnabled,
+    autoReorgThreshold,
+    setAutoReorgStatus,
+  } = useEditorStore()
+  const autoReorgRef = useRef<{ dispose: () => void } | null>(null)
+
   // FE-504: Sync block data to store for LeftPanel
   const syncBlockData = useEditorStore((state) => state.syncBlockData)
 
@@ -310,7 +391,6 @@ export default function Editor() {
   const {
     reorgModalOpen,
     reorgModalDocumentId,
-    autoReorgThreshold,
     openReorgModal,
     closeReorgModal,
     setReorgModalStatus,
@@ -336,6 +416,119 @@ export default function Editor() {
     wasExpandingRef.current = isExpanding
   }, [isExpanding, autoGenerateStatus, completeAutoGenerate, resetAutoGenerate])
 
+  // EDITOR-3408: Auto-reorg document observer
+  // Observes document changes and triggers auto-reorganization after 2s debounce
+  useEffect(() => {
+    const doc = docRef.current
+    if (!doc) return
+    if (!autoReorgEnabled) return
+    if (!accessToken) return
+
+    console.log('[AutoReorg] Setting up document observer, enabled:', autoReorgEnabled)
+
+    // Define a function to extract text from all bullets in the document
+    const extractDocumentText = (): string => {
+      const texts: string[] = []
+      const extractTextRecursive = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          const bulletBlock = block as BlockModel & { text?: { toString(): string } }
+          const text = bulletBlock.text?.toString() || ''
+          if (text.trim()) {
+            texts.push(text)
+          }
+        }
+        if ('children' in block && Array.isArray(block.children)) {
+          for (const child of block.children) {
+            extractTextRecursive(child as BlockModel)
+          }
+        }
+      }
+
+      // Start from root and traverse
+      if (doc.root) {
+        extractTextRecursive(doc.root as BlockModel)
+      }
+      return texts.join('\n')
+    }
+
+    // Define a function to get all bullet IDs
+    const getAllBulletIds = (): string[] => {
+      const ids: string[] = []
+      const extractIdsRecursive = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          ids.push(block.id)
+        }
+        if ('children' in block && Array.isArray(block.children)) {
+          for (const child of block.children) {
+            extractIdsRecursive(child as BlockModel)
+          }
+        }
+      }
+
+      if (doc.root) {
+        extractIdsRecursive(doc.root as BlockModel)
+      }
+      return ids
+    }
+
+    // Create a doc wrapper for the observer
+    // Cast to MockDoc to match the auto-reorg observer interface
+    const docWrapper = {
+      id: doc.id,
+      spaceDoc: {
+        on: (event: string, callback: () => void) => doc.spaceDoc.on(event as 'update', callback),
+        off: (event: string, callback: () => void) => doc.spaceDoc.off(event as 'update', callback),
+      },
+      getText: extractDocumentText,
+      getAllBulletIds: getAllBulletIds,
+    }
+
+    // Create the auto-reorg observer
+    const observer = createAutoReorgObserver(
+      docWrapper,
+      {
+        enabled: autoReorgEnabled,
+        thresholdScore: autoReorgThreshold,
+        debounceMs: 2000,
+        maxResults: 5,
+      },
+      async (context: AutoReorgContext) => {
+        console.log('[AutoReorg] Triggered for document:', context.documentId)
+        setAutoReorgStatus('processing')
+
+        try {
+          const result = await executeAutoReorg(
+            context,
+            {
+              enabled: autoReorgEnabled,
+              thresholdScore: autoReorgThreshold,
+              debounceMs: 2000,
+              maxResults: 5,
+            },
+            accessToken
+          )
+
+          console.log('[AutoReorg] Completed:', result)
+          setAutoReorgStatus('completed')
+
+          // Reset status after a short delay
+          setTimeout(() => setAutoReorgStatus('idle'), 2000)
+        } catch (error) {
+          console.error('[AutoReorg] Failed:', error)
+          setAutoReorgStatus('idle')
+        }
+      }
+    )
+
+    autoReorgRef.current = observer
+
+    return () => {
+      console.log('[AutoReorg] Cleaning up document observer')
+      observer.dispose()
+      autoReorgRef.current = null
+    }
+  }, [autoReorgEnabled, autoReorgThreshold, accessToken, setAutoReorgStatus])
+
   // FE-408: Handle expand event from bullet blocks
   const handleExpandEvent = useCallback((event: Event) => {
     const customEvent = event as CustomEvent<ExpandBlockContext>
@@ -356,12 +549,14 @@ export default function Editor() {
   }, [accessToken, canExpand, expandBlock])
 
   // EDITOR-3508: Handle focus block event from grip handle click
+  // FE-506: Also track navigation history
   const handleFocusBlockEvent = useCallback((event: Event) => {
     const customEvent = event as CustomEvent<{ blockId: string }>
     const { blockId } = customEvent.detail
     console.log('[FocusMode] Entering focus mode for block:', blockId)
+    pushNavigation(blockId)
     enterFocusMode(blockId)
-  }, [enterFocusMode])
+  }, [enterFocusMode, pushNavigation])
 
   // EDITOR-3601: Handle descriptor generation event (Tab trigger at deepest level)
   const handleDescriptorGenerateEvent = useCallback((event: Event) => {
@@ -963,6 +1158,10 @@ export default function Editor() {
     // Prevent double initialization in StrictMode
     if (editorRef.current) return
 
+    // BUG-EDITOR-3064: Wait for version check to complete before initializing
+    // This ensures orphaned blocks are cleared before persistence loads
+    if (!versionCheckComplete) return
+
     // Create schema with Affine block schemas and Hydra custom blocks
     const schema = new Schema()
       .register(AffineSchemas)
@@ -1068,6 +1267,7 @@ export default function Editor() {
     container.appendChild(editor)
 
     // FE-406: Add double-click handler for focus mode
+    // FE-506: Also track navigation history
     const handleDoubleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       // Find the closest hydra-bullet-block element
@@ -1075,6 +1275,7 @@ export default function Editor() {
       if (bulletBlock) {
         const blockId = bulletBlock.getAttribute('data-block-id')
         if (blockId) {
+          pushNavigation(blockId)
           enterFocusMode(blockId)
         }
       }
@@ -1178,7 +1379,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
+  }, [versionCheckComplete, enterFocusMode, pushNavigation, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
 
   // EDITOR-3506: Separate useEffect for selection change listener
   // This needs to be separate from the main editor initialization useEffect
@@ -1306,6 +1507,16 @@ export default function Editor() {
         flexDirection: 'column',
       }}
     >
+      {/* FE-506: Show navigation buttons in focus mode */}
+      {isInFocusMode && (
+        <NavigationButtons
+          canGoBack={canGoBack()}
+          canGoForward={canGoForward()}
+          onBack={handleNavigationBack}
+          onForward={handleNavigationForward}
+        />
+      )}
+
       {/* FE-407: Show breadcrumb in focus mode */}
       {isInFocusMode && breadcrumbItems.length > 0 && (
         <Breadcrumb
