@@ -82,6 +82,30 @@ Enhancement to EDITOR-3403. Low priority - orphaned state detection works on pag
 ## Status
 - **Created**: 2026-01-11
 - **Completed**: 2026-01-12
-- **Status**: completed
+- **Status**: ⚠️ INCOMPLETE - Missing Chrome E2E testing
 - **Epic**: MVP2 - Portal
 - **Priority**: Low (enhancement)
+
+## E2E Testing Status (2026-01-12)
+
+**Status:** ❌ NOT COMPLETED
+
+**Blocker:** Stale IndexedDB data from previous testing sessions causes 7 console TypeErrors that prevent proper E2E validation. Despite the fix in EDITOR-3405 (commit `219b2a5`), orphaned portal blocks persist in browser storage.
+
+**Cleanup Attempts:**
+- ✅ Cleared IndexedDB via JavaScript
+- ✅ Cleared Vite cache
+- ✅ Restarted dev server
+- ✅ Hard refresh
+- ❌ Errors persist due to Y-indexeddb persistence layer
+
+**Required Actions:**
+1. Manual Chrome testing with DevTools → Application → Clear All Site Data
+2. OR test in fresh Incognito window
+3. Execute all scenarios from `e2e/expectations/EDITOR-3406_portal-runtime-orphan-detection.md`
+4. Verify no console errors
+5. Capture screenshot evidence
+
+**Reference:** See `e2e/results/EDITOR-3406_3601_3602_combined-e2e-report.md` for full details.
+
+**TDD Workflow:** Step 7 (Chrome E2E) is INCOMPLETE. Per CLAUDE.md rules, this ticket should NOT be in `done/` folder until E2E testing is completed.

@@ -9,13 +9,21 @@ import '@toeverything/theme/style.css'
 
 // Import Hydra custom blocks
 import { BulletBlockSchema, BulletBlockSpec, PortalBlockSchema, PortalBlockSpec } from '@/blocks'
-import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
+import {
+  HYDRA_DB_PREFIX,
+  type PersistenceStatus,
+  checkAndClearOnVersionMismatch,
+  savePersistenceVersion,
+} from '@/hooks'
 // FE-406: Focus mode navigation
 import { useFocusMode } from '@/hooks/useFocusMode'
 // FE-407: Breadcrumb navigation
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
-// FE-409: Ghost questions
-import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
+// EDITOR-3508: Focus mode header
+import { FocusHeader } from './FocusHeader'
+// FE-409/EDITOR-3511: Ghost questions moved to inline rendering in bullet-block.ts
+// GhostQuestions component no longer needed here - kept for reference
+// import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
 // FE-408: Expand block hook
 import { useExpandBlock, type ExpandBlockContext } from '@/hooks/useExpandBlock'
 // EDITOR-3601: Descriptor generation context
@@ -41,6 +49,12 @@ import {
   createDebouncedAutoGenerate,
   DEFAULT_AUTO_GENERATE_SETTINGS,
 } from '@/blocks/utils/auto-generate'
+// EDITOR-3408: Auto-reorg integration
+import {
+  createAutoReorgObserver,
+  type AutoReorgContext,
+} from '@/blocks/utils/auto-reorg'
+import { executeAutoReorg } from '@/services/auto-reorg-service'
 // EDITOR-3409/3410: Portal search modal
 import { PortalSearchModal } from './PortalSearchModal'
 import { createPortalAsSibling, type DocWithBlocks } from '@/blocks/utils/portal-insertion'
@@ -52,6 +66,15 @@ import { extractConcepts, semanticSearch } from '@/services/api-client.mock'
 import type { ConceptMatch } from '@/stores/editor-store'
 // EDITOR-3503: Toast notifications
 import { toast } from 'sonner'
+// EDITOR-3506: Inline formatting toolbar
+import InlineToolbar from './InlineToolbar'
+import { TEXT_FORMAT_CONFIGS } from '@/utils/format-commands'
+// EDITOR-3510: Slash menu
+import { SlashMenu } from './SlashMenu'
+import type { SlashMenuItem } from '@/blocks/utils/slash-menu'
+import type { BlockType } from '@/blocks/utils/markdown-shortcuts'
+// FE-506: Navigation history buttons
+import { NavigationButtons } from './NavigationButtons'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -131,12 +154,41 @@ function buildBreadcrumbPath(doc: Doc, blockId: string): BreadcrumbItem[] {
   return items
 }
 
+/**
+ * FE-504: Extract top-level block IDs and titles from the document
+ * Used to sync block data to the editor store for the LeftPanel sidebar
+ */
+function extractTopLevelBlocks(doc: Doc): { ids: string[], titles: Map<string, string> } {
+  const ids: string[] = []
+  const titles = new Map<string, string>()
+
+  if (!doc.root) return { ids, titles }
+
+  // Traverse through root's children to find hydra:bullet blocks
+  // Document structure: affine:page > affine:note > hydra:bullet
+  for (const child of doc.root.children) {
+    if (child.flavour === 'affine:note') {
+      for (const noteChild of child.children) {
+        if (noteChild.flavour === 'hydra:bullet') {
+          ids.push(noteChild.id)
+          const text = (noteChild as BlockModel & { text?: { toString(): string } }).text?.toString() || ''
+          titles.set(noteChild.id, text || `Block ${noteChild.id.slice(0, 8)}`)
+        }
+      }
+    }
+  }
+
+  return { ids, titles }
+}
+
 export default function Editor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<AffineEditorContainer | null>(null)
   const collectionRef = useRef<DocCollection | null>(null)
   const persistenceRef = useRef<IndexeddbPersistence | null>(null)
   const docRef = useRef<Doc | null>(null)
+  // FE-504: Subscription ref for block update listener
+  const blockUpdateSubscriptionRef = useRef<{ dispose: () => void } | null>(null)
 
   const [persistenceState, setPersistenceState] = useState<{
     status: PersistenceStatus
@@ -146,58 +198,118 @@ export default function Editor() {
     error: null,
   })
 
+  // BUG-EDITOR-3064: Track version check completion
+  const [versionCheckComplete, setVersionCheckComplete] = useState(false)
+
+  // BUG-EDITOR-3064: Run version check before editor initialization
+  // Clears IndexedDB if version mismatch to remove orphaned blocks
+  useEffect(() => {
+    let mounted = true
+
+    const runVersionCheck = async () => {
+      try {
+        const wasCleared = await checkAndClearOnVersionMismatch()
+        if (wasCleared) {
+          console.log('[Editor] IndexedDB cleared due to version upgrade')
+        } else {
+          // Save version on first run (when no previous version stored)
+          savePersistenceVersion()
+        }
+      } catch (error) {
+        console.error('[Editor] Version check failed:', error)
+      }
+
+      if (mounted) {
+        setVersionCheckComplete(true)
+      }
+    }
+
+    runVersionCheck()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   // FE-406: Focus mode state
   const { isInFocusMode, focusedBlockId, enterFocusMode, exitFocusMode } = useFocusMode()
 
   // FE-407: Breadcrumb items (computed when focusedBlockId changes)
   const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([])
 
-  // FE-409: Ghost questions state
-  const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
-  const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+  // EDITOR-3508: Focused block title for FocusHeader
+  const [focusedBlockTitle, setFocusedBlockTitle] = useState('')
 
-  // Update breadcrumb when focus changes
+  // FE-409/EDITOR-3511: Ghost questions state - now handled inline in bullet-block.ts
+  // Ghost suggestions are generated and rendered within each bullet block component
+  // const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
+  // const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
+  // const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+
+  // FE-506: Navigation history state
+  // Must be declared before callbacks that use them
+  const {
+    pushNavigation,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  } = useEditorStore()
+
+  // Update breadcrumb and title when focus changes
   useEffect(() => {
     if (isInFocusMode && focusedBlockId && docRef.current) {
       const items = buildBreadcrumbPath(docRef.current, focusedBlockId)
       setBreadcrumbItems(items)
 
-      // FE-409: Generate placeholder ghost questions when entering focus mode
-      // In production, these would come from AI generation
-      setIsLoadingQuestions(true)
-      setDismissedQuestions(new Set())
+      // EDITOR-3508: Get focused block title for FocusHeader
+      const focusedBlock = docRef.current.getBlockById(focusedBlockId)
+      if (focusedBlock && focusedBlock.flavour === 'hydra:bullet') {
+        const blockModel = focusedBlock as BlockModel & { text?: { toString(): string } }
+        setFocusedBlockTitle(blockModel.text?.toString() || '')
+      } else {
+        setFocusedBlockTitle('')
+      }
 
-      // Simulate AI question generation delay
-      setTimeout(() => {
-        setGhostQuestions([
-          { id: 'q1', text: 'What are the key implications of this point?' },
-          { id: 'q2', text: 'How does this relate to the broader context?' },
-          { id: 'q3', text: 'What evidence supports this idea?' },
-        ])
-        setIsLoadingQuestions(false)
-      }, 500)
+      // FE-409/EDITOR-3511: Ghost questions now generated inline in bullet-block.ts
+      // No need to manage ghost question state here anymore
     } else {
       setBreadcrumbItems([])
-      setGhostQuestions([])
+      setFocusedBlockTitle('')
     }
   }, [isInFocusMode, focusedBlockId])
 
   // FE-407: Handle breadcrumb navigation
   const handleBreadcrumbNavigate = useCallback((id: string) => {
+    pushNavigation(id)
     enterFocusMode(id)
-  }, [enterFocusMode])
+  }, [enterFocusMode, pushNavigation])
 
-  // FE-409: Handle ghost question click
-  const handleQuestionClick = useCallback((question: GhostQuestion) => {
-    // In production, this would trigger AI expansion
-    console.log('[GhostQuestions] Question clicked:', question.text)
-  }, [])
+  // FE-506: Handle back button click
+  const handleNavigationBack = useCallback(() => {
+    const blockId = goBack()
+    if (blockId) {
+      enterFocusMode(blockId)
+    }
+  }, [goBack, enterFocusMode])
 
-  // FE-409: Handle ghost question dismiss
-  const handleQuestionDismiss = useCallback((questionId: string) => {
-    setDismissedQuestions(prev => new Set([...prev, questionId]))
-  }, [])
+  // FE-506: Handle forward button click
+  const handleNavigationForward = useCallback(() => {
+    const blockId = goForward()
+    if (blockId) {
+      enterFocusMode(blockId)
+    }
+  }, [goForward, enterFocusMode])
+
+  // FE-409/EDITOR-3511: Ghost question click now handled inline in bullet-block.ts
+  // const handleQuestionClick = useCallback((question: GhostQuestion) => {
+  //   console.log('[GhostQuestions] Question clicked:', question.text)
+  // }, [])
+
+  // FE-409/EDITOR-3511: Ghost question dismiss now handled inline in bullet-block.ts
+  // const handleQuestionDismiss = useCallback((questionId: string) => {
+  //   setDismissedQuestions(prev => new Set([...prev, questionId]))
+  // }, [])
 
   // FE-408: Expand block hook
   const { expandBlock, canExpand, isExpanding } = useExpandBlock()
@@ -231,6 +343,19 @@ export default function Editor() {
   const [allBullets, setAllBullets] = useState<BulletItem[]>([])
   const filteredBullets = filterBullets(allBullets, portalPickerQuery)
 
+  // EDITOR-3510: Slash menu state
+  const {
+    slashMenuOpen,
+    slashMenuQuery,
+    slashMenuBlockId,
+    slashMenuSelectedIndex,
+    openSlashMenu,
+    closeSlashMenu,
+    setSlashMenuQuery,
+    setSlashMenuSelectedIndex,
+  } = useEditorStore()
+  const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 })
+
   // EDITOR-3602: Auto-generate after descriptor state
   const {
     autoGenerateEnabled,
@@ -251,17 +376,33 @@ export default function Editor() {
     closePortalSearchModal,
   } = useEditorStore()
 
+  // EDITOR-3408: Auto-reorg state
+  const {
+    autoReorgEnabled,
+    autoReorgThreshold,
+    setAutoReorgStatus,
+  } = useEditorStore()
+  const autoReorgRef = useRef<{ dispose: () => void } | null>(null)
+
+  // FE-504: Sync block data to store for LeftPanel
+  const syncBlockData = useEditorStore((state) => state.syncBlockData)
+
   // EDITOR-3502: Reorganization modal state
   const {
     reorgModalOpen,
     reorgModalDocumentId,
-    autoReorgThreshold,
     openReorgModal,
     closeReorgModal,
     setReorgModalStatus,
     setReorgModalConceptMatches,
     setReorgModalError,
   } = useEditorStore()
+
+  // EDITOR-3506: Inline formatting toolbar state
+  const [inlineToolbarVisible, setInlineToolbarVisible] = useState(false)
+  const [inlineToolbarPosition, setInlineToolbarPosition] = useState({ x: 0, y: 0 })
+  const [activeFormats, setActiveFormats] = useState<Record<string, boolean | string | null>>({})
+  const activeInlineEditorRef = useRef<unknown>(null)
 
   // EDITOR-3602: Track expansion completion for auto-generate
   useEffect(() => {
@@ -274,6 +415,119 @@ export default function Editor() {
     }
     wasExpandingRef.current = isExpanding
   }, [isExpanding, autoGenerateStatus, completeAutoGenerate, resetAutoGenerate])
+
+  // EDITOR-3408: Auto-reorg document observer
+  // Observes document changes and triggers auto-reorganization after 2s debounce
+  useEffect(() => {
+    const doc = docRef.current
+    if (!doc) return
+    if (!autoReorgEnabled) return
+    if (!accessToken) return
+
+    console.log('[AutoReorg] Setting up document observer, enabled:', autoReorgEnabled)
+
+    // Define a function to extract text from all bullets in the document
+    const extractDocumentText = (): string => {
+      const texts: string[] = []
+      const extractTextRecursive = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          const bulletBlock = block as BlockModel & { text?: { toString(): string } }
+          const text = bulletBlock.text?.toString() || ''
+          if (text.trim()) {
+            texts.push(text)
+          }
+        }
+        if ('children' in block && Array.isArray(block.children)) {
+          for (const child of block.children) {
+            extractTextRecursive(child as BlockModel)
+          }
+        }
+      }
+
+      // Start from root and traverse
+      if (doc.root) {
+        extractTextRecursive(doc.root as BlockModel)
+      }
+      return texts.join('\n')
+    }
+
+    // Define a function to get all bullet IDs
+    const getAllBulletIds = (): string[] => {
+      const ids: string[] = []
+      const extractIdsRecursive = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          ids.push(block.id)
+        }
+        if ('children' in block && Array.isArray(block.children)) {
+          for (const child of block.children) {
+            extractIdsRecursive(child as BlockModel)
+          }
+        }
+      }
+
+      if (doc.root) {
+        extractIdsRecursive(doc.root as BlockModel)
+      }
+      return ids
+    }
+
+    // Create a doc wrapper for the observer
+    // Cast to MockDoc to match the auto-reorg observer interface
+    const docWrapper = {
+      id: doc.id,
+      spaceDoc: {
+        on: (event: string, callback: () => void) => doc.spaceDoc.on(event as 'update', callback),
+        off: (event: string, callback: () => void) => doc.spaceDoc.off(event as 'update', callback),
+      },
+      getText: extractDocumentText,
+      getAllBulletIds: getAllBulletIds,
+    }
+
+    // Create the auto-reorg observer
+    const observer = createAutoReorgObserver(
+      docWrapper,
+      {
+        enabled: autoReorgEnabled,
+        thresholdScore: autoReorgThreshold,
+        debounceMs: 2000,
+        maxResults: 5,
+      },
+      async (context: AutoReorgContext) => {
+        console.log('[AutoReorg] Triggered for document:', context.documentId)
+        setAutoReorgStatus('processing')
+
+        try {
+          const result = await executeAutoReorg(
+            context,
+            {
+              enabled: autoReorgEnabled,
+              thresholdScore: autoReorgThreshold,
+              debounceMs: 2000,
+              maxResults: 5,
+            },
+            accessToken
+          )
+
+          console.log('[AutoReorg] Completed:', result)
+          setAutoReorgStatus('completed')
+
+          // Reset status after a short delay
+          setTimeout(() => setAutoReorgStatus('idle'), 2000)
+        } catch (error) {
+          console.error('[AutoReorg] Failed:', error)
+          setAutoReorgStatus('idle')
+        }
+      }
+    )
+
+    autoReorgRef.current = observer
+
+    return () => {
+      console.log('[AutoReorg] Cleaning up document observer')
+      observer.dispose()
+      autoReorgRef.current = null
+    }
+  }, [autoReorgEnabled, autoReorgThreshold, accessToken, setAutoReorgStatus])
 
   // FE-408: Handle expand event from bullet blocks
   const handleExpandEvent = useCallback((event: Event) => {
@@ -293,6 +547,16 @@ export default function Editor() {
     console.log('[Expand] Expanding block:', context.blockId)
     expandBlock(context, accessToken)
   }, [accessToken, canExpand, expandBlock])
+
+  // EDITOR-3508: Handle focus block event from grip handle click
+  // FE-506: Also track navigation history
+  const handleFocusBlockEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string }>
+    const { blockId } = customEvent.detail
+    console.log('[FocusMode] Entering focus mode for block:', blockId)
+    pushNavigation(blockId)
+    enterFocusMode(blockId)
+  }, [enterFocusMode, pushNavigation])
 
   // EDITOR-3601: Handle descriptor generation event (Tab trigger at deepest level)
   const handleDescriptorGenerateEvent = useCallback((event: Event) => {
@@ -503,9 +767,6 @@ export default function Editor() {
     startAutoGenerate,
     setAutoGenerateStatus,
     expandBlock,
-    completeAutoGenerate,
-    cancelAutoGenerate,
-    resetAutoGenerate,
   ])
 
   // EDITOR-3405: Handle portal picker open event
@@ -526,6 +787,57 @@ export default function Editor() {
     setPortalPickerPosition(position)
     openPortalPicker(blockId)
   }, [openPortalPicker])
+
+  // EDITOR-3510: Handle slash menu open event
+  const handleSlashMenuOpenEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string; position: { top: number; left: number } }>
+    const { blockId, position } = customEvent.detail
+
+    setSlashMenuPosition(position)
+    openSlashMenu(blockId)
+  }, [openSlashMenu])
+
+  // EDITOR-3510: Handle slash menu selection
+  const handleSlashMenuSelect = useCallback((item: SlashMenuItem) => {
+    console.log('[SlashMenu] Item selected:', item.blockType)
+
+    const doc = docRef.current
+    if (!doc || !slashMenuBlockId) {
+      console.warn('[SlashMenu] No doc or blockId available')
+      closeSlashMenu()
+      return
+    }
+
+    const block = doc.getBlockById(slashMenuBlockId) as BulletBlockModel | null
+    if (!block) {
+      console.warn('[SlashMenu] Block not found:', slashMenuBlockId)
+      closeSlashMenu()
+      return
+    }
+
+    // Remove the / character from text
+    const currentText = block.text.toString()
+    if (currentText.startsWith('/')) {
+      block.text.delete(0, currentText.length)
+    }
+
+    // Update block type
+    doc.updateBlock(block, {
+      blockType: item.blockType as BlockType,
+      isChecked: item.blockType === 'checkbox' ? false : block.isChecked,
+    })
+
+    console.log('[SlashMenu] Block type updated to:', item.blockType)
+
+    // Focus the block after type change
+    setTimeout(() => {
+      const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${slashMenuBlockId}"]`)
+      const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+      richText?.focus()
+    }, 0)
+
+    closeSlashMenu()
+  }, [slashMenuBlockId, closeSlashMenu])
 
   // EDITOR-3405: Handle portal selection and creation
   const handlePortalSelect = useCallback((bullet: BulletItem) => {
@@ -762,12 +1074,93 @@ export default function Editor() {
     closeReorgModal()
   }, [closeReorgModal])
 
+  // EDITOR-3506: Handle inline toolbar format click
+  const handleInlineFormat = useCallback((formatId: string) => {
+    const inlineEditor = activeInlineEditorRef.current as {
+      getInlineRange: () => { index: number; length: number } | null
+      getFormat: (range: { index: number; length: number }) => Record<string, unknown>
+      formatText: (range: { index: number; length: number }, styles: Record<string, unknown>) => void
+    } | null
+
+    if (!inlineEditor) {
+      console.warn('[InlineToolbar] No active inline editor')
+      return
+    }
+
+    const range = inlineEditor.getInlineRange()
+    if (!range || range.length === 0) {
+      console.warn('[InlineToolbar] No selection range')
+      return
+    }
+
+    // Find the format config
+    const config = TEXT_FORMAT_CONFIGS.find((c) => c.id === formatId)
+    if (!config) {
+      console.warn('[InlineToolbar] Unknown format:', formatId)
+      return
+    }
+
+    // Get current format state
+    const currentFormat = inlineEditor.getFormat(range)
+    const isActive = currentFormat[config.styleKey] === true
+
+    // Toggle the format
+    const newValue = isActive ? null : true
+    console.log(`[InlineToolbar] Toggling ${formatId}: ${isActive} -> ${!isActive}`)
+
+    inlineEditor.formatText(range, { [config.styleKey]: newValue })
+
+    // Update active formats state
+    setActiveFormats((prev) => ({
+      ...prev,
+      [formatId]: !isActive,
+    }))
+  }, [])
+
+  // EDITOR-3506: Handle inline toolbar highlight
+  const handleInlineHighlight = useCallback((type: 'color' | 'background', value: string | null) => {
+    const inlineEditor = activeInlineEditorRef.current as {
+      getInlineRange: () => { index: number; length: number } | null
+      formatText: (range: { index: number; length: number }, styles: Record<string, unknown>) => void
+    } | null
+
+    if (!inlineEditor) {
+      console.warn('[InlineToolbar] No active inline editor')
+      return
+    }
+
+    const range = inlineEditor.getInlineRange()
+    if (!range || range.length === 0) {
+      console.warn('[InlineToolbar] No selection range')
+      return
+    }
+
+    console.log(`[InlineToolbar] Setting ${type} to:`, value)
+    inlineEditor.formatText(range, { [type]: value })
+
+    // Update active formats state
+    setActiveFormats((prev) => ({
+      ...prev,
+      [type]: value,
+    }))
+  }, [])
+
+  // EDITOR-3506: Handle inline toolbar close
+  const handleInlineToolbarClose = useCallback(() => {
+    setInlineToolbarVisible(false)
+    activeInlineEditorRef.current = null
+  }, [])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     // Prevent double initialization in StrictMode
     if (editorRef.current) return
+
+    // BUG-EDITOR-3064: Wait for version check to complete before initializing
+    // This ensures orphaned blocks are cleared before persistence loads
+    if (!versionCheckComplete) return
 
     // Create schema with Affine block schemas and Hydra custom blocks
     const schema = new Schema()
@@ -817,6 +1210,23 @@ export default function Editor() {
           doc.addBlock('hydra:bullet', {}, noteId)
         }
         setPersistenceState({ status: 'synced', error: null })
+
+        // FE-504: Sync initial block data to store for LeftPanel
+        const { ids, titles } = extractTopLevelBlocks(doc)
+        syncBlockData(ids, titles)
+
+        // FE-504: Subscribe to block updates for sidebar sync
+        // Disposes any existing subscription first
+        if (blockUpdateSubscriptionRef.current) {
+          blockUpdateSubscriptionRef.current.dispose()
+        }
+        // Guard against undefined slots (can happen in tests)
+        if (doc.slots?.blockUpdated) {
+          blockUpdateSubscriptionRef.current = doc.slots.blockUpdated.on(() => {
+            const { ids, titles } = extractTopLevelBlocks(doc)
+            syncBlockData(ids, titles)
+          })
+        }
       })
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
@@ -830,6 +1240,18 @@ export default function Editor() {
         const pageId = doc.addBlock('affine:page', {})
         const noteId = doc.addBlock('affine:note', {}, pageId)
         doc.addBlock('hydra:bullet', {}, noteId)
+      }
+
+      // FE-504: Sync block data even if persistence fails
+      const { ids, titles } = extractTopLevelBlocks(doc)
+      syncBlockData(ids, titles)
+
+      // FE-504: Subscribe to block updates (guard against undefined slots in tests)
+      if (doc.slots?.blockUpdated) {
+        blockUpdateSubscriptionRef.current = doc.slots.blockUpdated.on(() => {
+          const { ids: newIds, titles: newTitles } = extractTopLevelBlocks(doc)
+          syncBlockData(newIds, newTitles)
+        })
       }
     }
 
@@ -845,6 +1267,7 @@ export default function Editor() {
     container.appendChild(editor)
 
     // FE-406: Add double-click handler for focus mode
+    // FE-506: Also track navigation history
     const handleDoubleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       // Find the closest hydra-bullet-block element
@@ -852,6 +1275,7 @@ export default function Editor() {
       if (bulletBlock) {
         const blockId = bulletBlock.getAttribute('data-block-id')
         if (blockId) {
+          pushNavigation(blockId)
           enterFocusMode(blockId)
         }
       }
@@ -861,6 +1285,9 @@ export default function Editor() {
     // FE-408: Add expand event listener
     container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
 
+    // EDITOR-3508: Add focus block event listener (grip handle click)
+    container.addEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
+
     // EDITOR-3601: Add descriptor generation event listener
     container.addEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
 
@@ -869,6 +1296,9 @@ export default function Editor() {
 
     // EDITOR-3405: Add portal picker open event listener
     container.addEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+
+    // EDITOR-3510: Add slash menu open event listener
+    container.addEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
 
     // EDITOR-3602: Cancel auto-generation when user starts typing
     // EDITOR-3410: Cmd+S portal search modal
@@ -925,10 +1355,17 @@ export default function Editor() {
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
+      container.removeEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
       container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+      container.removeEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
       container.removeEventListener('keydown', handleKeyDown)
+      // FE-504: Dispose block update subscription
+      if (blockUpdateSubscriptionRef.current) {
+        blockUpdateSubscriptionRef.current.dispose()
+        blockUpdateSubscriptionRef.current = null
+      }
       // Destroy persistence first
       if (persistenceRef.current) {
         persistenceRef.current.destroy()
@@ -942,7 +1379,85 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
+  }, [versionCheckComplete, enterFocusMode, pushNavigation, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
+
+  // EDITOR-3506: Separate useEffect for selection change listener
+  // This needs to be separate from the main editor initialization useEffect
+  // because the main useEffect has an early return guard that prevents re-registration
+  useEffect(() => {
+    // Handle text selection changes for inline toolbar
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      const range = selection.getRangeAt(0)
+      const selectedText = selection.toString().trim()
+      if (!selectedText) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      // Check if selection is within a rich-text element in a hydra-bullet-block
+      const commonAncestor = range.commonAncestorContainer
+      const element = commonAncestor instanceof Element ? commonAncestor : commonAncestor.parentElement
+      const richText = element?.closest('rich-text')
+      const bulletBlock = element?.closest('hydra-bullet-block')
+
+      if (!richText || !bulletBlock) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      // Get the inline editor from the rich-text element
+      const inlineEditor = (richText as unknown as { inlineEditor: unknown }).inlineEditor
+      if (!inlineEditor) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      // Store reference to current inline editor
+      activeInlineEditorRef.current = inlineEditor
+
+      // Calculate position (center of selection, above the text)
+      const rect = range.getBoundingClientRect()
+      const x = rect.left + rect.width / 2
+      const y = rect.top
+
+      setInlineToolbarPosition({ x, y })
+
+      // Get current format state
+      const typedEditor = inlineEditor as {
+        getInlineRange: () => { index: number; length: number } | null
+        getFormat: (range: { index: number; length: number }) => Record<string, unknown>
+      }
+      const inlineRange = typedEditor.getInlineRange()
+      if (inlineRange) {
+        const format = typedEditor.getFormat(inlineRange)
+        setActiveFormats({
+          bold: format.bold === true,
+          italic: format.italic === true,
+          underline: format.underline === true,
+          strike: format.strike === true,
+          color: (format.color as string) || null,
+          background: (format.background as string) || null,
+        })
+      }
+
+      setInlineToolbarVisible(true)
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, []) // Empty deps - this listener should remain stable
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -978,8 +1493,8 @@ export default function Editor() {
     )
   }
 
-  // FE-409: Filter out dismissed questions
-  const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
+  // FE-409/EDITOR-3511: Ghost questions now handled inline in bullet-block.ts
+  // const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
 
   return (
     <div
@@ -992,11 +1507,29 @@ export default function Editor() {
         flexDirection: 'column',
       }}
     >
+      {/* FE-506: Show navigation buttons in focus mode */}
+      {isInFocusMode && (
+        <NavigationButtons
+          canGoBack={canGoBack()}
+          canGoForward={canGoForward()}
+          onBack={handleNavigationBack}
+          onForward={handleNavigationForward}
+        />
+      )}
+
       {/* FE-407: Show breadcrumb in focus mode */}
       {isInFocusMode && breadcrumbItems.length > 0 && (
         <Breadcrumb
           items={breadcrumbItems}
           onNavigate={handleBreadcrumbNavigate}
+          onExitFocusMode={exitFocusMode}
+        />
+      )}
+
+      {/* EDITOR-3508: Show focus header in focus mode */}
+      {isInFocusMode && focusedBlockId && (
+        <FocusHeader
+          title={focusedBlockTitle}
           onExitFocusMode={exitFocusMode}
         />
       )}
@@ -1071,15 +1604,11 @@ export default function Editor() {
         }}
       />
 
-      {/* FE-409: Show ghost questions in focus mode */}
-      {isInFocusMode && (visibleQuestions.length > 0 || isLoadingQuestions) && (
-        <GhostQuestions
-          questions={visibleQuestions}
-          isLoading={isLoadingQuestions}
-          onQuestionClick={handleQuestionClick}
-          onDismiss={handleQuestionDismiss}
-        />
-      )}
+      {/* FE-409/EDITOR-3511: Ghost questions removed from bottom section
+        * Ghost bullet suggestions are now rendered inline within bullet-block.ts
+        * They appear directly under each bullet block as children, not as a separate section
+        * See EDITOR-3511 for inline ghost bullet implementation
+        */}
 
       {/* EDITOR-3203: Descriptor autocomplete dropdown */}
       <DescriptorAutocomplete
@@ -1105,11 +1634,33 @@ export default function Editor() {
         onSelectedIndexChange={setPortalPickerSelectedIndex}
       />
 
+      {/* EDITOR-3510: Slash menu dropdown */}
+      <SlashMenu
+        isOpen={slashMenuOpen}
+        query={slashMenuQuery}
+        selectedIndex={slashMenuSelectedIndex}
+        position={slashMenuPosition}
+        onSelect={handleSlashMenuSelect}
+        onClose={closeSlashMenu}
+        onQueryChange={setSlashMenuQuery}
+        onSelectedIndexChange={setSlashMenuSelectedIndex}
+      />
+
       {/* EDITOR-3410: Portal search modal (Cmd+S) */}
       <PortalSearchModal onSelect={handlePortalSearchSelect} />
 
       {/* EDITOR-3502: Reorganization modal (Cmd+Shift+L) */}
       <ReorganizationModal onConnect={handleReorgConnect} onClose={handleReorgClose} />
+
+      {/* EDITOR-3506: Inline formatting toolbar */}
+      <InlineToolbar
+        isVisible={inlineToolbarVisible}
+        position={inlineToolbarPosition}
+        activeFormats={activeFormats}
+        onFormat={handleInlineFormat}
+        onHighlight={handleInlineHighlight}
+        onClose={handleInlineToolbarClose}
+      />
     </div>
   )
 }

@@ -1,10 +1,12 @@
 import { defineBlockSchema, type SchemaToModel, type Text } from '@blocksuite/store'
 import type { DescriptorType } from '../utils/descriptor'
+import type { BlockType } from '../utils/markdown-shortcuts'
 
 /**
  * Props for the Hydra bullet block.
  * Each bullet supports text content, folding state, nested children,
  * and optional descriptor functionality (EDITOR-3201).
+ * EDITOR-3510: Added blockType and isChecked for type system.
  */
 export interface BulletBlockProps {
   /** Text content with ~20 word soft limit */
@@ -19,6 +21,12 @@ export interface BulletBlockProps {
   descriptorLabel: string | undefined
   /** EDITOR-3303: Whether this descriptor appears in cheatsheet (default: true) */
   cheatsheetVisible: boolean
+  /** EDITOR-3510: Block type (bullet, numbered, checkbox, heading1-3, divider) */
+  blockType: BlockType
+  /** EDITOR-3510: Whether checkbox is checked (only relevant for checkbox type) */
+  isChecked: boolean
+  /** EDITOR-3509: Whether inline preview is visible (default: true) */
+  inlinePreviewVisible: boolean
 }
 
 /**
@@ -41,6 +49,11 @@ export const BulletBlockSchema = defineBlockSchema({
     descriptorLabel: undefined,
     // EDITOR-3303: Default to visible in cheatsheet
     cheatsheetVisible: true,
+    // EDITOR-3510: Block type system props with defaults
+    blockType: 'bullet',
+    isChecked: false,
+    // EDITOR-3509: Inline preview visibility (default: true)
+    inlinePreviewVisible: true,
   }),
   metadata: {
     version: 1,

@@ -5,9 +5,12 @@
  * EDITOR-3203: Descriptor Autocomplete State
  * EDITOR-3405: Portal Picker State
  * EDITOR-3409: Portal Search Modal State
+ * EDITOR-3510: Slash Menu State
  * EDITOR-3602: Auto-Generate Settings
  * EDITOR-3407: Auto-Reorg Settings
  * EDITOR-3502: Reorganization Modal State
+ * FE-503: Favorites State
+ * FE-506: Navigation History State
  *
  * Manages editor state including:
  * - Current document ID
@@ -16,9 +19,11 @@
  * - Descriptor autocomplete state
  * - Portal picker state
  * - Portal search modal state
+ * - Slash menu state (EDITOR-3510)
  * - Auto-generate settings and status
  * - Auto-reorg settings and status
  * - Reorganization modal state (Cmd+Shift+L)
+ * - Favorite blocks list (FE-503)
  */
 import { create } from 'zustand'
 import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
@@ -96,6 +101,15 @@ interface EditorState {
   portalSearchSelectedIndex: number
   /** Block ID where Cmd+S was pressed */
   portalSearchCurrentBulletId: string | null
+  // EDITOR-3510: Slash menu state
+  /** Whether the slash menu is open */
+  slashMenuOpen: boolean
+  /** Current search query in slash menu (text after /) */
+  slashMenuQuery: string
+  /** Block ID where slash menu was triggered */
+  slashMenuBlockId: string | null
+  /** Currently selected index in slash menu list */
+  slashMenuSelectedIndex: number
   // EDITOR-3602: Auto-generate settings
   /** Whether auto-generate after descriptor is enabled */
   autoGenerateEnabled: boolean
@@ -121,6 +135,19 @@ interface EditorState {
   reorgModalConceptMatches: ConceptMatch[]
   /** Error message if any */
   reorgModalError: string | null
+  // FE-503: Favorites state
+  /** Array of favorite block IDs in display order */
+  favoriteBlockIds: string[]
+  // FE-504: Block data for sidebar
+  /** Map of block IDs to their titles for sidebar display */
+  blockTitles: Map<string, string>
+  /** Array of top-level block IDs (root bullets in document) */
+  topLevelBlockIds: string[]
+  // FE-506: Navigation history state
+  /** Array of block IDs representing navigation history */
+  navigationHistory: string[]
+  /** Current position in navigation history (-1 when empty) */
+  navigationIndex: number
 }
 
 /**
@@ -170,6 +197,15 @@ interface EditorActions {
   setPortalSearchRecents: (recents: RecentItem[]) => void
   /** Set the selected index in portal search modal */
   setPortalSearchSelectedIndex: (index: number) => void
+  // EDITOR-3510: Slash menu actions
+  /** Open slash menu for a block */
+  openSlashMenu: (blockId: string) => void
+  /** Close slash menu and reset state */
+  closeSlashMenu: () => void
+  /** Update the slash menu search query */
+  setSlashMenuQuery: (query: string) => void
+  /** Set the selected index in slash menu list */
+  setSlashMenuSelectedIndex: (index: number) => void
   // EDITOR-3602: Auto-generate actions
   /** Toggle auto-generate setting */
   setAutoGenerateEnabled: (enabled: boolean) => void
@@ -203,6 +239,33 @@ interface EditorActions {
   setReorgModalError: (error: string | null) => void
   /** Toggle selection of a match for a concept */
   toggleReorgMatch: (concept: string, blockId: string) => void
+  // FE-503: Favorites actions
+  /** Load favorites from localStorage */
+  loadFavorites: () => void
+  /** Toggle a block as favorite (add if not present, remove if present) */
+  toggleFavorite: (blockId: string) => void
+  /** Check if a block is favorited */
+  isFavorite: (blockId: string) => boolean
+  /** Reorder favorites by moving a block to a new index */
+  reorderFavorites: (blockId: string, newIndex: number) => void
+  /** Clear all favorites */
+  clearFavorites: () => void
+  // FE-504: Block data actions
+  /** Sync all block data from document */
+  syncBlockData: (topLevelBlockIds: string[], blockTitles: Map<string, string>) => void
+  // FE-506: Navigation history actions
+  /** Push a new block to navigation history */
+  pushNavigation: (blockId: string) => void
+  /** Go back in navigation history, returns the block ID to navigate to or null */
+  goBack: () => string | null
+  /** Go forward in navigation history, returns the block ID to navigate to or null */
+  goForward: () => string | null
+  /** Clear all navigation history */
+  clearNavigationHistory: () => void
+  /** Check if can go back in history */
+  canGoBack: () => boolean
+  /** Check if can go forward in history */
+  canGoForward: () => boolean
 }
 
 /**
@@ -230,6 +293,11 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   portalSearchRecents: [],
   portalSearchSelectedIndex: 0,
   portalSearchCurrentBulletId: null,
+  // EDITOR-3510: Slash menu initial state
+  slashMenuOpen: false,
+  slashMenuQuery: '',
+  slashMenuBlockId: null,
+  slashMenuSelectedIndex: 0,
   // EDITOR-3602: Auto-generate initial state
   autoGenerateEnabled: true, // Enabled by default
   autoGenerateStatus: 'idle',
@@ -244,6 +312,14 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   reorgModalDocumentId: null,
   reorgModalConceptMatches: [],
   reorgModalError: null,
+  // FE-503: Favorites initial state
+  favoriteBlockIds: [],
+  // FE-504: Block data initial state
+  blockTitles: new Map(),
+  topLevelBlockIds: [],
+  // FE-506: Navigation history initial state
+  navigationHistory: [],
+  navigationIndex: -1,
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -347,6 +423,32 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   setPortalSearchSelectedIndex: (index) =>
     set({ portalSearchSelectedIndex: index }),
 
+  // EDITOR-3510: Slash menu actions
+  openSlashMenu: (blockId) =>
+    set({
+      slashMenuOpen: true,
+      slashMenuBlockId: blockId,
+      slashMenuQuery: '',
+      slashMenuSelectedIndex: 0,
+    }),
+
+  closeSlashMenu: () =>
+    set({
+      slashMenuOpen: false,
+      slashMenuQuery: '',
+      slashMenuBlockId: null,
+      slashMenuSelectedIndex: 0,
+    }),
+
+  setSlashMenuQuery: (query) =>
+    set({
+      slashMenuQuery: query,
+      slashMenuSelectedIndex: 0, // Reset selection when query changes
+    }),
+
+  setSlashMenuSelectedIndex: (index) =>
+    set({ slashMenuSelectedIndex: index }),
+
   // EDITOR-3602: Auto-generate actions
   setAutoGenerateEnabled: (enabled) =>
     set({ autoGenerateEnabled: enabled }),
@@ -430,6 +532,131 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
       })
       return { reorgModalConceptMatches: updatedMatches }
     }),
+
+  // FE-503: Favorites actions
+  loadFavorites: () => {
+    try {
+      const stored = localStorage.getItem('hydra:favorites')
+      if (stored) {
+        const favoriteBlockIds = JSON.parse(stored)
+        if (Array.isArray(favoriteBlockIds)) {
+          set({ favoriteBlockIds })
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  },
+
+  toggleFavorite: (blockId) =>
+    set((state) => {
+      const index = state.favoriteBlockIds.indexOf(blockId)
+      let newFavorites: string[]
+      if (index >= 0) {
+        // Remove from favorites
+        newFavorites = state.favoriteBlockIds.filter((id) => id !== blockId)
+      } else {
+        // Add to favorites
+        newFavorites = [...state.favoriteBlockIds, blockId]
+      }
+      // Persist to localStorage
+      localStorage.setItem('hydra:favorites', JSON.stringify(newFavorites))
+      return { favoriteBlockIds: newFavorites }
+    }),
+
+  isFavorite: function (blockId: string): boolean {
+    // Access state via this method to avoid circular reference
+    // This is a bound method that checks current favorites
+    const { favoriteBlockIds } = useEditorStore.getState()
+    return favoriteBlockIds.includes(blockId)
+  },
+
+  reorderFavorites: (blockId, newIndex) =>
+    set((state) => {
+      const currentIndex = state.favoriteBlockIds.indexOf(blockId)
+      if (currentIndex < 0) return state // Block not in favorites
+
+      const newFavorites = [...state.favoriteBlockIds]
+      // Remove from current position
+      newFavorites.splice(currentIndex, 1)
+      // Insert at new position
+      newFavorites.splice(newIndex, 0, blockId)
+      // Persist to localStorage
+      localStorage.setItem('hydra:favorites', JSON.stringify(newFavorites))
+      return { favoriteBlockIds: newFavorites }
+    }),
+
+  clearFavorites: () => {
+    localStorage.setItem('hydra:favorites', JSON.stringify([]))
+    set({ favoriteBlockIds: [] })
+  },
+
+  // FE-504: Block data actions
+  syncBlockData: (topLevelBlockIds, blockTitles) =>
+    set({ topLevelBlockIds, blockTitles }),
+
+  // FE-506: Navigation history actions
+  pushNavigation: (blockId) =>
+    set((state) => {
+      const MAX_HISTORY_SIZE = 50
+
+      // Don't add duplicate consecutive entries
+      const currentBlockId = state.navigationIndex >= 0 ? state.navigationHistory[state.navigationIndex] : null
+      if (currentBlockId === blockId) {
+        return state
+      }
+
+      // Truncate forward history if we're not at the end
+      let newHistory = state.navigationHistory.slice(0, state.navigationIndex + 1)
+
+      // Add new entry
+      newHistory.push(blockId)
+
+      // Limit history size
+      if (newHistory.length > MAX_HISTORY_SIZE) {
+        newHistory = newHistory.slice(newHistory.length - MAX_HISTORY_SIZE)
+      }
+
+      return {
+        navigationHistory: newHistory,
+        navigationIndex: newHistory.length - 1,
+      }
+    }),
+
+  goBack: function (): string | null {
+    const state = useEditorStore.getState()
+    if (state.navigationIndex <= 0) {
+      return null
+    }
+    const newIndex = state.navigationIndex - 1
+    const blockId = state.navigationHistory[newIndex]
+    useEditorStore.setState({ navigationIndex: newIndex })
+    return blockId
+  },
+
+  goForward: function (): string | null {
+    const state = useEditorStore.getState()
+    if (state.navigationIndex >= state.navigationHistory.length - 1) {
+      return null
+    }
+    const newIndex = state.navigationIndex + 1
+    const blockId = state.navigationHistory[newIndex]
+    useEditorStore.setState({ navigationIndex: newIndex })
+    return blockId
+  },
+
+  clearNavigationHistory: () =>
+    set({ navigationHistory: [], navigationIndex: -1 }),
+
+  canGoBack: function (): boolean {
+    const { navigationIndex } = useEditorStore.getState()
+    return navigationIndex > 0
+  },
+
+  canGoForward: function (): boolean {
+    const { navigationIndex, navigationHistory } = useEditorStore.getState()
+    return navigationIndex < navigationHistory.length - 1
+  },
 }))
 
 /**
@@ -647,3 +874,49 @@ export const selectReorgModalError = (state: EditorState): string | null =>
  */
 export const selectReorgModalSelectedCount = (state: EditorState): number =>
   state.reorgModalConceptMatches.reduce((total, cm) => total + cm.selectedMatches.size, 0)
+
+// FE-503: Favorites selectors
+
+/**
+ * Selector for getting the favorite block IDs
+ */
+export const selectFavoriteBlockIds = (state: EditorState): string[] =>
+  state.favoriteBlockIds
+
+/**
+ * Selector for checking if there are any favorites
+ */
+export const selectHasFavorites = (state: EditorState): boolean =>
+  state.favoriteBlockIds.length > 0
+
+/**
+ * Selector for getting favorites count
+ */
+export const selectFavoritesCount = (state: EditorState): number =>
+  state.favoriteBlockIds.length
+
+// FE-506: Navigation history selectors
+
+/**
+ * Selector for getting navigation history
+ */
+export const selectNavigationHistory = (state: EditorState): string[] =>
+  state.navigationHistory
+
+/**
+ * Selector for getting current navigation index
+ */
+export const selectNavigationIndex = (state: EditorState): number =>
+  state.navigationIndex
+
+/**
+ * Selector for checking if can go back in history
+ */
+export const selectCanGoBack = (state: EditorState): boolean =>
+  state.navigationIndex > 0
+
+/**
+ * Selector for checking if can go forward in history
+ */
+export const selectCanGoForward = (state: EditorState): boolean =>
+  state.navigationIndex < state.navigationHistory.length - 1
