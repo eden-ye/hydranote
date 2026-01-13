@@ -3116,11 +3116,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3508: Render expand toggle (separate from grip handle)
-   * Hidden by default, shown on hover, only when block has children
+   * BUG-EDITOR-3707: Always render to reserve 20px space for consistent indentation
+   * - With children: interactive toggle with icon (▼/▶)
+   * - Without children: empty placeholder for layout consistency
    */
-  private _renderExpandToggle(): TemplateResult | typeof nothing {
+  private _renderExpandToggle(): TemplateResult {
+    // BUG-EDITOR-3707: Always render placeholder to maintain consistent indentation
+    // Without this, grandchildren appear at nearly the same level as their parent's siblings
     if (!this._hasChildren) {
-      return nothing
+      return html`<div class="bullet-expand-toggle"></div>`
     }
 
     const icon = this.model.isExpanded ? '▼' : '▶'

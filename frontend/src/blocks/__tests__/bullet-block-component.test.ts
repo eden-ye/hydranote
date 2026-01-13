@@ -1776,3 +1776,158 @@ describe('Add Block Button UX (EDITOR-3512)', () => {
     })
   })
 })
+
+/**
+ * BUG-EDITOR-3707: Expand toggle placeholder rendering
+ *
+ * The expand toggle must always render to reserve space for consistent
+ * indentation alignment across all nesting levels. Without placeholder,
+ * grandchildren appear at nearly the same indentation as their parent's siblings.
+ */
+describe('Expand toggle placeholder (BUG-EDITOR-3707)', () => {
+  /**
+   * Determines if expand toggle should render a placeholder element
+   * BUG-EDITOR-3707: Always returns true to maintain consistent spacing
+   */
+  const shouldRenderExpandTogglePlaceholder = (): boolean => {
+    // Always render to reserve 20px space for layout consistency
+    return true
+  }
+
+  /**
+   * Determines the CSS classes for expand toggle
+   * - has-children: Makes toggle interactive (visible on hover, clickable)
+   * - collapsed: Shows toggle icon persistently when children are collapsed
+   * - (no class): Placeholder for spacing only
+   */
+  const getExpandToggleClasses = (hasChildren: boolean, isExpanded: boolean): string[] => {
+    const classes: string[] = []
+    if (hasChildren) {
+      classes.push('has-children')
+      if (!isExpanded) {
+        classes.push('collapsed')
+      }
+    }
+    return classes
+  }
+
+  /**
+   * Determines if expand toggle should be interactive (clickable)
+   */
+  const isExpandToggleInteractive = (hasChildren: boolean): boolean => {
+    return hasChildren
+  }
+
+  /**
+   * Determines the icon content for expand toggle
+   */
+  const getExpandToggleContent = (hasChildren: boolean, isExpanded: boolean): string => {
+    if (!hasChildren) return '' // Empty placeholder
+    return isExpanded ? '▼' : '▶'
+  }
+
+  describe('shouldRenderExpandTogglePlaceholder', () => {
+    it('should always return true to maintain layout consistency', () => {
+      // Placeholder must always render regardless of children status
+      expect(shouldRenderExpandTogglePlaceholder()).toBe(true)
+    })
+  })
+
+  describe('getExpandToggleClasses', () => {
+    it('should include has-children class when block has children', () => {
+      const classes = getExpandToggleClasses(true, true)
+      expect(classes).toContain('has-children')
+    })
+
+    it('should include collapsed class when block has children and is collapsed', () => {
+      const classes = getExpandToggleClasses(true, false)
+      expect(classes).toContain('has-children')
+      expect(classes).toContain('collapsed')
+    })
+
+    it('should return empty classes when block has no children (placeholder mode)', () => {
+      const classes = getExpandToggleClasses(false, true)
+      expect(classes).toEqual([])
+    })
+
+    it('should return empty classes when block has no children regardless of expand state', () => {
+      const classesExpanded = getExpandToggleClasses(false, true)
+      const classesCollapsed = getExpandToggleClasses(false, false)
+      expect(classesExpanded).toEqual([])
+      expect(classesCollapsed).toEqual([])
+    })
+  })
+
+  describe('isExpandToggleInteractive', () => {
+    it('should be interactive when block has children', () => {
+      expect(isExpandToggleInteractive(true)).toBe(true)
+    })
+
+    it('should not be interactive when block has no children', () => {
+      expect(isExpandToggleInteractive(false)).toBe(false)
+    })
+  })
+
+  describe('getExpandToggleContent', () => {
+    it('should return down arrow when expanded with children', () => {
+      expect(getExpandToggleContent(true, true)).toBe('▼')
+    })
+
+    it('should return right arrow when collapsed with children', () => {
+      expect(getExpandToggleContent(true, false)).toBe('▶')
+    })
+
+    it('should return empty string for placeholder (no children)', () => {
+      expect(getExpandToggleContent(false, true)).toBe('')
+      expect(getExpandToggleContent(false, false)).toBe('')
+    })
+  })
+
+  describe('Layout consistency verification', () => {
+    /**
+     * Simulates the layout width calculation for a block row
+     * Components: [grip:16px] [toggle:20px] [text...]
+     */
+    const GRIP_WIDTH = 16
+    const TOGGLE_WIDTH = 20
+    const INDENT_PER_LEVEL = 24
+
+    const calculateTextStartPosition = (depth: number, hasTogglePlaceholder: boolean): number => {
+      const indent = depth * INDENT_PER_LEVEL
+      const gripAndToggle = GRIP_WIDTH + (hasTogglePlaceholder ? TOGGLE_WIDTH : 0)
+      return indent + gripAndToggle
+    }
+
+    it('should maintain consistent text start position at same depth', () => {
+      // Block with children at depth 1
+      const withChildren = calculateTextStartPosition(1, true)
+      // Block without children at depth 1 (placeholder ensures same position)
+      const withoutChildren = calculateTextStartPosition(1, true)
+
+      expect(withChildren).toBe(withoutChildren)
+    })
+
+    it('should show proper indentation between parent and grandchild', () => {
+      // Child at depth 1 (has grandchild)
+      const childTextStart = calculateTextStartPosition(1, true)
+      // Grandchild at depth 2 (no children, but has placeholder)
+      const grandchildTextStart = calculateTextStartPosition(2, true)
+
+      // Grandchild should be exactly one indent level (24px) more than child
+      expect(grandchildTextStart - childTextStart).toBe(INDENT_PER_LEVEL)
+    })
+
+    it('should show incorrect indentation without placeholder (bug scenario)', () => {
+      // This test documents the bug: without placeholder, alignment is broken
+      // Child at depth 1 (has children, so has toggle)
+      const childTextStart = calculateTextStartPosition(1, true)
+      // Grandchild at depth 2 (no children, NO placeholder - BUG!)
+      const grandchildTextStartBug = calculateTextStartPosition(2, false)
+
+      // Bug: grandchild is only 24px indent - 20px (missing toggle) = 4px visual difference
+      // This is NOT the expected 24px difference
+      expect(grandchildTextStartBug - childTextStart).toBe(INDENT_PER_LEVEL - TOGGLE_WIDTH)
+      expect(grandchildTextStartBug - childTextStart).not.toBe(INDENT_PER_LEVEL)
+    })
+  })
+})

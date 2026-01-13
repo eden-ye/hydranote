@@ -148,7 +148,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 |--------|-------|--------|
 | BUG-EDITOR-3064 | Null Model Render Error | [L] Local E2E OK - version-based cleanup implemented |
 | BUG-EDITOR-3510 | Markdown Shortcuts Not Converting | [x] PR #121 |
-| BUG-EDITOR-3707 | Grandchild Indentation Misalignment | [ ] Pending |
+| BUG-EDITOR-3707 | Grandchild Indentation Misalignment | [L] Local E2E OK - placeholder fix |
 | BUG-EDITOR-3708 | Memory Leak in Event Listeners | [L] Local E2E OK - disconnectedCallback cleanup |
 | BUG-EDITOR-3709 | Prevent Root-Level Typing | [ ] Pending |
 
