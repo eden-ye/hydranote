@@ -14,6 +14,8 @@ import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
 import { useFocusMode } from '@/hooks/useFocusMode'
 // FE-407: Breadcrumb navigation
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
+// EDITOR-3508: Focus mode header
+import { FocusHeader } from './FocusHeader'
 // FE-409: Ghost questions
 import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
 // FE-408: Expand block hook
@@ -152,16 +154,28 @@ export default function Editor() {
   // FE-407: Breadcrumb items (computed when focusedBlockId changes)
   const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([])
 
+  // EDITOR-3508: Focused block title for FocusHeader
+  const [focusedBlockTitle, setFocusedBlockTitle] = useState('')
+
   // FE-409: Ghost questions state
   const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
   const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
 
-  // Update breadcrumb when focus changes
+  // Update breadcrumb and title when focus changes
   useEffect(() => {
     if (isInFocusMode && focusedBlockId && docRef.current) {
       const items = buildBreadcrumbPath(docRef.current, focusedBlockId)
       setBreadcrumbItems(items)
+
+      // EDITOR-3508: Get focused block title for FocusHeader
+      const focusedBlock = docRef.current.getBlockById(focusedBlockId)
+      if (focusedBlock && focusedBlock.flavour === 'hydra:bullet') {
+        const blockModel = focusedBlock as BlockModel & { text?: { toString(): string } }
+        setFocusedBlockTitle(blockModel.text?.toString() || '')
+      } else {
+        setFocusedBlockTitle('')
+      }
 
       // FE-409: Generate placeholder ghost questions when entering focus mode
       // In production, these would come from AI generation
@@ -179,6 +193,7 @@ export default function Editor() {
       }, 500)
     } else {
       setBreadcrumbItems([])
+      setFocusedBlockTitle('')
       setGhostQuestions([])
     }
   }, [isInFocusMode, focusedBlockId])
@@ -293,6 +308,14 @@ export default function Editor() {
     console.log('[Expand] Expanding block:', context.blockId)
     expandBlock(context, accessToken)
   }, [accessToken, canExpand, expandBlock])
+
+  // EDITOR-3508: Handle focus block event from grip handle click
+  const handleFocusBlockEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string }>
+    const { blockId } = customEvent.detail
+    console.log('[FocusMode] Entering focus mode for block:', blockId)
+    enterFocusMode(blockId)
+  }, [enterFocusMode])
 
   // EDITOR-3601: Handle descriptor generation event (Tab trigger at deepest level)
   const handleDescriptorGenerateEvent = useCallback((event: Event) => {
@@ -861,6 +884,9 @@ export default function Editor() {
     // FE-408: Add expand event listener
     container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
 
+    // EDITOR-3508: Add focus block event listener (grip handle click)
+    container.addEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
+
     // EDITOR-3601: Add descriptor generation event listener
     container.addEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
 
@@ -925,6 +951,7 @@ export default function Editor() {
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
+      container.removeEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
       container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
@@ -942,7 +969,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
+  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -997,6 +1024,14 @@ export default function Editor() {
         <Breadcrumb
           items={breadcrumbItems}
           onNavigate={handleBreadcrumbNavigate}
+          onExitFocusMode={exitFocusMode}
+        />
+      )}
+
+      {/* EDITOR-3508: Show focus header in focus mode */}
+      {isInFocusMode && focusedBlockId && (
+        <FocusHeader
+          title={focusedBlockTitle}
           onExitFocusMode={exitFocusMode}
         />
       )}

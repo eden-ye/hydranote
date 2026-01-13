@@ -1,0 +1,52 @@
+/**
+ * FocusHeader Component Styles
+ * EDITOR-3508: Focus Mode Header
+ */
+
+.focus-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--affine-border-color, #e0e0e0);
+  background-color: var(--affine-background-primary-color, #ffffff);
+}
+
+.focus-header-home {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--affine-icon-color, #888);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.focus-header-home:hover {
+  background-color: var(--affine-hover-color, #f0f0f0);
+  color: var(--affine-text-primary-color, #333);
+}
+
+.focus-header-home:focus-visible {
+  outline: 2px solid var(--affine-primary-color, #1677ff);
+  outline-offset: 2px;
+}
+
+.focus-header-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--affine-text-primary-color, #333);
+  line-height: 1.3;
+  /* Allow title to grow but prevent overflow */
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
