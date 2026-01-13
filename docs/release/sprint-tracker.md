@@ -82,7 +82,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | EDITOR-3507 | Bullet Drag-and-Drop | 8h | [ ] | Affine grip handle + drag behavior (shared with 3508) |
 | EDITOR-3508 | Focus Mode Zoom | 6h | [ ] | Affine grip handle + click=zoom (do first, shared UI with 3507) |
 | EDITOR-3509 | Collapsible Inline Preview | 2h | [ ] | Clickable dash separator to hide/show inline preview |
-| EDITOR-3510 | Block Type System | 8h | [ ] | Checkbox, numbered list, bullet, headings + slash menu + markdown |
+| EDITOR-3510 | Block Type System | 8h | [~] | Checkbox, numbered list, bullet, headings + slash menu + markdown |
 | EDITOR-3511 | Ghost Bullet Suggestions | 6h | [ ] | Inline grey bullets under parents, click to convert + AI expand |
 | EDITOR-3512 | Add Block Button UX | 3h | [ ] | Fix unclear state + position shift during typing |
 

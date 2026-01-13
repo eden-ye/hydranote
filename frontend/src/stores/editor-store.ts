@@ -5,6 +5,7 @@
  * EDITOR-3203: Descriptor Autocomplete State
  * EDITOR-3405: Portal Picker State
  * EDITOR-3409: Portal Search Modal State
+ * EDITOR-3510: Slash Menu State
  * EDITOR-3602: Auto-Generate Settings
  * EDITOR-3407: Auto-Reorg Settings
  * EDITOR-3502: Reorganization Modal State
@@ -16,6 +17,7 @@
  * - Descriptor autocomplete state
  * - Portal picker state
  * - Portal search modal state
+ * - Slash menu state (EDITOR-3510)
  * - Auto-generate settings and status
  * - Auto-reorg settings and status
  * - Reorganization modal state (Cmd+Shift+L)
@@ -96,6 +98,15 @@ interface EditorState {
   portalSearchSelectedIndex: number
   /** Block ID where Cmd+S was pressed */
   portalSearchCurrentBulletId: string | null
+  // EDITOR-3510: Slash menu state
+  /** Whether the slash menu is open */
+  slashMenuOpen: boolean
+  /** Current search query in slash menu (text after /) */
+  slashMenuQuery: string
+  /** Block ID where slash menu was triggered */
+  slashMenuBlockId: string | null
+  /** Currently selected index in slash menu list */
+  slashMenuSelectedIndex: number
   // EDITOR-3602: Auto-generate settings
   /** Whether auto-generate after descriptor is enabled */
   autoGenerateEnabled: boolean
@@ -170,6 +181,15 @@ interface EditorActions {
   setPortalSearchRecents: (recents: RecentItem[]) => void
   /** Set the selected index in portal search modal */
   setPortalSearchSelectedIndex: (index: number) => void
+  // EDITOR-3510: Slash menu actions
+  /** Open slash menu for a block */
+  openSlashMenu: (blockId: string) => void
+  /** Close slash menu and reset state */
+  closeSlashMenu: () => void
+  /** Update the slash menu search query */
+  setSlashMenuQuery: (query: string) => void
+  /** Set the selected index in slash menu list */
+  setSlashMenuSelectedIndex: (index: number) => void
   // EDITOR-3602: Auto-generate actions
   /** Toggle auto-generate setting */
   setAutoGenerateEnabled: (enabled: boolean) => void
@@ -230,6 +250,11 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   portalSearchRecents: [],
   portalSearchSelectedIndex: 0,
   portalSearchCurrentBulletId: null,
+  // EDITOR-3510: Slash menu initial state
+  slashMenuOpen: false,
+  slashMenuQuery: '',
+  slashMenuBlockId: null,
+  slashMenuSelectedIndex: 0,
   // EDITOR-3602: Auto-generate initial state
   autoGenerateEnabled: true, // Enabled by default
   autoGenerateStatus: 'idle',
@@ -346,6 +371,32 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   setPortalSearchSelectedIndex: (index) =>
     set({ portalSearchSelectedIndex: index }),
+
+  // EDITOR-3510: Slash menu actions
+  openSlashMenu: (blockId) =>
+    set({
+      slashMenuOpen: true,
+      slashMenuBlockId: blockId,
+      slashMenuQuery: '',
+      slashMenuSelectedIndex: 0,
+    }),
+
+  closeSlashMenu: () =>
+    set({
+      slashMenuOpen: false,
+      slashMenuQuery: '',
+      slashMenuBlockId: null,
+      slashMenuSelectedIndex: 0,
+    }),
+
+  setSlashMenuQuery: (query) =>
+    set({
+      slashMenuQuery: query,
+      slashMenuSelectedIndex: 0, // Reset selection when query changes
+    }),
+
+  setSlashMenuSelectedIndex: (index) =>
+    set({ slashMenuSelectedIndex: index }),
 
   // EDITOR-3602: Auto-generate actions
   setAutoGenerateEnabled: (enabled) =>
