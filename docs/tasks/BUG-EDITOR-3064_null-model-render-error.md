@@ -109,6 +109,40 @@ Chrome E2E testing shows:
 
 The fix addresses null model errors in our **custom bullet-block component**. However, BlockSuite's internal block components (ParagraphBlock, etc.) may still throw these errors as they're part of the library code we cannot modify.
 
+## Ongoing Observations
+
+### FE-504 E2E Testing (2026-01-13)
+
+During Chrome E2E testing for FE-504, the following errors were observed on page load:
+
+```
+TypeError: Cannot read properties of null (reading 'id')
+    at _a.render (chunk-AHQXWQTX.js?v=995835ba:368:42)
+    at _a.update (chunk-Z45B7JUF.js?v=995835ba:46:24)
+    at _a.performUpdate (chunk-XQCYXLS3.js?v=995835ba:737:14)
+    at p.<anonymous> (chunk-7LCCMC76.js?v=995835ba:3124:17)
+    at p.c (chunk-7LCCMC76.js?v=995835ba:3060:19)
+    at E (chunk-7LCCMC76.js?v=995835ba:3094:8)
+    at _a.performUpdate (chunk-7LCCMC76.js?v=995835ba:3121:24)
+    at _a.scheduleUpdate (chunk-XQCYXLS3.js?v=995835ba:683:25)
+    at _a.__enqueueUpdate (chunk-XQCYXLS3.js?v=995835ba:659:25)
+```
+
+**Analysis**: These errors come from BlockSuite's bundled chunks (Lit component rendering), not from our custom bullet-block component. The error occurs when:
+1. IndexedDB contains orphaned block references from previous sessions
+2. BlockSuite tries to render blocks that no longer exist in the document tree
+3. The Lit component's `render()` method accesses `this.model.id` before checking if model is null
+
+**Impact**:
+- App continues to function normally
+- Does not affect user experience
+- Only visible in browser console
+
+**Potential Fixes** (not implemented):
+1. Clear IndexedDB on version updates to remove orphaned blocks
+2. Add migration script to clean up orphaned block references
+3. Wait for upstream BlockSuite fix
+
 ## Acceptance Criteria
 
 - [x] Defensive model getter implemented in bullet-block
@@ -134,6 +168,8 @@ Medium - App still functions but console errors affect debugging and user confid
 ## Status
 
 - **Created**: 2026-01-11
-- **Completed**: 2026-01-12
-- **Status**: completed
+- **Partial Fix**: 2026-01-12
+- **Status**: open (orphaned blocks issue remains)
 - **Phase**: 2 (MVP1)
+
+**Note**: Our custom bullet-block fix is complete, but BlockSuite internal components still throw errors from orphaned blocks in IndexedDB. This is tracked in sprint-tracker.md under "Active Bugs".
