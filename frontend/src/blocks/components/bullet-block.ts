@@ -346,42 +346,121 @@ export interface GhostSuggestionContext {
 }
 
 /**
- * EDITOR-3511: Input for determining if ghost bullets should be shown
+ * EDITOR-3702: 5-second delay before showing ghost questions
+ */
+export const GHOST_QUESTION_DELAY_MS = 5000
+
+/**
+ * EDITOR-3702: Input for determining if ghost bullets should be shown
+ *
+ * Ghost questions only appear on EMPTY child bullets when:
+ * - The bullet has no text content (empty)
+ * - The parent bullet has meaningful content
+ * - 5-second delay has passed since focusing the empty bullet
  */
 export interface GhostBulletVisibilityInput {
-  /** Whether the block has text content */
-  hasText: boolean
-  /** Whether the block is expanded */
-  isExpanded: boolean
-  /** Whether the block has children */
-  hasChildren: boolean
-  /** Whether in focus mode */
-  isInFocusMode: boolean
+  /** The text content of the current bullet (must be empty string for ghost to show) */
+  textContent: string
+  /** Whether the parent bullet has content */
+  parentHasContent: boolean
+  /** Whether the 5-second delay has elapsed */
+  delayMet: boolean
 }
 
 /**
- * EDITOR-3511: Determine if ghost bullets should be shown for a block
+ * EDITOR-3702: Determine if ghost bullets should be shown for a block
  *
- * Ghost bullets are shown when:
- * - Block has text content (no suggestions for empty blocks)
- * - Block is expanded (don't show when collapsed)
+ * Ghost bullets are shown ONLY when ALL conditions are met:
+ * 1. Current bullet is EMPTY (no text content at all)
+ * 2. Parent bullet has meaningful content
+ * 3. 5-second delay has passed since cursor entered the empty bullet
+ *
+ * This is the OPPOSITE of the old behavior (EDITOR-3511) which showed
+ * ghost bullets on bullets WITH text. Now they only appear on empty bullets.
  *
  * @param input - Visibility context
  * @returns true if ghost bullets should be displayed
  */
 export function shouldShowGhostBullets(input: GhostBulletVisibilityInput): boolean {
-  // Don't show ghost bullets if block has no text
-  if (!input.hasText) {
+  // CRITICAL: Ghost bullets only show on EMPTY bullets
+  // Even whitespace counts as "having text" - user has started typing
+  if (input.textContent.length > 0) {
     return false
   }
 
-  // Don't show ghost bullets if block is collapsed
-  if (!input.isExpanded) {
+  // Parent must have content for ghost questions to be meaningful
+  if (!input.parentHasContent) {
     return false
   }
 
-  // Show ghost bullets for blocks with text that are expanded
+  // Must have passed 5-second delay
+  if (!input.delayMet) {
+    return false
+  }
+
   return true
+}
+
+/**
+ * EDITOR-3702: Result of handling a keydown event for ghost questions
+ */
+export type GhostQuestionKeydownResult = 'accept' | 'cancel' | 'ignore'
+
+/**
+ * EDITOR-3702: Input for handling keydown events on ghost questions
+ */
+export interface GhostQuestionKeydownInput {
+  /** The key that was pressed */
+  key: string
+  /** Whether ghost questions are currently visible */
+  ghostQuestionsVisible: boolean
+}
+
+/**
+ * EDITOR-3702: Keys that should be ignored (don't affect ghost questions)
+ */
+const IGNORED_KEYS = new Set([
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'Shift', 'Control', 'Alt', 'Meta',
+  'CapsLock', 'NumLock', 'ScrollLock',
+  'Home', 'End', 'PageUp', 'PageDown',
+  'Insert', 'Delete', 'Pause', 'PrintScreen',
+  'F1', 'F2', 'F3', 'F4', 'F5', 'F6',
+  'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+])
+
+/**
+ * EDITOR-3702: Handle keydown events for ghost question interaction
+ *
+ * - Tab key: Accept the first ghost question (when visible)
+ * - Escape: Cancel/hide ghost questions
+ * - Any typing key: Cancel ghost questions and timer
+ * - Navigation/modifier keys: Ignore (don't affect ghost questions)
+ *
+ * @param input - The keydown event context
+ * @returns Action to take: 'accept', 'cancel', or 'ignore'
+ */
+export function handleGhostQuestionKeydown(input: GhostQuestionKeydownInput): GhostQuestionKeydownResult {
+  const { key, ghostQuestionsVisible } = input
+
+  // Tab key accepts ghost question ONLY when visible
+  if (key === 'Tab') {
+    return ghostQuestionsVisible ? 'accept' : 'cancel'
+  }
+
+  // Escape always cancels
+  if (key === 'Escape') {
+    return 'cancel'
+  }
+
+  // Navigation and modifier keys are ignored
+  if (IGNORED_KEYS.has(key)) {
+    return 'ignore'
+  }
+
+  // Any other key (typing) cancels ghost questions
+  // This includes letters, numbers, space, Enter, Backspace, etc.
+  return 'cancel'
 }
 
 /**
@@ -1324,7 +1403,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       width: 100%;
     }
 
-    /* EDITOR-3511: Ghost bullet styles */
+    /* EDITOR-3511/3702: Ghost bullet styles
+     * EDITOR-3702: Ghost bullets are now TIMER-BASED, not hover-based
+     * They are only rendered when _showGhostQuestions is true (after 5s delay)
+     * CRITICAL: These elements should NOT exist in DOM when not shown
+     */
     .ghost-bullets-container {
       margin-left: 24px;
       margin-top: 2px;
@@ -1336,19 +1419,20 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       gap: 4px;
       min-height: 24px;
       padding: 2px 0;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.15s ease, background-color 0.15s ease;
+      /* EDITOR-3702: Changed from pointer to default - no click handler anymore */
+      cursor: default;
+      /* EDITOR-3702: Always visible when rendered (timer controls visibility) */
+      opacity: 0.6;
+      transition: background-color 0.15s ease;
     }
 
-    /* Show ghost bullets on parent hover */
-    :host(:hover) .ghost-bullet {
-      opacity: 1;
-    }
+    /* EDITOR-3702: REMOVED hover-to-show rule - ghost questions are timer-based now */
+    /* :host(:hover) .ghost-bullet { opacity: 1; } - REMOVED */
 
     .ghost-bullet:hover {
       background-color: var(--affine-hover-color, #f5f5f5);
       border-radius: 4px;
+      opacity: 0.8;
     }
 
     .ghost-bullet-icon {
@@ -1432,6 +1516,18 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * Used to show loading state during AI generation
    */
   private _loadingGhostId: string | null = null
+
+  /**
+   * EDITOR-3702: Timer ID for delayed ghost question reveal
+   * Used to cancel timer when user types or cursor leaves
+   */
+  private _ghostQuestionTimer: number | null = null
+
+  /**
+   * EDITOR-3702: Whether ghost questions should be shown (timer elapsed)
+   * Only true after 5-second delay on empty bullet
+   */
+  private _showGhostQuestions: boolean = false
 
   /**
    * BUG-EDITOR-3064: Override model getter to return a dummy object when null.
@@ -3745,53 +3841,8 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   // EDITOR-3511: Ghost Bullet Suggestions
   // ============================================================================
 
-  /**
-   * EDITOR-3511: Handle ghost bullet click - convert to real bullet and trigger AI expansion
-   */
-  private _handleGhostBulletClick(suggestion: GhostSuggestion): void {
-    // Mark as loading
-    this._loadingGhostId = suggestion.id
-    this.requestUpdate()
-
-    // Create a new child bullet with the ghost text
-    const newBlockProps = {
-      text: new this.doc.Text(suggestion.text),
-      isExpanded: true,
-    }
-
-    // Add the new block as a child of this block
-    const newBlockId = this.doc.addBlock(
-      'hydra:bullet',
-      newBlockProps,
-      this.model
-    )
-
-    // Dismiss this ghost suggestion since it's now a real bullet
-    this._dismissedGhostIds.add(suggestion.id)
-    this._loadingGhostId = null
-    this.requestUpdate()
-
-    // Dispatch expand event for the new block to trigger AI generation
-    setTimeout(() => {
-      // Get context for expansion
-      const siblings = this.model.children
-        .filter(c => c.flavour === 'hydra:bullet' && c.id !== newBlockId)
-        .map(s => (s as BulletBlockModel).text?.toString() || '')
-        .filter(text => text.length > 0)
-
-      const event = new CustomEvent('hydra-expand-block', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          blockId: newBlockId,
-          blockText: suggestion.text,
-          siblingTexts: siblings,
-          parentText: this.model.text?.toString() || null,
-        },
-      })
-      this.dispatchEvent(event)
-    }, 100) // Small delay to allow block creation to complete
-  }
+  // EDITOR-3702: Removed _handleGhostBulletClick - click no longer accepts ghost questions
+  // Ghost questions are now accepted via Tab key only (see _acceptFirstGhostQuestion)
 
   /**
    * EDITOR-3511: Handle ghost bullet dismiss
@@ -3802,31 +3853,187 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     this.requestUpdate()
   }
 
+  // ============================================================================
+  // EDITOR-3702: Ghost Question Delayed Reveal - Timer Management
+  // ============================================================================
+
   /**
-   * EDITOR-3511: Render ghost bullet suggestions
-   * Shows inline suggestions below the block's children
+   * EDITOR-3702: Get the parent block's text content
+   * Returns empty string if no parent or parent has no text
    */
-  private _renderGhostBullets(): TemplateResult | typeof nothing {
-    // Check if ghost bullets should be shown
-    const hasText = this.model.text?.toString().trim().length > 0
-    const shouldShow = shouldShowGhostBullets({
-      hasText,
-      isExpanded: this.model.isExpanded,
-      hasChildren: this._hasChildren,
-      isInFocusMode: false, // Will be enhanced in future
+  private _getParentTextContent(): string {
+    try {
+      // Get parent from the document tree
+      const parent = this.doc.getParent(this.model)
+      if (!parent || parent.flavour !== 'hydra:bullet') {
+        return ''
+      }
+      const parentModel = parent as BulletBlockModel
+      return parentModel.text?.toString() || ''
+    } catch {
+      return ''
+    }
+  }
+
+  /**
+   * EDITOR-3702: Start the ghost question timer
+   * Called when cursor enters an empty child bullet
+   */
+  private _startGhostQuestionTimer(): void {
+    // Clear any existing timer first
+    this._cancelGhostQuestionTimer()
+
+    // Get current text content
+    const textContent = this.model.text?.toString() || ''
+
+    // Only start timer if this bullet is empty
+    if (textContent.length > 0) {
+      console.log('[EDITOR-3702] Timer NOT started: bullet has text')
+      return
+    }
+
+    // Only start timer if parent has content
+    const parentContent = this._getParentTextContent()
+    if (parentContent.trim().length === 0) {
+      console.log('[EDITOR-3702] Timer NOT started: parent has no content')
+      return
+    }
+
+    // Start the 5-second timer
+    console.log(`[EDITOR-3702] Timer STARTED: will fire in ${GHOST_QUESTION_DELAY_MS}ms`)
+    this._ghostQuestionTimer = window.setTimeout(() => {
+      console.log('[EDITOR-3702] Timer FIRED: showing ghost questions')
+      this._showGhostQuestions = true
+      this._ghostQuestionTimer = null
+      this.requestUpdate()
+    }, GHOST_QUESTION_DELAY_MS)
+  }
+
+  /**
+   * EDITOR-3702: Cancel the ghost question timer and hide ghost questions
+   * Called when user types, cursor leaves, or Escape is pressed
+   */
+  private _cancelGhostQuestionTimer(): void {
+    if (this._ghostQuestionTimer !== null) {
+      window.clearTimeout(this._ghostQuestionTimer)
+      this._ghostQuestionTimer = null
+    }
+    if (this._showGhostQuestions) {
+      this._showGhostQuestions = false
+      this.requestUpdate()
+    }
+  }
+
+  /**
+   * EDITOR-3702: Accept the first ghost question (Tab key)
+   * Converts the ghost question to a real bullet
+   */
+  private _acceptFirstGhostQuestion(): void {
+    // Get parent content for generating suggestions
+    const parentContent = this._getParentTextContent()
+    if (!parentContent) {
+      return
+    }
+
+    // Generate suggestions using parent context
+    const suggestions = generateGhostSuggestions({
+      parentText: parentContent,
+      siblingTexts: [],
+      depth: this._getBlockDepth(),
     })
 
+    // Filter out dismissed suggestions
+    const visibleSuggestions = suggestions.filter(
+      s => !this._dismissedGhostIds.has(s.id)
+    )
+
+    if (visibleSuggestions.length === 0) {
+      return
+    }
+
+    // Accept the first suggestion
+    const firstSuggestion = visibleSuggestions[0]
+
+    // Set the text of THIS block to the suggestion text
+    this.doc.updateBlock(this.model, {
+      text: new this.doc.Text(firstSuggestion.text),
+    })
+
+    // Cancel timer and hide ghost questions
+    this._cancelGhostQuestionTimer()
+
+    // Dismiss this suggestion
+    this._dismissedGhostIds.add(firstSuggestion.id)
+
+    // Trigger AI expansion for this block (now that it has content)
+    setTimeout(() => {
+      const event = new CustomEvent('hydra-expand-block', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          blockId: this.model.id,
+          blockText: firstSuggestion.text,
+          siblingTexts: [],
+          parentText: parentContent,
+        },
+      })
+      this.dispatchEvent(event)
+    }, 100)
+  }
+
+  /**
+   * EDITOR-3702: Handle keydown for ghost questions
+   * Called from the rich-text input area
+   */
+  private _handleGhostQuestionKeydownEvent(e: KeyboardEvent): void {
+    const action = handleGhostQuestionKeydown({
+      key: e.key,
+      ghostQuestionsVisible: this._showGhostQuestions,
+    })
+
+    switch (action) {
+      case 'accept':
+        e.preventDefault()
+        this._acceptFirstGhostQuestion()
+        break
+      case 'cancel':
+        this._cancelGhostQuestionTimer()
+        break
+      case 'ignore':
+        // Do nothing - let the event propagate normally
+        break
+    }
+  }
+
+  /**
+   * EDITOR-3511/3702: Render ghost bullet suggestions
+   * EDITOR-3702: Now only renders when timer has elapsed on empty bullet
+   *
+   * CRITICAL: Returns `nothing` (not hidden CSS) when conditions not met.
+   * This ensures ghost elements do NOT exist in DOM when not shown,
+   * preventing interference with drag-drop and layout.
+   */
+  private _renderGhostBullets(): TemplateResult | typeof nothing {
+    // EDITOR-3702: Use new timer-based visibility
+    // Ghost questions only show on THIS block when it's empty AND timer elapsed
+    const textContent = this.model.text?.toString() || ''
+    const parentContent = this._getParentTextContent()
+
+    const shouldShow = shouldShowGhostBullets({
+      textContent,
+      parentHasContent: parentContent.trim().length > 0,
+      delayMet: this._showGhostQuestions,
+    })
+
+    // CRITICAL: Return `nothing` to remove elements from DOM entirely
     if (!shouldShow) {
       return nothing
     }
 
-    // Generate suggestions
+    // Generate suggestions using PARENT context (not this block's context)
     const suggestions = generateGhostSuggestions({
-      parentText: this.model.text?.toString() || '',
-      siblingTexts: this.model.children
-        .filter(c => c.flavour === 'hydra:bullet')
-        .map(c => (c as BulletBlockModel).text?.toString() || '')
-        .filter(t => t.length > 0),
+      parentText: parentContent,
+      siblingTexts: [],
       depth: this._getBlockDepth(),
     })
 
@@ -3839,6 +4046,8 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return nothing
     }
 
+    // EDITOR-3702: Render ghost bullets without click handlers
+    // Tab key is handled at component level, not on individual ghost bullets
     return html`
       <div class="ghost-bullets-container">
         ${visibleSuggestions.map(suggestion => {
@@ -3848,16 +4057,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           return html`
             <div
               class="${bulletClass}"
-              @click=${() => this._handleGhostBulletClick(suggestion)}
-              role="button"
-              tabindex="0"
-              aria-label="Add suggestion: ${suggestion.text}"
-              @keydown=${(e: KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  this._handleGhostBulletClick(suggestion)
-                }
-              }}
+              aria-label="Suggestion: ${suggestion.text} (Press Tab to accept)"
             >
               <div class="ghost-bullet-icon">●</div>
               <div class="ghost-bullet-text">${suggestion.text}</div>
@@ -3922,6 +4122,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // EDITOR-3507: Add drop indicator for drag-and-drop
     // EDITOR-3510: Render block type prefix before grip handle
     // EDITOR-3511: Render ghost bullets after children
+    // EDITOR-3702: Add focus/blur/keydown handlers for ghost question timer
     return html`
       ${this._renderDropIndicator()}
       <div class="${containerClass}">
@@ -3937,6 +4138,9 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           .enableUndoRedo=${true}
           .readonly=${false}
           @contextmenu=${this._handleContextMenu}
+          @focusin=${() => this._startGhostQuestionTimer()}
+          @focusout=${() => this._cancelGhostQuestionTimer()}
+          @keydown=${(e: KeyboardEvent) => this._handleGhostQuestionKeydownEvent(e)}
         ></rich-text>
         ${this._renderInlinePreview()}
         ${this._renderInlinePreviewRestoreButton()}
