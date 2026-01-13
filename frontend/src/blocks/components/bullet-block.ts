@@ -51,6 +51,11 @@ import {
 } from '../utils/block-selection'
 // EDITOR-3507: Import drop indicator component
 import './drop-indicator'
+// EDITOR-3510: Import block type utilities
+import { parseMarkdownShortcut } from '../utils/markdown-shortcuts'
+import { computeListNumber } from '../utils/numbered-list'
+import { getBulletMarker } from '../utils/block-icons'
+import { isSlashTrigger } from '../utils/slash-menu'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -991,6 +996,75 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       width: 16px;
       height: 16px;
       color: var(--affine-icon-color, #888);
+    }
+
+    /* EDITOR-3510: Block type prefix styles */
+    .block-prefix {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 14px;
+      color: var(--affine-text-secondary-color, #6B7280);
+    }
+
+    .block-prefix.checkbox {
+      cursor: pointer;
+    }
+
+    .block-prefix.checkbox svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .block-prefix.numbered {
+      font-variant-numeric: tabular-nums;
+      min-width: 24px;
+      justify-content: flex-end;
+      padding-right: 4px;
+    }
+
+    .block-prefix.bullet {
+      font-size: 8px;
+    }
+
+    /* EDITOR-3510: Heading styles */
+    .bullet-container.heading1 rich-text {
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .bullet-container.heading2 rich-text {
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .bullet-container.heading3 rich-text {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    /* EDITOR-3510: Checkbox checked state */
+    .bullet-container.checkbox-checked rich-text {
+      text-decoration: line-through;
+      color: var(--affine-text-secondary-color, #6B7280);
+    }
+
+    /* EDITOR-3510: Divider styles */
+    .bullet-container.divider {
+      padding: 12px 0;
+    }
+
+    .divider-line {
+      height: 1px;
+      background-color: var(--affine-border-color, #e0e0e0);
+      width: 100%;
     }
   `
 
@@ -2660,13 +2734,42 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return
     }
 
+    // EDITOR-3510: Handle space key for markdown shortcuts
+    if (e.key === ' ') {
+      // Check if current text matches a markdown shortcut pattern
+      const currentText = this.model.text.toString()
+      // Add the space to see if it forms a complete pattern
+      const textWithSpace = currentText + ' '
+      const result = parseMarkdownShortcut(textWithSpace)
+      if (result) {
+        e.preventDefault()
+        this._handleMarkdownShortcut()
+        return
+      }
+    }
+
     // EDITOR-3405: Detect / key for portal slash command
+    // EDITOR-3510: Also detect / at start of line for slash menu
     if (e.key === '/') {
+      // Check if at start of line (empty text)
+      const currentText = this.model.text.toString()
+      if (currentText === '') {
+        // At start of empty line - trigger slash menu after key is inserted
+        setTimeout(() => {
+          const newText = this.model.text.toString()
+          if (isSlashTrigger(newText)) {
+            this._dispatchSlashMenuOpen()
+          }
+        }, 0)
+        // Don't prevent default - let the / character be typed
+        return
+      }
+
       // Check if text starts with /portal (or partial match)
       // We need to check after the key is inserted, so delay check slightly
       setTimeout(() => {
-        const currentText = this.model.text.toString()
-        if (isPortalSlashCommand(currentText)) {
+        const newText = this.model.text.toString()
+        if (isPortalSlashCommand(newText)) {
           this._dispatchPortalPickerOpen()
         }
       }, 0)
@@ -2995,6 +3098,201 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  // ============================================================================
+  // EDITOR-3510: Block Type System Methods
+  // ============================================================================
+
+  /**
+   * EDITOR-3510: Get the computed nesting depth of this block
+   */
+  private _getBlockDepth(): number {
+    let depth = 0
+    let parent = this.model.parent
+    while (parent && parent.flavour === 'hydra:bullet') {
+      depth++
+      parent = parent.parent
+    }
+    return depth
+  }
+
+  /**
+   * EDITOR-3510: Get the list number for numbered lists
+   */
+  private _getListNumber(): number {
+    const parent = this.model.parent
+    if (!parent) return 1
+
+    const siblings = parent.children.filter(c => c.flavour === 'hydra:bullet')
+    const currentIndex = siblings.indexOf(this.model)
+    const previousSiblings = siblings.slice(0, currentIndex).map(s => ({
+      blockType: (s as BulletBlockModel).blockType ?? 'bullet',
+    }))
+
+    return computeListNumber({
+      siblingIndex: currentIndex,
+      previousSiblings,
+    })
+  }
+
+  /**
+   * EDITOR-3510: Toggle checkbox checked state
+   */
+  private _toggleCheckbox(e: Event): void {
+    e.stopPropagation()
+    if (this.model.blockType !== 'checkbox') return
+
+    this.doc.updateBlock(this.model, {
+      isChecked: !this.model.isChecked,
+    })
+  }
+
+  /**
+   * EDITOR-3510: Handle space key for markdown shortcut conversion
+   */
+  private _handleMarkdownShortcut(): boolean {
+    const currentText = this.model.text.toString()
+    const result = parseMarkdownShortcut(currentText)
+
+    if (!result) return false
+
+    // Convert block type
+    this.doc.updateBlock(this.model, {
+      blockType: result.blockType,
+      isChecked: result.isChecked,
+    })
+
+    // Update text content (remove the markdown prefix)
+    this.model.text.delete(0, this.model.text.length)
+    if (result.remainingText) {
+      this.model.text.insert(result.remainingText, 0)
+    }
+
+    return true
+  }
+
+  /**
+   * EDITOR-3510: Dispatch slash menu open event
+   */
+  private _dispatchSlashMenuOpen(): void {
+    const richText = this.querySelector('rich-text') as RichText | null
+    const selection = window.getSelection()
+    let position = { top: 0, left: 0 }
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    } else if (richText) {
+      const rect = richText.getBoundingClientRect()
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    }
+
+    const event = new CustomEvent('hydra-slash-menu-open', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        blockId: this.model.id,
+        position,
+      },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3510: Render block type prefix (checkbox, number, bullet marker)
+   */
+  private _renderBlockTypePrefix(): TemplateResult | typeof nothing {
+    const blockType = this.model.blockType ?? 'bullet'
+
+    // Don't show prefix for divider (it's just a line)
+    if (blockType === 'divider') {
+      return nothing
+    }
+
+    // Don't show prefix for headings (they just have different font size)
+    if (blockType.startsWith('heading')) {
+      return nothing
+    }
+
+    const depth = this._getBlockDepth()
+    const listNumber = blockType === 'numbered' ? this._getListNumber() : undefined
+
+    if (blockType === 'checkbox') {
+      // Render clickable checkbox
+      const icon = this.model.isChecked
+        ? html`<svg viewBox="0 0 16 16" fill="none">
+            <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" fill="var(--affine-primary-color, #1976d2)"/>
+            <polyline points="4,8 7,11 12,5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        : html`<svg viewBox="0 0 16 16" fill="none">
+            <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>`
+
+      return html`
+        <div
+          class="block-prefix checkbox"
+          @click=${this._toggleCheckbox}
+          role="checkbox"
+          aria-checked=${this.model.isChecked ? 'true' : 'false'}
+          tabindex="0"
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              this._toggleCheckbox(e)
+            }
+          }}
+        >
+          ${icon}
+        </div>
+      `
+    }
+
+    if (blockType === 'numbered') {
+      return html`
+        <div class="block-prefix numbered">
+          ${listNumber}.
+        </div>
+      `
+    }
+
+    // Default bullet marker
+    const marker = getBulletMarker(depth)
+    return html`
+      <div class="block-prefix bullet">
+        ${marker}
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3510: Get container class with block type modifiers
+   */
+  private _getBlockTypeContainerClass(): string {
+    const blockType = this.model.blockType ?? 'bullet'
+    const classes = ['bullet-container']
+
+    // Add descriptor class
+    if (this.model.isDescriptor) {
+      classes.push('descriptor-block')
+    }
+
+    // Add block type class
+    classes.push(blockType)
+
+    // Add checked state for checkbox
+    if (blockType === 'checkbox' && this.model.isChecked) {
+      classes.push('checkbox-checked')
+    }
+
+    return classes.join(' ')
+  }
+
   override renderBlock(): TemplateResult {
     // BUG-EDITOR-3064: Additional guard (render() guard should catch this, but being defensive)
     // Uses isDummyModel since model getter always returns something now
@@ -3003,14 +3301,24 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
-    // EDITOR-3201: Add descriptor class for styling
+    // EDITOR-3510: Use block type container class
     // EDITOR-3507: Add selection class for multi-select highlight
     const isSelected = isBlockSelected(HydraBulletBlock._blockSelectionState, this.model.id)
+    const baseContainerClass = this._getBlockTypeContainerClass()
     const containerClass = [
-      'bullet-container',
-      this.model.isDescriptor ? 'descriptor-block' : '',
+      baseContainerClass,
       isSelected ? 'selected' : '',
     ].filter(Boolean).join(' ')
+    const blockType = this.model.blockType ?? 'bullet'
+
+    // EDITOR-3510: Divider renders as a horizontal line with no text
+    if (blockType === 'divider') {
+      return html`
+        <div class="${containerClass}">
+          <div class="divider-line"></div>
+        </div>
+      `
+    }
 
     // EDITOR-3053: Use rich-text component instead of contenteditable
     // This provides InlineEditor which routes input based on selection, not DOM focus
@@ -3019,9 +3327,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // EDITOR-3303: Add visibility toggle for descriptor blocks
     // EDITOR-3508: Use grip handle + expand toggle (Affine-style) instead of bullet-toggle
     // EDITOR-3507: Add drop indicator for drag-and-drop
+    // EDITOR-3510: Render block type prefix before grip handle
     return html`
       ${this._renderDropIndicator()}
       <div class="${containerClass}">
+        ${this._renderBlockTypePrefix()}
         ${this._renderGripHandle()}
         ${this._renderExpandToggle()}
         ${this._renderDescriptorPrefix()}
