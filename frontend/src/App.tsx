@@ -1,5 +1,6 @@
 import Editor from './components/Editor'
 import { AuthProvider, Header, SpotlightModal } from './components'
+import { LeftPanel } from './components/LeftPanel'
 import { useSpotlight } from './hooks/useSpotlight'
 import { useAIStore, selectCanGenerate, selectGenerationsRemaining } from './stores/ai-store'
 import { Toaster } from 'sonner'
@@ -26,9 +27,12 @@ function AppContent() {
   return (
     <div className="app">
       <Header />
-      <main className="app-main">
-        <Editor />
-      </main>
+      <div className="app-body">
+        <LeftPanel />
+        <main className="app-main">
+          <Editor />
+        </main>
+      </div>
       <SpotlightModal
         isOpen={spotlight.isOpen}
         onClose={spotlight.close}

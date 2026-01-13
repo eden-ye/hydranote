@@ -12,21 +12,21 @@ Create a collapsible left panel sidebar following AFFiNE's patterns. In Hydra No
 
 ## Acceptance Criteria
 
-- [ ] Sidebar renders on left side (240px width)
-- [ ] Toggle button collapses/expands sidebar
-- [ ] User info shows avatar when logged in, login button when not
-- [ ] Settings button opens settings modal
-- [ ] Favorites section with star icon
-- [ ] "No favorites" placeholder when empty
-- [ ] Star button on block nodes toggles favorite
-- [ ] Click block → enters focus mode on that block
-- [ ] Active block highlighted in sidebar
-- [ ] Favorites persist in localStorage
-- [ ] Drag-to-reorder favorites works (grip handle, visual drop indicator)
-- [ ] Reordered favorites persist after reload
-- [ ] All top-level blocks listed in "All Bullets" section
-- [ ] Dark theme matching AFFiNE aesthetic
-- [ ] No console errors
+- [x] Sidebar renders on left side (240px width)
+- [x] Toggle button collapses/expands sidebar
+- [x] User info shows avatar when logged in, login button when not
+- [x] Settings button opens settings modal
+- [x] Favorites section with star icon
+- [x] "No favorites" placeholder when empty
+- [x] Star button on block nodes toggles favorite
+- [x] Click block → enters focus mode on that block
+- [x] Active block highlighted in sidebar
+- [x] Favorites persist in localStorage
+- [x] Drag-to-reorder favorites works (grip handle, visual drop indicator)
+- [x] Reordered favorites persist after reload
+- [x] All top-level blocks listed in "All Bullets" section
+- [x] Dark theme matching AFFiNE aesthetic
+- [x] No console errors
 
 ## Implementation Phases
 
@@ -110,5 +110,34 @@ AFFiNE source at /Users/taylorye/Workspace/hydra/affine:
 ## Status
 
 - **Created**: 2026-01-13
-- **Status**: in_progress
+- **Completed**: 2026-01-13
+- **Status**: completed
 - **Epic**: MVP2 - Left Panel Navigation
+
+## Implementation Summary
+
+### Commits
+- Added favorites state management to editor-store.ts with localStorage persistence
+- Created LeftPanel component structure:
+  - `LeftPanel/index.tsx` - Main sidebar container with toggle, settings modal, and Cmd+\ shortcut
+  - `LeftPanel/UserInfo.tsx` - Avatar display / login button
+  - `LeftPanel/CollapsibleSection.tsx` - Reusable collapsible section with count badge
+  - `LeftPanel/FavoritesSection.tsx` - Favorites list with drag-to-reorder
+  - `LeftPanel/AllBulletsSection.tsx` - Top-level blocks list
+  - `LeftPanel/BlockNode.tsx` - Single block row with star toggle and drag handle
+- Updated App.tsx layout to include sidebar
+- Updated App.css with flex layout for sidebar
+
+### Test Coverage
+- 78 new unit tests for LeftPanel components
+- 15 new tests for favorites state in editor-store
+- All 1387 tests pass
+- Build and lint pass
+
+### Files Changed
+- `frontend/src/stores/editor-store.ts` - Added favorites state and actions
+- `frontend/src/App.tsx` - Added LeftPanel to layout
+- `frontend/src/App.css` - Added app-body flex container
+- New: `frontend/src/components/LeftPanel/*` - All sidebar components
+- New: `frontend/src/components/LeftPanel/__tests__/*` - Component tests
+- New: `frontend/src/stores/__tests__/editor-store-favorites.test.ts` - Store tests

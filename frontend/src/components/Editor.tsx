@@ -14,8 +14,11 @@ import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
 import { useFocusMode } from '@/hooks/useFocusMode'
 // FE-407: Breadcrumb navigation
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
-// FE-409: Ghost questions
-import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
+// EDITOR-3508: Focus mode header
+import { FocusHeader } from './FocusHeader'
+// FE-409/EDITOR-3511: Ghost questions moved to inline rendering in bullet-block.ts
+// GhostQuestions component no longer needed here - kept for reference
+// import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
 // FE-408: Expand block hook
 import { useExpandBlock, type ExpandBlockContext } from '@/hooks/useExpandBlock'
 // EDITOR-3601: Descriptor generation context
@@ -55,6 +58,10 @@ import { toast } from 'sonner'
 // EDITOR-3506: Inline formatting toolbar
 import InlineToolbar from './InlineToolbar'
 import { TEXT_FORMAT_CONFIGS } from '@/utils/format-commands'
+// EDITOR-3510: Slash menu
+import { SlashMenu } from './SlashMenu'
+import type { SlashMenuItem } from '@/blocks/utils/slash-menu'
+import type { BlockType } from '@/blocks/utils/markdown-shortcuts'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -155,34 +162,35 @@ export default function Editor() {
   // FE-407: Breadcrumb items (computed when focusedBlockId changes)
   const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([])
 
-  // FE-409: Ghost questions state
-  const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
-  const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+  // EDITOR-3508: Focused block title for FocusHeader
+  const [focusedBlockTitle, setFocusedBlockTitle] = useState('')
 
-  // Update breadcrumb when focus changes
+  // FE-409/EDITOR-3511: Ghost questions state - now handled inline in bullet-block.ts
+  // Ghost suggestions are generated and rendered within each bullet block component
+  // const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
+  // const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
+  // const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+
+  // Update breadcrumb and title when focus changes
   useEffect(() => {
     if (isInFocusMode && focusedBlockId && docRef.current) {
       const items = buildBreadcrumbPath(docRef.current, focusedBlockId)
       setBreadcrumbItems(items)
 
-      // FE-409: Generate placeholder ghost questions when entering focus mode
-      // In production, these would come from AI generation
-      setIsLoadingQuestions(true)
-      setDismissedQuestions(new Set())
+      // EDITOR-3508: Get focused block title for FocusHeader
+      const focusedBlock = docRef.current.getBlockById(focusedBlockId)
+      if (focusedBlock && focusedBlock.flavour === 'hydra:bullet') {
+        const blockModel = focusedBlock as BlockModel & { text?: { toString(): string } }
+        setFocusedBlockTitle(blockModel.text?.toString() || '')
+      } else {
+        setFocusedBlockTitle('')
+      }
 
-      // Simulate AI question generation delay
-      setTimeout(() => {
-        setGhostQuestions([
-          { id: 'q1', text: 'What are the key implications of this point?' },
-          { id: 'q2', text: 'How does this relate to the broader context?' },
-          { id: 'q3', text: 'What evidence supports this idea?' },
-        ])
-        setIsLoadingQuestions(false)
-      }, 500)
+      // FE-409/EDITOR-3511: Ghost questions now generated inline in bullet-block.ts
+      // No need to manage ghost question state here anymore
     } else {
       setBreadcrumbItems([])
-      setGhostQuestions([])
+      setFocusedBlockTitle('')
     }
   }, [isInFocusMode, focusedBlockId])
 
@@ -191,16 +199,15 @@ export default function Editor() {
     enterFocusMode(id)
   }, [enterFocusMode])
 
-  // FE-409: Handle ghost question click
-  const handleQuestionClick = useCallback((question: GhostQuestion) => {
-    // In production, this would trigger AI expansion
-    console.log('[GhostQuestions] Question clicked:', question.text)
-  }, [])
+  // FE-409/EDITOR-3511: Ghost question click now handled inline in bullet-block.ts
+  // const handleQuestionClick = useCallback((question: GhostQuestion) => {
+  //   console.log('[GhostQuestions] Question clicked:', question.text)
+  // }, [])
 
-  // FE-409: Handle ghost question dismiss
-  const handleQuestionDismiss = useCallback((questionId: string) => {
-    setDismissedQuestions(prev => new Set([...prev, questionId]))
-  }, [])
+  // FE-409/EDITOR-3511: Ghost question dismiss now handled inline in bullet-block.ts
+  // const handleQuestionDismiss = useCallback((questionId: string) => {
+  //   setDismissedQuestions(prev => new Set([...prev, questionId]))
+  // }, [])
 
   // FE-408: Expand block hook
   const { expandBlock, canExpand, isExpanding } = useExpandBlock()
@@ -233,6 +240,19 @@ export default function Editor() {
   const [portalPickerPosition, setPortalPickerPosition] = useState({ top: 0, left: 0 })
   const [allBullets, setAllBullets] = useState<BulletItem[]>([])
   const filteredBullets = filterBullets(allBullets, portalPickerQuery)
+
+  // EDITOR-3510: Slash menu state
+  const {
+    slashMenuOpen,
+    slashMenuQuery,
+    slashMenuBlockId,
+    slashMenuSelectedIndex,
+    openSlashMenu,
+    closeSlashMenu,
+    setSlashMenuQuery,
+    setSlashMenuSelectedIndex,
+  } = useEditorStore()
+  const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 })
 
   // EDITOR-3602: Auto-generate after descriptor state
   const {
@@ -302,6 +322,14 @@ export default function Editor() {
     console.log('[Expand] Expanding block:', context.blockId)
     expandBlock(context, accessToken)
   }, [accessToken, canExpand, expandBlock])
+
+  // EDITOR-3508: Handle focus block event from grip handle click
+  const handleFocusBlockEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string }>
+    const { blockId } = customEvent.detail
+    console.log('[FocusMode] Entering focus mode for block:', blockId)
+    enterFocusMode(blockId)
+  }, [enterFocusMode])
 
   // EDITOR-3601: Handle descriptor generation event (Tab trigger at deepest level)
   const handleDescriptorGenerateEvent = useCallback((event: Event) => {
@@ -512,9 +540,6 @@ export default function Editor() {
     startAutoGenerate,
     setAutoGenerateStatus,
     expandBlock,
-    completeAutoGenerate,
-    cancelAutoGenerate,
-    resetAutoGenerate,
   ])
 
   // EDITOR-3405: Handle portal picker open event
@@ -535,6 +560,57 @@ export default function Editor() {
     setPortalPickerPosition(position)
     openPortalPicker(blockId)
   }, [openPortalPicker])
+
+  // EDITOR-3510: Handle slash menu open event
+  const handleSlashMenuOpenEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string; position: { top: number; left: number } }>
+    const { blockId, position } = customEvent.detail
+
+    setSlashMenuPosition(position)
+    openSlashMenu(blockId)
+  }, [openSlashMenu])
+
+  // EDITOR-3510: Handle slash menu selection
+  const handleSlashMenuSelect = useCallback((item: SlashMenuItem) => {
+    console.log('[SlashMenu] Item selected:', item.blockType)
+
+    const doc = docRef.current
+    if (!doc || !slashMenuBlockId) {
+      console.warn('[SlashMenu] No doc or blockId available')
+      closeSlashMenu()
+      return
+    }
+
+    const block = doc.getBlockById(slashMenuBlockId) as BulletBlockModel | null
+    if (!block) {
+      console.warn('[SlashMenu] Block not found:', slashMenuBlockId)
+      closeSlashMenu()
+      return
+    }
+
+    // Remove the / character from text
+    const currentText = block.text.toString()
+    if (currentText.startsWith('/')) {
+      block.text.delete(0, currentText.length)
+    }
+
+    // Update block type
+    doc.updateBlock(block, {
+      blockType: item.blockType as BlockType,
+      isChecked: item.blockType === 'checkbox' ? false : block.isChecked,
+    })
+
+    console.log('[SlashMenu] Block type updated to:', item.blockType)
+
+    // Focus the block after type change
+    setTimeout(() => {
+      const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${slashMenuBlockId}"]`)
+      const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+      richText?.focus()
+    }, 0)
+
+    closeSlashMenu()
+  }, [slashMenuBlockId, closeSlashMenu])
 
   // EDITOR-3405: Handle portal selection and creation
   const handlePortalSelect = useCallback((bullet: BulletItem) => {
@@ -947,6 +1023,9 @@ export default function Editor() {
     // FE-408: Add expand event listener
     container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
 
+    // EDITOR-3508: Add focus block event listener (grip handle click)
+    container.addEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
+
     // EDITOR-3601: Add descriptor generation event listener
     container.addEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
 
@@ -955,6 +1034,9 @@ export default function Editor() {
 
     // EDITOR-3405: Add portal picker open event listener
     container.addEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+
+    // EDITOR-3510: Add slash menu open event listener
+    container.addEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
 
     // EDITOR-3602: Cancel auto-generation when user starts typing
     // EDITOR-3410: Cmd+S portal search modal
@@ -1011,9 +1093,11 @@ export default function Editor() {
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
+      container.removeEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
       container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+      container.removeEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
       container.removeEventListener('keydown', handleKeyDown)
       // Destroy persistence first
       if (persistenceRef.current) {
@@ -1028,7 +1112,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
+  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
 
   // EDITOR-3506: Separate useEffect for selection change listener
   // This needs to be separate from the main editor initialization useEffect
@@ -1142,8 +1226,8 @@ export default function Editor() {
     )
   }
 
-  // FE-409: Filter out dismissed questions
-  const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
+  // FE-409/EDITOR-3511: Ghost questions now handled inline in bullet-block.ts
+  // const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
 
   return (
     <div
@@ -1161,6 +1245,14 @@ export default function Editor() {
         <Breadcrumb
           items={breadcrumbItems}
           onNavigate={handleBreadcrumbNavigate}
+          onExitFocusMode={exitFocusMode}
+        />
+      )}
+
+      {/* EDITOR-3508: Show focus header in focus mode */}
+      {isInFocusMode && focusedBlockId && (
+        <FocusHeader
+          title={focusedBlockTitle}
           onExitFocusMode={exitFocusMode}
         />
       )}
@@ -1235,15 +1327,11 @@ export default function Editor() {
         }}
       />
 
-      {/* FE-409: Show ghost questions in focus mode */}
-      {isInFocusMode && (visibleQuestions.length > 0 || isLoadingQuestions) && (
-        <GhostQuestions
-          questions={visibleQuestions}
-          isLoading={isLoadingQuestions}
-          onQuestionClick={handleQuestionClick}
-          onDismiss={handleQuestionDismiss}
-        />
-      )}
+      {/* FE-409/EDITOR-3511: Ghost questions removed from bottom section
+        * Ghost bullet suggestions are now rendered inline within bullet-block.ts
+        * They appear directly under each bullet block as children, not as a separate section
+        * See EDITOR-3511 for inline ghost bullet implementation
+        */}
 
       {/* EDITOR-3203: Descriptor autocomplete dropdown */}
       <DescriptorAutocomplete
@@ -1267,6 +1355,18 @@ export default function Editor() {
         onClose={closePortalPicker}
         onQueryChange={setPortalPickerQuery}
         onSelectedIndexChange={setPortalPickerSelectedIndex}
+      />
+
+      {/* EDITOR-3510: Slash menu dropdown */}
+      <SlashMenu
+        isOpen={slashMenuOpen}
+        query={slashMenuQuery}
+        selectedIndex={slashMenuSelectedIndex}
+        position={slashMenuPosition}
+        onSelect={handleSlashMenuSelect}
+        onClose={closeSlashMenu}
+        onQueryChange={setSlashMenuQuery}
+        onSelectedIndexChange={setSlashMenuSelectedIndex}
       />
 
       {/* EDITOR-3410: Portal search modal (Cmd+S) */}

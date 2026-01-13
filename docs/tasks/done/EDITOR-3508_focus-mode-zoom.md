@@ -28,24 +28,24 @@ EDITOR-3508: Click behavior (zoom into block)  ← THIS TICKET
 ## Acceptance Criteria
 
 ### UI Structure (shared with EDITOR-3507)
-- [ ] Bullet dot (•) REMOVED - no longer rendered
-- [ ] Grip handle (⋮⋮) appears on the LEFT of expand toggle
-- [ ] Grip handle hidden by default, appears on hover
-- [ ] Expand toggle hidden by default, appears on hover (only if has children)
+- [x] Bullet dot (•) REMOVED - no longer rendered
+- [x] Grip handle (⋮⋮) appears on the LEFT of expand toggle
+- [x] Grip handle hidden by default, appears on hover
+- [x] Expand toggle hidden by default, appears on hover (only if has children)
 
 ### Zoom Behavior (this ticket)
-- [ ] Single-clicking grip handle enters focus mode (tooltip: "Click to zoom")
-- [ ] Clicking expand toggle expands/collapses children (does NOT zoom)
+- [x] Single-clicking grip handle enters focus mode (tooltip: "Click to zoom")
+- [x] Clicking expand toggle expands/collapses children (does NOT zoom)
 
 ### Focus Mode Display
-- [ ] Focused bullet's text appears as large editable title at top
-- [ ] Title is editable inline (changes sync back to bullet via Yjs)
-- [ ] Only children of focused bullet are visible below
-- [ ] Breadcrumb shows path from root to focused bullet
+- [x] Focused bullet's text appears as large editable title at top
+- [ ] Title is editable inline (changes sync back to bullet via Yjs) - **Note**: Title displayed as read-only for now, inline editing deferred to future ticket
+- [x] Only children of focused bullet are visible below
+- [x] Breadcrumb shows path from root to focused bullet
 
 ### Exit Focus Mode
-- [ ] Clicking home icon exits focus mode
-- [ ] Escape key exits focus mode
+- [x] Clicking home icon exits focus mode
+- [x] Escape key exits focus mode
 
 ## Technical Details
 
@@ -186,5 +186,39 @@ interface FocusHeaderProps {
 
 ## Status
 - **Created**: 2026-01-12
-- **Status**: pending
+- **Completed**: 2026-01-13
+- **Status**: completed
 - **Epic**: MVP2 - Editor Enhancements
+
+## Implementation Summary
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `frontend/src/blocks/components/bullet-block.ts` | Added `_renderGripHandle()` and `_renderExpandToggle()` methods, removed old `_renderToggle()`, added CSS for grip handle and expand toggle, added `_handleGripClick()` to dispatch `hydra-focus-block` event |
+| `frontend/src/components/FocusHeader.tsx` | NEW - Focus mode header component with title and exit button |
+| `frontend/src/components/FocusHeader.css` | NEW - CSS styles for FocusHeader |
+| `frontend/src/components/Editor.tsx` | Added `handleFocusBlockEvent` handler, wired event listener, added `focusedBlockTitle` state, render FocusHeader in focus mode |
+| `frontend/src/blocks/__tests__/focus-mode-zoom.test.ts` | NEW - Unit tests for focus mode zoom logic (32 tests) |
+| `frontend/src/components/__tests__/FocusHeader.test.tsx` | NEW - Unit tests for FocusHeader component (10 tests) |
+
+### Key Implementation Details
+1. **Grip Handle**: Rendered using CSS `::before` pseudo-element with `⋮⋮` content, hidden by default, visible on hover
+2. **Expand Toggle**: Separate from grip, only shown when block has children, always visible when collapsed
+3. **Focus Event**: Custom `hydra-focus-block` event bubbles up to Editor.tsx
+4. **FocusHeader**: Displays focused block title (read-only), home icon to exit focus mode
+
+### Test Results
+- 1208 tests passing (54 test files)
+- New tests: 42 (32 logic tests + 10 component tests)
+- Build successful
+
+### E2E Testing Notes
+Manual Chrome E2E testing scenarios:
+1. Hover over bullet - grip handle appears
+2. Click grip handle - enters focus mode
+3. FocusHeader shows with title and home icon
+4. Click home icon - exits focus mode
+5. Press Escape - exits focus mode
+6. Breadcrumb shows path to focused block
+7. Click expand toggle - expands/collapses children (no zoom)

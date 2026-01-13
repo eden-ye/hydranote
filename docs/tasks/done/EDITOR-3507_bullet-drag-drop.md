@@ -88,7 +88,38 @@ Indent threshold = block.left + CHILDREN_PADDING (24px)
 ## Notes
 Reference implementation: Affine's `/blocksuite/affine/widgets/drag-handle/`
 
+## Implementation Summary
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `frontend/src/blocks/utils/drag-drop.ts` | Core drag-drop calculation logic (types, constants, pure functions) |
+| `frontend/src/blocks/utils/block-selection.ts` | Multi-block selection logic (single/shift/ctrl+click) |
+| `frontend/src/blocks/components/drop-indicator.ts` | Visual drop indicator Lit component |
+| `frontend/src/blocks/__tests__/drag-drop.test.ts` | 26 unit tests for drag-drop utilities |
+| `frontend/src/blocks/__tests__/block-selection.test.ts` | 23 unit tests for block selection |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `frontend/src/blocks/components/bullet-block.ts` | Added drag event handlers, selection state, drop indicators |
+| `frontend/src/blocks/components/index.ts` | Export drop-indicator component |
+| `frontend/src/blocks/utils/index.ts` | Export drag-drop and block-selection modules |
+| `frontend/src/blocks/__tests__/bullet-block-component.test.ts` | Fixed mocks for new LitElement component |
+
+### Key Implementation Details
+- **Drag State**: Shared across all bullet blocks via static class properties
+- **Selection Management**: Pure functions for computing selection after clicks
+- **Drop Placement**: Top 25% = before, Bottom 25% = after, Middle = after/in based on X position
+- **Invalid Drop Prevention**: Cannot drop on self or descendants
+- **Undo/Redo**: Leverages BlockSuite's built-in history via `doc.moveBlocks()`
+
+### Test Results
+- Unit Tests: 1257 passed
+- Build: Successful
+
 ## Status
 - **Created**: 2026-01-12
-- **Status**: pending
+- **Completed**: 2026-01-13
+- **Status**: completed
 - **Epic**: MVP2 - Editor Enhancements
