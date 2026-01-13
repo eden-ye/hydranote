@@ -53,10 +53,19 @@ Focus mode doesn't actually "zoom" into the focused bullet. When clicking a bull
    - Added `_shouldRenderInFocusMode()` method to determine if block should render
    - Added `_shouldShowContentInFocusMode()` method to control content visibility
    - Modified `renderBlock()` to conditionally render based on focus mode state
+   - Added CSS rule `:host([hidden-in-focus]) { display: none !important; }` to hide blocks
+   - Added `hidden-in-focus` attribute setting in `renderBlock()` for CSS targeting
 
 2. **`frontend/src/blocks/__tests__/focus-mode-zoom.test.ts`**
    - Added 24 new tests for focus mode content filtering logic
    - Tests cover: ancestry checking, normal mode rendering, focus mode filtering, edge cases
+
+3. **`frontend/src/index.css`**
+   - Added CSS rule to hide `doc-title` element in focus mode
+
+4. **`frontend/src/App.tsx`**
+   - Added `data-focus-mode` attribute to `<main>` element for CSS targeting
+   - This allows the CSS selector `[data-focus-mode="true"] doc-title` to properly hide the title
 
 ### Key Implementation Details
 ```typescript

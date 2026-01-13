@@ -82,3 +82,8 @@ affine-paragraph .affine-paragraph-placeholder {
 affine-note > .affine-note-block-container > .affine-block-children-container > *:not(hydra-bullet-block):not(hydra-portal-block) {
   display: none !important;
 }
+
+/* BUG-EDITOR-3508: Hide page title and non-focused content in focus mode */
+[data-focus-mode="true"] doc-title {
+  display: none !important;
+}

@@ -841,6 +841,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       position: relative;
     }
 
+    /* BUG-EDITOR-3508: Hide block entirely when not in focus path */
+    :host([hidden-in-focus]) {
+      display: none !important;
+    }
+
     .bullet-container {
       display: flex;
       align-items: flex-start;
@@ -1629,6 +1634,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // BUG-EDITOR-3508: Subscribe to focus mode changes to trigger re-renders
     // When focusedBlockId changes, all blocks need to re-evaluate whether they should render
+    // Clean up any existing subscription first (handles re-connection scenarios)
+    if (this._focusStoreUnsubscribe) {
+      this._focusStoreUnsubscribe()
+      this._focusStoreUnsubscribe = null
+    }
     let previousFocusedBlockId: string | null = useEditorStore.getState().focusedBlockId
     this._focusStoreUnsubscribe = useEditorStore.subscribe((state) => {
       if (state.focusedBlockId !== previousFocusedBlockId) {
@@ -1641,22 +1651,19 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     })
   }
 
+  /**
+   * BUG-EDITOR-3508 + BUG-EDITOR-3708: Clean up subscriptions and event listeners
+   */
   override disconnectedCallback(): void {
     super.disconnectedCallback()
+
     // BUG-EDITOR-3508: Clean up focus store subscription
     if (this._focusStoreUnsubscribe) {
       this._focusStoreUnsubscribe()
       this._focusStoreUnsubscribe = null
     }
-  }
 
-  /**
-   * BUG-EDITOR-3708: Clean up event listeners to prevent memory leaks
-   */
-  override disconnectedCallback(): void {
-    super.disconnectedCallback()
-
-    // Clean up rich-text keydown listener
+    // BUG-EDITOR-3708: Clean up rich-text keydown listener
     const richText = this.querySelector('rich-text') as HTMLElement
     if (richText && this._richTextKeydownHandler) {
       richText.removeEventListener('keydown', this._richTextKeydownHandler)
@@ -4392,8 +4399,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // BUG-EDITOR-3508: Check if this block should render in focus mode
     // Returns false for siblings/unrelated blocks AND the focused block itself
-    if (!this._shouldRenderInFocusMode()) {
+    const shouldRender = this._shouldRenderInFocusMode()
+    if (!shouldRender) {
+      // Set attribute to hide via CSS (display: none)
+      this.setAttribute('hidden-in-focus', '')
       return html``
+    } else {
+      // Remove attribute when block should be visible
+      this.removeAttribute('hidden-in-focus')
     }
 
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
