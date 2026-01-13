@@ -64,4 +64,4 @@ jobs:
           EOF
 
       - name: Deploy to Vercel
-        run: vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
