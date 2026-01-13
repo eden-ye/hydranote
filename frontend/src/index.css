@@ -5,6 +5,26 @@
   line-height: 1.5;
   font-weight: 400;
   color-scheme: light dark;
+
+  /* EDITOR-3506: Highlight text foreground colors */
+  --affine-text-highlight-foreground-red: #dc2626;
+  --affine-text-highlight-foreground-orange: #ea580c;
+  --affine-text-highlight-foreground-yellow: #ca8a04;
+  --affine-text-highlight-foreground-green: #16a34a;
+  --affine-text-highlight-foreground-teal: #0d9488;
+  --affine-text-highlight-foreground-blue: #2563eb;
+  --affine-text-highlight-foreground-purple: #9333ea;
+  --affine-text-highlight-foreground-grey: #6b7280;
+
+  /* EDITOR-3506: Highlight background colors */
+  --affine-text-highlight-red: #fee2e2;
+  --affine-text-highlight-orange: #ffedd5;
+  --affine-text-highlight-yellow: #fef3c7;
+  --affine-text-highlight-green: #dcfce7;
+  --affine-text-highlight-teal: #ccfbf1;
+  --affine-text-highlight-blue: #dbeafe;
+  --affine-text-highlight-purple: #f3e8ff;
+  --affine-text-highlight-grey: #f3f4f6;
 }
 
 body {

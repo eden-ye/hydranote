@@ -575,4 +575,392 @@ describe('Editor Store', () => {
       })
     })
   })
+
+  // EDITOR-3407: Auto-reorg state
+  describe('Auto-Reorg State (EDITOR-3407)', () => {
+    beforeEach(() => {
+      // Reset auto-reorg state
+      useEditorStore.setState({
+        autoReorgEnabled: true,
+        autoReorgThreshold: 0.8,
+        autoReorgStatus: 'idle',
+      })
+    })
+
+    describe('Initial State', () => {
+      it('should have auto-reorg enabled by default', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autoReorgEnabled).toBe(true)
+      })
+
+      it('should have 0.8 threshold by default', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autoReorgThreshold).toBe(0.8)
+      })
+
+      it('should have idle status by default', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.autoReorgStatus).toBe('idle')
+      })
+    })
+
+    describe('setAutoReorgEnabled action', () => {
+      it('should enable auto-reorg', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgEnabled(true)
+        })
+
+        expect(result.current.autoReorgEnabled).toBe(true)
+      })
+
+      it('should disable auto-reorg', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgEnabled(false)
+        })
+
+        expect(result.current.autoReorgEnabled).toBe(false)
+      })
+    })
+
+    describe('setAutoReorgThreshold action', () => {
+      it('should update threshold', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgThreshold(0.9)
+        })
+
+        expect(result.current.autoReorgThreshold).toBe(0.9)
+      })
+
+      it('should allow setting to 0', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgThreshold(0)
+        })
+
+        expect(result.current.autoReorgThreshold).toBe(0)
+      })
+
+      it('should allow setting to 1', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgThreshold(1)
+        })
+
+        expect(result.current.autoReorgThreshold).toBe(1)
+      })
+    })
+
+    describe('setAutoReorgStatus action', () => {
+      it('should set status to idle', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgStatus('idle')
+        })
+
+        expect(result.current.autoReorgStatus).toBe('idle')
+      })
+
+      it('should set status to processing', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgStatus('processing')
+        })
+
+        expect(result.current.autoReorgStatus).toBe('processing')
+      })
+
+      it('should set status to completed', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setAutoReorgStatus('completed')
+        })
+
+        expect(result.current.autoReorgStatus).toBe('completed')
+      })
+    })
+
+    describe('selectAutoReorgEnabled selector', () => {
+      it('should return enabled state', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+
+        act(() => {
+          storeResult.current.setAutoReorgEnabled(false)
+        })
+
+        expect(storeResult.current.autoReorgEnabled).toBe(false)
+      })
+    })
+
+    describe('selectAutoReorgStatus selector', () => {
+      it('should return current status', () => {
+        const { result: storeResult } = renderHook(() => useEditorStore())
+
+        act(() => {
+          storeResult.current.setAutoReorgStatus('processing')
+        })
+
+        expect(storeResult.current.autoReorgStatus).toBe('processing')
+      })
+    })
+  })
+
+  // EDITOR-3502: Reorganization modal state
+  describe('Reorganization Modal State (EDITOR-3502)', () => {
+    beforeEach(() => {
+      // Reset reorganization modal state
+      useEditorStore.setState({
+        reorgModalOpen: false,
+        reorgModalStatus: 'idle',
+        reorgModalDocumentId: null,
+        reorgModalConceptMatches: [],
+        reorgModalError: null,
+      })
+    })
+
+    describe('Initial State', () => {
+      it('should have reorg modal closed initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.reorgModalOpen).toBe(false)
+      })
+
+      it('should have idle status initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.reorgModalStatus).toBe('idle')
+      })
+
+      it('should have null document ID initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.reorgModalDocumentId).toBeNull()
+      })
+
+      it('should have empty concept matches initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.reorgModalConceptMatches).toEqual([])
+      })
+
+      it('should have null error initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.reorgModalError).toBeNull()
+      })
+    })
+
+    describe('openReorgModal action', () => {
+      it('should open modal with document ID', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openReorgModal('doc-123')
+        })
+
+        expect(result.current.reorgModalOpen).toBe(true)
+        expect(result.current.reorgModalDocumentId).toBe('doc-123')
+        expect(result.current.reorgModalStatus).toBe('idle')
+        expect(result.current.reorgModalConceptMatches).toEqual([])
+        expect(result.current.reorgModalError).toBeNull()
+      })
+    })
+
+    describe('closeReorgModal action', () => {
+      it('should close modal and reset state', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.openReorgModal('doc-123')
+          result.current.setReorgModalStatus('extracting')
+        })
+
+        expect(result.current.reorgModalOpen).toBe(true)
+
+        act(() => {
+          result.current.closeReorgModal()
+        })
+
+        expect(result.current.reorgModalOpen).toBe(false)
+        expect(result.current.reorgModalStatus).toBe('idle')
+        expect(result.current.reorgModalDocumentId).toBeNull()
+        expect(result.current.reorgModalConceptMatches).toEqual([])
+        expect(result.current.reorgModalError).toBeNull()
+      })
+    })
+
+    describe('setReorgModalStatus action', () => {
+      it('should set status to idle', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalStatus('idle')
+        })
+
+        expect(result.current.reorgModalStatus).toBe('idle')
+      })
+
+      it('should set status to extracting', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalStatus('extracting')
+        })
+
+        expect(result.current.reorgModalStatus).toBe('extracting')
+      })
+
+      it('should set status to searching', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalStatus('searching')
+        })
+
+        expect(result.current.reorgModalStatus).toBe('searching')
+      })
+
+      it('should set status to loaded', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalStatus('loaded')
+        })
+
+        expect(result.current.reorgModalStatus).toBe('loaded')
+      })
+
+      it('should set status to error', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalStatus('error')
+        })
+
+        expect(result.current.reorgModalStatus).toBe('error')
+      })
+    })
+
+    describe('setReorgModalConceptMatches action', () => {
+      it('should update concept matches', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        const mockMatches = [
+          {
+            concept: 'Tesla Inc',
+            category: 'company',
+            matches: [],
+            selectedMatches: new Set<string>(),
+          },
+        ]
+
+        act(() => {
+          result.current.setReorgModalConceptMatches(mockMatches)
+        })
+
+        expect(result.current.reorgModalConceptMatches).toEqual(mockMatches)
+      })
+    })
+
+    describe('setReorgModalError action', () => {
+      it('should set error message', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalError('Failed to connect')
+        })
+
+        expect(result.current.reorgModalError).toBe('Failed to connect')
+      })
+
+      it('should clear error with null', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.setReorgModalError('Some error')
+        })
+
+        expect(result.current.reorgModalError).toBe('Some error')
+
+        act(() => {
+          result.current.setReorgModalError(null)
+        })
+
+        expect(result.current.reorgModalError).toBeNull()
+      })
+    })
+
+    describe('toggleReorgMatch action', () => {
+      it('should add match to selection if not selected', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        const mockMatches = [
+          {
+            concept: 'Tesla Inc',
+            category: 'company',
+            matches: [
+              {
+                documentId: 'doc-1',
+                blockId: 'block-1',
+                bulletText: 'Test',
+                contextPath: 'Test > Path',
+                score: 0.9,
+                descriptorType: null,
+                childrenSummary: null,
+              },
+            ],
+            selectedMatches: new Set<string>(),
+          },
+        ]
+
+        act(() => {
+          result.current.setReorgModalConceptMatches(mockMatches)
+        })
+
+        act(() => {
+          result.current.toggleReorgMatch('Tesla Inc', 'block-1')
+        })
+
+        expect(result.current.reorgModalConceptMatches[0].selectedMatches.has('block-1')).toBe(true)
+      })
+
+      it('should remove match from selection if already selected', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        const mockMatches = [
+          {
+            concept: 'Tesla Inc',
+            category: 'company',
+            matches: [
+              {
+                documentId: 'doc-1',
+                blockId: 'block-1',
+                bulletText: 'Test',
+                contextPath: 'Test > Path',
+                score: 0.9,
+                descriptorType: null,
+                childrenSummary: null,
+              },
+            ],
+            selectedMatches: new Set<string>(['block-1']),
+          },
+        ]
+
+        act(() => {
+          result.current.setReorgModalConceptMatches(mockMatches)
+        })
+
+        act(() => {
+          result.current.toggleReorgMatch('Tesla Inc', 'block-1')
+        })
+
+        expect(result.current.reorgModalConceptMatches[0].selectedMatches.has('block-1')).toBe(false)
+      })
+    })
+  })
 })

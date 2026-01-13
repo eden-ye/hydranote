@@ -30,6 +30,32 @@ import {
 } from '../utils/cheatsheet'
 // EDITOR-3405: Import portal slash command utilities
 import { isPortalSlashCommand } from '../utils/portal-slash-command'
+// EDITOR-3507: Import drag-drop and block selection utilities
+import {
+  type DragState,
+  type DropPlacement,
+  computeDropPlacement,
+  isValidDropTarget,
+  getAllDescendantIds,
+  createDragState,
+  createEmptyDragState,
+  INDENT_THRESHOLD,
+} from '../utils/drag-drop'
+import {
+  type BlockSelectionState,
+  computeSelectionAfterClick,
+  isBlockSelected,
+  clearSelection,
+  createSingleSelection,
+  getSelectedBlockIds,
+} from '../utils/block-selection'
+// EDITOR-3507: Import drop indicator component
+import './drop-indicator'
+// EDITOR-3510: Import block type utilities
+import { parseMarkdownShortcut } from '../utils/markdown-shortcuts'
+import { computeListNumber } from '../utils/numbered-list'
+import { getBulletMarker } from '../utils/block-icons'
+import { isSlashTrigger } from '../utils/slash-menu'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -292,6 +318,200 @@ export function buildDescriptorGenerationContext(input: DescriptorGenerationInpu
   }
 }
 
+// ============================================================================
+// EDITOR-3511: Ghost Bullet Suggestions - Pure Logic Functions
+// ============================================================================
+
+/**
+ * EDITOR-3511: Ghost suggestion interface
+ * Represents a suggestion that appears as an inline ghost bullet
+ */
+export interface GhostSuggestion {
+  /** Unique identifier */
+  id: string
+  /** Question/suggestion text */
+  text: string
+}
+
+/**
+ * EDITOR-3511: Context for generating ghost suggestions
+ */
+export interface GhostSuggestionContext {
+  /** Text content of the parent block */
+  parentText: string
+  /** Text content of sibling blocks */
+  siblingTexts: string[]
+  /** Nesting depth of the parent block */
+  depth: number
+}
+
+/**
+ * EDITOR-3511: Input for determining if ghost bullets should be shown
+ */
+export interface GhostBulletVisibilityInput {
+  /** Whether the block has text content */
+  hasText: boolean
+  /** Whether the block is expanded */
+  isExpanded: boolean
+  /** Whether the block has children */
+  hasChildren: boolean
+  /** Whether in focus mode */
+  isInFocusMode: boolean
+}
+
+/**
+ * EDITOR-3511: Determine if ghost bullets should be shown for a block
+ *
+ * Ghost bullets are shown when:
+ * - Block has text content (no suggestions for empty blocks)
+ * - Block is expanded (don't show when collapsed)
+ *
+ * @param input - Visibility context
+ * @returns true if ghost bullets should be displayed
+ */
+export function shouldShowGhostBullets(input: GhostBulletVisibilityInput): boolean {
+  // Don't show ghost bullets if block has no text
+  if (!input.hasText) {
+    return false
+  }
+
+  // Don't show ghost bullets if block is collapsed
+  if (!input.isExpanded) {
+    return false
+  }
+
+  // Show ghost bullets for blocks with text that are expanded
+  return true
+}
+
+/**
+ * EDITOR-3511: Default question templates for ghost suggestions
+ * These are used to generate context-aware questions
+ */
+const GHOST_QUESTION_TEMPLATES = [
+  'What are the key implications of this?',
+  'How does this relate to the broader context?',
+  'What evidence supports this idea?',
+  'What are the potential challenges?',
+  'What are the next steps?',
+]
+
+/**
+ * EDITOR-3511: Counter for generating unique IDs
+ */
+let ghostIdCounter = 0
+
+/**
+ * EDITOR-3511: Generate ghost suggestions based on parent context
+ *
+ * Currently uses static question templates. In production, this could
+ * call AI to generate contextually relevant suggestions.
+ *
+ * @param context - The parent block's context
+ * @returns Array of ghost suggestions (max 3)
+ */
+export function generateGhostSuggestions(context: GhostSuggestionContext): GhostSuggestion[] {
+  // No suggestions for empty or whitespace-only text
+  if (!context.parentText || context.parentText.trim().length === 0) {
+    return []
+  }
+
+  // Generate up to 3 suggestions using templates
+  // In a full implementation, this would use AI to generate contextual questions
+  const suggestions: GhostSuggestion[] = []
+  const maxSuggestions = Math.min(3, GHOST_QUESTION_TEMPLATES.length)
+
+  for (let i = 0; i < maxSuggestions; i++) {
+    suggestions.push({
+      id: `ghost-${++ghostIdCounter}`,
+      text: GHOST_QUESTION_TEMPLATES[i],
+    })
+  }
+
+  return suggestions
+}
+
+/**
+ * EDITOR-3512: Expand button state type
+ * Represents the four distinct visual states of the expand button
+ */
+export type ExpandButtonState = 'default' | 'hover' | 'active' | 'disabled'
+
+/**
+ * EDITOR-3512: Input for computing expand button state
+ */
+export interface ExpandButtonStateInput {
+  isExpanding: boolean
+  isDisabled: boolean
+  isHovered: boolean
+}
+
+/**
+ * EDITOR-3512: Compute the expand button state based on input
+ * @param input - The current button state
+ * @returns The visual state to display
+ */
+export function getExpandButtonState(input: ExpandButtonStateInput): ExpandButtonState {
+  // Disabled takes precedence
+  if (input.isDisabled) {
+    return 'disabled'
+  }
+
+  // Active (expanding) takes precedence over hover
+  if (input.isExpanding) {
+    return 'active'
+  }
+
+  // Hover state
+  if (input.isHovered) {
+    return 'hover'
+  }
+
+  // Default state
+  return 'default'
+}
+
+/**
+ * EDITOR-3512: Get tooltip text based on button state
+ * @param state - The current button state
+ * @returns Tooltip text for accessibility
+ */
+export function getExpandButtonTooltip(state: ExpandButtonState): string {
+  switch (state) {
+    case 'default':
+    case 'hover':
+      return 'Expand with AI (generates child bullets)'
+    case 'active':
+      return 'Generating child bullets...'
+    case 'disabled':
+      return 'Cannot expand (empty text or already expanding)'
+  }
+}
+
+/**
+ * EDITOR-3512: Get CSS classes based on button state
+ * @param state - The current button state
+ * @returns CSS class string
+ */
+export function getExpandButtonClasses(state: ExpandButtonState): string {
+  const classes = ['bullet-expand']
+
+  switch (state) {
+    case 'hover':
+      classes.push('bullet-expand-hover')
+      break
+    case 'active':
+      classes.push('bullet-expand-active')
+      break
+    case 'disabled':
+      classes.push('bullet-expand-disabled')
+      break
+    // default: no additional classes
+  }
+
+  return classes.join(' ')
+}
+
 /**
  * Input for computing backspace merge strategy
  * EDITOR-3063: Added to handle children reparenting
@@ -362,6 +582,78 @@ export function computeBackspaceMergeStrategy(input: BackspaceMergeInput): Backs
   }
 }
 
+// ============================================================================
+// BUG-EDITOR-3064: Null Model Defense - Pure Logic Functions
+// ============================================================================
+
+/**
+ * Dummy text object that mimics Yjs Text interface
+ * Used in createDummyModel to prevent null access errors
+ */
+interface DummyText {
+  toString(): string
+  length: number
+  yText?: unknown
+}
+
+/**
+ * Extended model interface with dummy marker
+ * Used to identify dummy models created during null state
+ */
+interface DummyModelMarker {
+  __isDummy?: boolean
+}
+
+/**
+ * Create a dummy model object to use when real model is null.
+ * This prevents "Cannot read properties of null (reading 'id')" errors
+ * that occur when BlockSuite's base class accesses this.model.id internally.
+ *
+ * BUG-EDITOR-3064: Returns an object that satisfies BulletBlockModel interface
+ * with safe default values, allowing render() to complete without errors.
+ */
+export function createDummyModel(): {
+  id: string
+  text: DummyText
+  isExpanded: boolean
+  children: never[]
+  isDescriptor: boolean
+  descriptorType: null
+  descriptorLabel: undefined
+  cheatsheetVisible: boolean
+  __isDummy: true
+} {
+  return {
+    id: '',
+    text: {
+      toString: () => '',
+      length: 0,
+      yText: undefined,
+    },
+    isExpanded: true,
+    children: [],
+    isDescriptor: false,
+    descriptorType: null,
+    descriptorLabel: undefined,
+    cheatsheetVisible: true,
+    __isDummy: true,
+  }
+}
+
+/**
+ * Check if a model is a dummy model created by createDummyModel.
+ * Used to skip operations that should only run on real models.
+ *
+ * @param model - Model to check
+ * @returns true if model is a dummy model
+ */
+export function isDummyModel(model: unknown): boolean {
+  if (!model || typeof model !== 'object') {
+    return false
+  }
+  return (model as DummyModelMarker).__isDummy === true
+}
+
 /**
  * Context for block navigation
  */
@@ -420,6 +712,19 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   private _contextMenuX = 0
   private _contextMenuY = 0
 
+  /**
+   * EDITOR-3507: Shared drag-drop state across all bullet blocks
+   * Using static to share state between component instances
+   */
+  private static _dragState: DragState = createEmptyDragState()
+  private static _blockSelectionState: BlockSelectionState = clearSelection()
+
+  /**
+   * EDITOR-3507: Local drop target state for this block
+   */
+  private _isDropTarget = false
+  private _dropPlacement: DropPlacement = 'after'
+
   static override styles = css`
     :host {
       display: block;
@@ -461,7 +766,147 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       cursor: default;
     }
 
-    /* FE-408: Expand button styles */
+    /* EDITOR-3508: Grip handle styles (Affine-style) */
+    .bullet-grip {
+      width: 16px;
+      height: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      user-select: none;
+      border-radius: 4px;
+    }
+
+    .bullet-container:hover .bullet-grip {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bullet-grip:hover {
+      background-color: var(--affine-hover-color, #f0f0f0);
+    }
+
+    /* Grip dots icon using pseudo-element */
+    .bullet-grip::before {
+      content: '⋮⋮';
+      font-size: 10px;
+      color: var(--affine-icon-color, #888);
+      letter-spacing: -2px;
+    }
+
+    /* EDITOR-3507: Drag handle cursor when hovering */
+    .bullet-grip {
+      cursor: grab;
+    }
+
+    .bullet-grip:active {
+      cursor: grabbing;
+    }
+
+    /* EDITOR-3507: Block selection highlight */
+    .bullet-container.selected {
+      background-color: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+      border-radius: 4px;
+    }
+
+    /* EDITOR-3507: Dragging state - reduce opacity */
+    :host(.dragging) {
+      opacity: 0.7;
+    }
+
+    /* EDITOR-3507: Drop target indicator */
+    :host(.drop-target) {
+      position: relative;
+    }
+
+    /* Drop indicator line for before/after */
+    .drop-indicator-line {
+      position: absolute;
+      left: 24px;
+      right: 0;
+      height: 2px;
+      background-color: var(--affine-primary-color, #1976d2);
+      border-radius: 1px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .drop-indicator-line::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: -3px;
+      width: 8px;
+      height: 8px;
+      background-color: var(--affine-primary-color, #1976d2);
+      border-radius: 50%;
+    }
+
+    .drop-indicator-line.before {
+      top: 0;
+    }
+
+    .drop-indicator-line.after {
+      bottom: 0;
+    }
+
+    /* Drop indicator for nesting */
+    .drop-indicator-nest {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 40px;
+      right: 0;
+      background-color: var(--affine-primary-color, #1976d2);
+      opacity: 0.15;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* EDITOR-3508: Expand toggle styles (separate from grip) */
+    .bullet-expand-toggle {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--affine-icon-color, #888);
+      border-radius: 4px;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 12px;
+      transition: background-color 0.15s ease, opacity 0.15s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .bullet-container:hover .bullet-expand-toggle.has-children {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Always show expand toggle when children exist and collapsed */
+    .bullet-expand-toggle.has-children.collapsed {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bullet-expand-toggle:hover {
+      background-color: var(--affine-hover-color, #f0f0f0);
+    }
+
+    /* FE-408, EDITOR-3512: Expand button styles
+     * EDITOR-3512 improvements:
+     * - Clear visual states (default, hover, active, disabled)
+     * - Stable positioning using absolute position (doesn't shift during typing)
+     */
     .bullet-expand {
       width: 20px;
       height: 20px;
@@ -474,25 +919,45 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       flex-shrink: 0;
       user-select: none;
       font-size: 12px;
-      transition: background-color 0.15s ease, color 0.15s ease;
-      margin-left: 4px;
+      transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+      /* EDITOR-3512: Use position:absolute for stable positioning */
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 0; /* Remove margin since using absolute positioning */
     }
 
     .bullet-container:hover .bullet-expand {
       display: flex;
     }
 
-    .bullet-expand:hover {
+    /* EDITOR-3512: Hover state - blue icon with subtle background */
+    .bullet-expand:hover,
+    .bullet-expand.bullet-expand-hover {
       background-color: var(--affine-hover-color, #f0f0f0);
       color: var(--affine-primary-color, #1976d2);
     }
 
-    .bullet-expand.expanding {
+    /* EDITOR-3512: Active state - expanding, filled background with animation */
+    .bullet-expand.expanding,
+    .bullet-expand.bullet-expand-active {
+      display: flex; /* Always visible when active */
+      background-color: var(--affine-primary-color-light, #e3f2fd);
       color: var(--affine-primary-color, #1976d2);
-      animation: pulse 1s ease-in-out infinite;
+      animation: expand-pulse 1s ease-in-out infinite;
     }
 
-    @keyframes pulse {
+    /* EDITOR-3512: Disabled state - muted appearance, no interaction */
+    .bullet-expand.bullet-expand-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+      color: var(--affine-icon-color, #888);
+      background-color: transparent;
+    }
+
+    @keyframes expand-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
@@ -679,6 +1144,45 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       padding: 0 4px;
     }
 
+    /* EDITOR-3509: Inline preview separator (clickable dash) */
+    .inline-preview-separator {
+      cursor: pointer;
+      color: var(--affine-text-secondary-color, #9CA3AF);
+      margin: 0 8px;
+      transition: color 0.15s ease;
+      user-select: none;
+    }
+
+    .inline-preview-separator:hover {
+      color: var(--affine-text-primary-color, #374151);
+    }
+
+    /* EDITOR-3509: Inline preview restore button */
+    .inline-preview-restore {
+      opacity: 0;
+      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--affine-icon-color, #888);
+      border-radius: 4px;
+      flex-shrink: 0;
+      user-select: none;
+      margin-left: 8px;
+      transition: opacity 0.15s ease, background-color 0.15s ease;
+    }
+
+    .bullet-container:hover .inline-preview-restore {
+      opacity: 0.6;
+    }
+
+    .inline-preview-restore:hover {
+      opacity: 1;
+      background-color: var(--affine-hover-color, #f0f0f0);
+    }
+
     /* EDITOR-3103: Context menu color picker styles */
     .color-context-menu {
       position: fixed;
@@ -750,13 +1254,224 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       height: 16px;
       color: var(--affine-icon-color, #888);
     }
+
+    /* EDITOR-3510: Block type prefix styles */
+    .block-prefix {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 14px;
+      color: var(--affine-text-secondary-color, #6B7280);
+    }
+
+    .block-prefix.checkbox {
+      cursor: pointer;
+    }
+
+    .block-prefix.checkbox svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .block-prefix.numbered {
+      font-variant-numeric: tabular-nums;
+      min-width: 24px;
+      justify-content: flex-end;
+      padding-right: 4px;
+    }
+
+    .block-prefix.bullet {
+      font-size: 8px;
+    }
+
+    /* EDITOR-3510: Heading styles */
+    .bullet-container.heading1 rich-text {
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .bullet-container.heading2 rich-text {
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .bullet-container.heading3 rich-text {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    /* EDITOR-3510: Checkbox checked state */
+    .bullet-container.checkbox-checked rich-text {
+      text-decoration: line-through;
+      color: var(--affine-text-secondary-color, #6B7280);
+    }
+
+    /* EDITOR-3510: Divider styles */
+    .bullet-container.divider {
+      padding: 12px 0;
+    }
+
+    .divider-line {
+      height: 1px;
+      background-color: var(--affine-border-color, #e0e0e0);
+      width: 100%;
+    }
+
+    /* EDITOR-3511: Ghost bullet styles */
+    .ghost-bullets-container {
+      margin-left: 24px;
+      margin-top: 2px;
+    }
+
+    .ghost-bullet {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      min-height: 24px;
+      padding: 2px 0;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, background-color 0.15s ease;
+    }
+
+    /* Show ghost bullets on parent hover */
+    :host(:hover) .ghost-bullet {
+      opacity: 1;
+    }
+
+    .ghost-bullet:hover {
+      background-color: var(--affine-hover-color, #f5f5f5);
+      border-radius: 4px;
+    }
+
+    .ghost-bullet-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--affine-text-disable-color, #c0c0c0);
+      font-size: 8px;
+    }
+
+    .ghost-bullet-text {
+      flex: 1;
+      min-width: 0;
+      color: var(--affine-text-secondary-color, #9CA3AF);
+      font-style: italic;
+      font-size: 0.95em;
+      line-height: 20px;
+    }
+
+    .ghost-bullet:hover .ghost-bullet-text {
+      color: var(--affine-text-primary-color, #374151);
+    }
+
+    .ghost-bullet-dismiss {
+      width: 20px;
+      height: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--affine-icon-color, #888);
+      border: none;
+      background: none;
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .ghost-bullet:hover .ghost-bullet-dismiss {
+      display: flex;
+    }
+
+    .ghost-bullet-dismiss:hover {
+      background-color: var(--affine-hover-color, #e5e5e5);
+      color: var(--affine-error-color, #dc2626);
+    }
+
+    .ghost-bullet-dismiss svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Ghost bullet loading state */
+    .ghost-bullet.loading {
+      pointer-events: none;
+    }
+
+    .ghost-bullet.loading .ghost-bullet-text {
+      color: var(--affine-primary-color, #1976d2);
+      animation: pulse 1s ease-in-out infinite;
+    }
   `
+
+  /**
+   * BUG-EDITOR-3064: Cached dummy model to avoid creating new objects on each access.
+   * Created lazily on first null model access.
+   */
+  private _cachedDummyModel: ReturnType<typeof createDummyModel> | null = null
+
+  /**
+   * EDITOR-3511: Set of dismissed ghost suggestion IDs
+   * Persisted per block to remember dismissed suggestions
+   */
+  private _dismissedGhostIds: Set<string> = new Set()
+
+  /**
+   * EDITOR-3511: ID of ghost bullet currently being converted to real bullet
+   * Used to show loading state during AI generation
+   */
+  private _loadingGhostId: string | null = null
+
+  /**
+   * BUG-EDITOR-3064: Override model getter to return a dummy object when null.
+   * This prevents "Cannot read properties of null (reading 'id')" errors
+   * that occur when BlockSuite's base class accesses this.model.id internally.
+   *
+   * The base class getter throws BlockSuiteError when the model isn't found
+   * in the store (orphaned blocks persisted in IndexedDB). By catching this
+   * and returning a dummy, we prevent the error from propagating.
+   */
+  override get model(): BulletBlockModel {
+    try {
+      const baseModel = super.model
+      if (!baseModel) {
+        // Return cached dummy to avoid creating new objects on each access
+        if (!this._cachedDummyModel) {
+          this._cachedDummyModel = createDummyModel()
+        }
+        return this._cachedDummyModel as unknown as BulletBlockModel
+      }
+      return baseModel
+    } catch {
+      // BlockSuiteError: MissingViewModelError or null access
+      if (!this._cachedDummyModel) {
+        this._cachedDummyModel = createDummyModel()
+      }
+      return this._cachedDummyModel as unknown as BulletBlockModel
+    }
+  }
 
   /**
    * Check if this block has children.
    * Computed dynamically in render to stay in sync.
+   * BUG-EDITOR-3064: Safe to call now that model getter is defensive.
    */
   private get _hasChildren(): boolean {
+    // Skip check for dummy models - they have no children
+    if (isDummyModel(this.model)) {
+      return false
+    }
     return this.model.children.length > 0
   }
 
@@ -764,14 +1479,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * EDITOR-3405 BUGFIX: Safe model accessor that catches BlockSuiteError.
    * The base class `model` getter throws if the model isn't found in the store,
    * which can happen for orphaned blocks persisted in IndexedDB.
+   * BUG-EDITOR-3064: Now uses the defensive model getter, so this is simpler.
    */
   private get _safeModel(): BulletBlockModel | null {
-    try {
-      return this.model
-    } catch {
-      // BlockSuiteError: MissingViewModelError
+    const m = this.model
+    // Return null for dummy models to signal "no real model"
+    if (isDummyModel(m)) {
       return null
     }
+    return m
   }
 
   override connectedCallback(): void {
@@ -1675,36 +2391,91 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
+   * EDITOR-3509: Toggle inline preview visibility.
+   * Clicking the dash separator hides the preview; clicking restore button shows it.
+   */
+  private _toggleInlinePreview(): void {
+    this.doc.transact(() => {
+      this.model.inlinePreviewVisible = !this.model.inlinePreviewVisible
+    })
+  }
+
+  /**
+   * EDITOR-3509: Render restore button for hidden inline preview.
+   * Only shown when preview is hidden and on hover.
+   */
+  private _renderInlinePreviewRestoreButton(): TemplateResult | typeof nothing {
+    // Only show when preview is explicitly hidden (false) and block has children and is collapsed
+    // Treat undefined as true (default for existing blocks without this property)
+    if (this.model.inlinePreviewVisible !== false || this.model.isExpanded || !this._hasChildren) {
+      return nothing
+    }
+
+    return html`
+      <span
+        class="inline-preview-restore"
+        @click=${(e: Event) => {
+          e.stopPropagation()
+          this._toggleInlinePreview()
+        }}
+        title="Show inline preview"
+        role="button"
+        aria-label="Show inline preview"
+      >+</span>
+    `
+  }
+
+  /**
    * Render inline preview element when collapsed with children.
    * EDITOR-3302: Render colored segments for Pros (green) and Cons (pink).
    * EDITOR-3304: Render styled separators (pipe, versus).
+   * EDITOR-3509: Add dash separator and respect visibility flag.
    */
   private _renderInlinePreview(): TemplateResult | typeof nothing {
+    // EDITOR-3509: Check if preview is hidden
+    // Treat undefined as true (default for existing blocks without this property)
+    if (this.model.inlinePreviewVisible === false) {
+      return nothing
+    }
+
     // EDITOR-3302: Try to get colored segments first
     const segments = this._getCheatsheetSegments()
 
     if (segments && segments.length > 0) {
       // Render with colored segments and styled separators
       const fullText = segments.map(s => s.text).join('')
-      return html`<span class="inline-preview" title="${fullText}">${segments.map(
-        (segment) => {
-          // EDITOR-3304: Check for separator type first
-          if (segment.separatorType) {
-            const separatorClass = `cheatsheet-separator-${segment.separatorType}`
-            return html`<span class="${separatorClass}">${segment.text}</span>`
+      // EDITOR-3509: Add dash separator before preview
+      return html`
+        <span
+          class="inline-preview-separator"
+          @click=${(e: Event) => {
+            e.stopPropagation()
+            this._toggleInlinePreview()
+          }}
+          title="Click to hide preview"
+          role="button"
+          aria-label="Hide inline preview"
+        >—</span>
+        <span class="inline-preview" title="${fullText}">${segments.map(
+          (segment) => {
+            // EDITOR-3304: Check for separator type first
+            if (segment.separatorType) {
+              const separatorClass = `cheatsheet-separator-${segment.separatorType}`
+              return html`<span class="${separatorClass}">${segment.text}</span>`
+            }
+            if (segment.color) {
+              // Render colored segment (Pros/Cons)
+              return html`<span
+                class="cheatsheet-segment"
+                style="background-color: ${segment.color.backgroundColor}; color: ${segment.color.textColor}; padding: 0 4px; border-radius: 3px; margin: 0 1px;"
+              >${segment.text}</span>`
+            } else {
+              // Render plain text segment
+              return html`<span>${segment.text}</span>`
+            }
           }
-          if (segment.color) {
-            // Render colored segment (Pros/Cons)
-            return html`<span
-              class="cheatsheet-segment"
-              style="background-color: ${segment.color.backgroundColor}; color: ${segment.color.textColor}; padding: 0 4px; border-radius: 3px; margin: 0 1px;"
-            >${segment.text}</span>`
-          } else {
-            // Render plain text segment
-            return html`<span>${segment.text}</span>`
-          }
-        }
-      )}</span>`
+        )}</span>
+      `
     }
 
     // Fallback to plain text preview
@@ -1713,25 +2484,441 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return nothing
     }
 
-    return html`<span class="inline-preview" title="${previewText}"
-      >${previewText}</span
-    >`
+    // EDITOR-3509: Add dash separator before preview
+    return html`
+      <span
+        class="inline-preview-separator"
+        @click=${(e: Event) => {
+          e.stopPropagation()
+          this._toggleInlinePreview()
+        }}
+        title="Click to hide preview"
+        role="button"
+        aria-label="Hide inline preview"
+      >—</span>
+      <span class="inline-preview" title="${previewText}">${previewText}</span>
+    `
   }
 
-  private _renderToggle(): TemplateResult {
+  /**
+   * EDITOR-3508: Render grip handle for focus mode zoom
+   * EDITOR-3507: Also handles drag-and-drop
+   * - Click: Zoom into block (focus mode)
+   * - Drag: Start drag operation
+   * - Shift+Click: Extend selection range
+   * - Cmd/Ctrl+Click: Toggle selection
+   */
+  private _renderGripHandle(): TemplateResult {
+    return html`
+      <div
+        class="bullet-grip"
+        draggable="true"
+        @click=${this._handleGripClick}
+        @mousedown=${this._handleGripMouseDown}
+        @dragstart=${this._handleDragStart}
+        @dragend=${this._handleDragEnd}
+        title="Click to zoom, drag to move"
+        role="button"
+        aria-label="Click to zoom into this bullet, or drag to reorder"
+        tabindex="0"
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            this._handleGripClick(e)
+          }
+          // EDITOR-3507: Escape cancels drag
+          if (e.key === 'Escape' && HydraBulletBlock._dragState.isDragging) {
+            this._cancelDrag()
+          }
+        }}
+      ></div>
+    `
+  }
+
+  /**
+   * EDITOR-3507: Handle mousedown on grip for selection management
+   */
+  private _handleGripMouseDown(e: MouseEvent): void {
+    // Only handle selection modifiers, let click/drag handle the rest
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      this._handleSelectionClick(e)
+    }
+  }
+
+  /**
+   * EDITOR-3507: Handle selection click with modifiers
+   */
+  private _handleSelectionClick(e: MouseEvent): void {
+    const orderedBlockIds = this._getOrderedBlockIds()
+    const newSelection = computeSelectionAfterClick(
+      HydraBulletBlock._blockSelectionState,
+      {
+        blockId: this.model.id,
+        shiftKey: e.shiftKey,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+      },
+      orderedBlockIds
+    )
+    HydraBulletBlock._blockSelectionState = newSelection
+    this._notifySelectionChange()
+  }
+
+  /**
+   * EDITOR-3508: Handle grip handle click to enter focus mode
+   * EDITOR-3507: Also handles single-click selection
+   */
+  private _handleGripClick(e: Event): void {
+    e.stopPropagation()
+
+    // Don't trigger focus mode if we were dragging
+    if (HydraBulletBlock._dragState.isDragging) {
+      return
+    }
+
+    // Check if modifier keys are held - don't enter focus mode
+    const mouseEvent = e as MouseEvent
+    if (mouseEvent.shiftKey || mouseEvent.metaKey || mouseEvent.ctrlKey) {
+      return
+    }
+
+    // Single click with no modifiers: enter focus mode
+    const event = new CustomEvent('hydra-focus-block', {
+      bubbles: true,
+      composed: true,
+      detail: { blockId: this.model.id },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3507: Handle drag start
+   */
+  private _handleDragStart(e: DragEvent): void {
+    if (!e.dataTransfer) return
+
+    // Set drag data
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', this.model.id)
+
+    // Determine which blocks are being dragged
+    let draggedIds: string[]
+    if (isBlockSelected(HydraBulletBlock._blockSelectionState, this.model.id)) {
+      // Drag all selected blocks
+      draggedIds = getSelectedBlockIds(HydraBulletBlock._blockSelectionState)
+    } else {
+      // Single block drag - select this block first
+      HydraBulletBlock._blockSelectionState = createSingleSelection(this.model.id)
+      draggedIds = [this.model.id]
+    }
+
+    // Create drag state
+    HydraBulletBlock._dragState = createDragState(
+      draggedIds,
+      e.clientX,
+      e.clientY
+    )
+
+    // Add dragging class to all dragged blocks
+    this._updateDraggingClasses(true)
+
+    // Add global listeners
+    document.addEventListener('dragover', this._handleGlobalDragOver)
+    document.addEventListener('drop', this._handleGlobalDrop)
+    document.addEventListener('keydown', this._handleGlobalKeyDown)
+
+    console.log('[DragDrop] Drag started, blocks:', draggedIds)
+  }
+
+  /**
+   * EDITOR-3507: Handle drag end
+   */
+  private _handleDragEnd(): void {
+    // Clean up drag state
+    this._cleanupDrag()
+    console.log('[DragDrop] Drag ended')
+  }
+
+  /**
+   * EDITOR-3507: Global dragover handler
+   */
+  private _handleGlobalDragOver = (e: DragEvent): void => {
+    e.preventDefault()
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move'
+    }
+
+    // Update current position
+    HydraBulletBlock._dragState.currentPosition = { x: e.clientX, y: e.clientY }
+
+    // Find the target block under cursor
+    const target = document.elementFromPoint(e.clientX, e.clientY)
+    const blockElement = target?.closest('hydra-bullet-block') as HydraBulletBlock | null
+
+    // Clear all drop indicators first
+    this._clearAllDropIndicators()
+
+    if (blockElement && blockElement.model) {
+      const targetId = blockElement.model.id
+      const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
+
+      // Check if valid drop target
+      const descendantIds = Array.from(getAllDescendantIds(draggedIds, (id) => {
+        const block = this.doc.getBlockById(id) as BulletBlockModel | null
+        return block?.children.map(c => c.id) || []
+      }))
+
+      if (isValidDropTarget(draggedIds, targetId, descendantIds)) {
+        // Calculate drop placement
+        const rect = blockElement.getBoundingClientRect()
+        const placement = computeDropPlacement(
+          e.clientX,
+          e.clientY,
+          {
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            height: rect.height,
+            width: rect.width,
+          },
+          INDENT_THRESHOLD
+        )
+
+        // Update drop target state
+        blockElement._isDropTarget = true
+        blockElement._dropPlacement = placement
+        blockElement.requestUpdate()
+
+        HydraBulletBlock._dragState.dropTarget = {
+          blockId: targetId,
+          placement,
+        }
+      } else {
+        HydraBulletBlock._dragState.dropTarget = null
+      }
+    } else {
+      HydraBulletBlock._dragState.dropTarget = null
+    }
+  }
+
+  /**
+   * EDITOR-3507: Global drop handler
+   */
+  private _handleGlobalDrop = (e: DragEvent): void => {
+    e.preventDefault()
+
+    const dropTarget = HydraBulletBlock._dragState.dropTarget
+    if (!dropTarget) {
+      this._cleanupDrag()
+      return
+    }
+
+    const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
+    const targetId = dropTarget.blockId
+    const placement = dropTarget.placement
+
+    console.log('[DragDrop] Drop:', { draggedIds, targetId, placement })
+
+    // Perform the move operation
+    this._performDrop(draggedIds, targetId, placement)
+
+    // Clean up
+    this._cleanupDrag()
+  }
+
+  /**
+   * EDITOR-3507: Global keydown handler for Escape
+   */
+  private _handleGlobalKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this._cancelDrag()
+    }
+  }
+
+  /**
+   * EDITOR-3507: Perform the drop operation using BlockSuite's moveBlocks
+   */
+  private _performDrop(draggedIds: string[], targetId: string, placement: DropPlacement): void {
+    const targetBlock = this.doc.getBlockById(targetId)
+    if (!targetBlock) return
+
+    // Get the actual block models
+    const blocksToMove = draggedIds
+      .map(id => this.doc.getBlockById(id))
+      .filter((block): block is BlockModel => block !== null)
+
+    if (blocksToMove.length === 0) return
+
+    try {
+      switch (placement) {
+        case 'before': {
+          // Move before target (sibling of target)
+          const parent = targetBlock.parent
+          if (parent) {
+            const targetIndex = parent.children.indexOf(targetBlock)
+            const beforeRef = parent.children[targetIndex] || null
+            this.doc.moveBlocks(blocksToMove, parent, beforeRef)
+          }
+          break
+        }
+        case 'after': {
+          // Move after target (sibling of target)
+          const parent = targetBlock.parent
+          if (parent) {
+            const targetIndex = parent.children.indexOf(targetBlock)
+            const afterRef = parent.children[targetIndex + 1] || null
+            this.doc.moveBlocks(blocksToMove, parent, afterRef)
+          }
+          break
+        }
+        case 'in': {
+          // Move as child of target (first child)
+          const firstChildRef = targetBlock.children[0] || null
+          this.doc.moveBlocks(blocksToMove, targetBlock, firstChildRef)
+
+          // Expand target if collapsed
+          if (targetBlock.flavour === 'hydra:bullet') {
+            const bulletTarget = targetBlock as BulletBlockModel
+            if (!bulletTarget.isExpanded) {
+              this.doc.updateBlock(targetBlock, { isExpanded: true })
+            }
+          }
+          break
+        }
+      }
+
+      console.log('[DragDrop] Move completed')
+    } catch (error) {
+      console.error('[DragDrop] Move failed:', error)
+    }
+  }
+
+  /**
+   * EDITOR-3507: Cancel drag operation
+   */
+  private _cancelDrag(): void {
+    console.log('[DragDrop] Drag cancelled')
+    this._cleanupDrag()
+  }
+
+  /**
+   * EDITOR-3507: Clean up drag state and UI
+   */
+  private _cleanupDrag(): void {
+    // Remove dragging classes
+    this._updateDraggingClasses(false)
+
+    // Clear drop indicators
+    this._clearAllDropIndicators()
+
+    // Reset drag state
+    HydraBulletBlock._dragState = createEmptyDragState()
+
+    // Remove global listeners
+    document.removeEventListener('dragover', this._handleGlobalDragOver)
+    document.removeEventListener('drop', this._handleGlobalDrop)
+    document.removeEventListener('keydown', this._handleGlobalKeyDown)
+  }
+
+  /**
+   * EDITOR-3507: Update dragging classes on all dragged blocks
+   */
+  private _updateDraggingClasses(isDragging: boolean): void {
+    const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
+    draggedIds.forEach(id => {
+      const element = this.host?.view?.getBlock(id) as HTMLElement | null
+      if (element) {
+        if (isDragging) {
+          element.classList.add('dragging')
+        } else {
+          element.classList.remove('dragging')
+        }
+      }
+    })
+  }
+
+  /**
+   * EDITOR-3507: Clear all drop indicators
+   */
+  private _clearAllDropIndicators(): void {
+    // Query all bullet blocks and clear their drop state
+    const allBlocks = document.querySelectorAll('hydra-bullet-block') as NodeListOf<HydraBulletBlock>
+    allBlocks.forEach(block => {
+      if (block._isDropTarget) {
+        block._isDropTarget = false
+        block.requestUpdate()
+      }
+    })
+  }
+
+  /**
+   * EDITOR-3507: Notify about selection change
+   */
+  private _notifySelectionChange(): void {
+    // Request update on all blocks to reflect selection state
+    const allBlocks = document.querySelectorAll('hydra-bullet-block') as NodeListOf<HydraBulletBlock>
+    allBlocks.forEach(block => block.requestUpdate())
+  }
+
+  /**
+   * EDITOR-3507: Get ordered list of all visible block IDs (for range selection)
+   */
+  private _getOrderedBlockIds(): string[] {
+    const ids: string[] = []
+
+    const collectIds = (block: BlockModel) => {
+      if (block.flavour === 'hydra:bullet') {
+        ids.push(block.id)
+        const bulletBlock = block as BulletBlockModel
+        // Only include children if expanded
+        if (bulletBlock.isExpanded) {
+          block.children.forEach(child => collectIds(child))
+        }
+      }
+    }
+
+    // Start from root
+    const rootBlock = this.doc.root
+    if (rootBlock) {
+      rootBlock.children.forEach(child => collectIds(child))
+    }
+
+    return ids
+  }
+
+  /**
+   * EDITOR-3507: Render drop indicator if this block is a drop target
+   */
+  private _renderDropIndicator(): TemplateResult | typeof nothing {
+    if (!this._isDropTarget) {
+      return nothing
+    }
+
+    if (this._dropPlacement === 'in') {
+      return html`<div class="drop-indicator-nest"></div>`
+    }
+
+    return html`<div class="drop-indicator-line ${this._dropPlacement}"></div>`
+  }
+
+  /**
+   * EDITOR-3508: Render expand toggle (separate from grip handle)
+   * Hidden by default, shown on hover, only when block has children
+   */
+  private _renderExpandToggle(): TemplateResult | typeof nothing {
     if (!this._hasChildren) {
-      return html`
-        <div class="bullet-toggle no-children">
-          <span class="bullet-icon"></span>
-        </div>
-      `
+      return nothing
     }
 
     const icon = this.model.isExpanded ? '▼' : '▶'
     const title = this.model.isExpanded ? 'Collapse (⌘↵)' : 'Expand (⌘↵)'
+    const expandedClass = this.model.isExpanded ? '' : 'collapsed'
     return html`
       <div
-        class="bullet-toggle has-children"
+        class="bullet-expand-toggle has-children ${expandedClass}"
         @click=${this._toggleExpand}
         title=${title}
         role="button"
@@ -1750,6 +2937,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  // EDITOR-3508: _renderToggle() removed - replaced by _renderGripHandle() and _renderExpandToggle()
   // EDITOR-3053: _handleInput() removed - rich-text handles Yjs sync automatically
 
   /**
@@ -1971,13 +3159,42 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return
     }
 
+    // EDITOR-3510: Handle space key for markdown shortcuts
+    if (e.key === ' ') {
+      // Check if current text matches a markdown shortcut pattern
+      const currentText = this.model.text.toString()
+      // Add the space to see if it forms a complete pattern
+      const textWithSpace = currentText + ' '
+      const result = parseMarkdownShortcut(textWithSpace)
+      if (result) {
+        e.preventDefault()
+        this._handleMarkdownShortcut()
+        return
+      }
+    }
+
     // EDITOR-3405: Detect / key for portal slash command
+    // EDITOR-3510: Also detect / at start of line for slash menu
     if (e.key === '/') {
+      // Check if at start of line (empty text)
+      const currentText = this.model.text.toString()
+      if (currentText === '') {
+        // At start of empty line - trigger slash menu after key is inserted
+        setTimeout(() => {
+          const newText = this.model.text.toString()
+          if (isSlashTrigger(newText)) {
+            this._dispatchSlashMenuOpen()
+          }
+        }, 0)
+        // Don't prevent default - let the / character be typed
+        return
+      }
+
       // Check if text starts with /portal (or partial match)
       // We need to check after the key is inserted, so delay check slightly
       setTimeout(() => {
-        const currentText = this.model.text.toString()
-        if (isPortalSlashCommand(currentText)) {
+        const newText = this.model.text.toString()
+        if (isPortalSlashCommand(newText)) {
           this._dispatchPortalPickerOpen()
         }
       }, 0)
@@ -2015,9 +3232,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * but Lit may still trigger an update. By returning false here, we prevent
    * the entire update/render cycle from running.
    */
+  /**
+   * Override shouldUpdate to prevent render when model is null/dummy.
+   * BUG-EDITOR-3064: Now checks for dummy model since model getter never returns null.
+   */
   override shouldUpdate(): boolean {
-    // Don't update if model is null (component being destroyed)
-    if (!this.model) {
+    // Don't update if model is a dummy (component being destroyed)
+    if (isDummyModel(this.model)) {
       return false
     }
     return true
@@ -2025,7 +3246,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3405 BUGFIX: Override render() to guard against null model.
-   * Uses _safeModel to avoid triggering the base class model getter which throws.
+   * BUG-EDITOR-3064: Uses isDummyModel check since model getter now returns dummy instead of null.
    * Returns empty template if model is unavailable (orphaned block edge case).
    */
   override render(): unknown {
@@ -2190,18 +3411,40 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * FE-408: Render expand button with AI icon
+   * FE-408, EDITOR-3512: Render expand button with AI icon
+   * EDITOR-3512 improvements:
+   * - Clear visual states (default, hover, active, disabled)
+   * - Dynamic tooltip based on state
+   * - Proper disabled state handling
    */
   private _renderExpandButton(): TemplateResult {
+    // EDITOR-3512: Check if button should be disabled
+    const hasText = this.model.text && this.model.text.toString().trim().length > 0
+    const isDisabled = !hasText
+
+    // Get proper tooltip and aria-label based on state
+    // Note: The 'expanding' class is added by the React layer when expand is in progress
+    const tooltip = isDisabled
+      ? getExpandButtonTooltip('disabled')
+      : getExpandButtonTooltip('default')
+
+    const ariaLabel = isDisabled
+      ? 'Cannot expand this bullet (no text content)'
+      : 'Expand this bullet with AI to generate child bullets'
+
+    // EDITOR-3512: Build class string with disabled state
+    const classes = isDisabled ? 'bullet-expand bullet-expand-disabled' : 'bullet-expand'
+
     return html`
       <div
-        class="bullet-expand"
-        @click=${this._handleExpandClick}
-        title="Expand with AI (generates child bullets)"
+        class="${classes}"
+        @click=${isDisabled ? undefined : this._handleExpandClick}
+        title="${tooltip}"
         role="button"
-        aria-label="Expand this bullet with AI"
-        tabindex="0"
-        @keydown=${(e: KeyboardEvent) => {
+        aria-label="${ariaLabel}"
+        aria-disabled="${isDisabled}"
+        tabindex="${isDisabled ? -1 : 0}"
+        @keydown=${isDisabled ? undefined : (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             this._handleExpandClick(e)
@@ -2302,26 +3545,388 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  // ============================================================================
+  // EDITOR-3510: Block Type System Methods
+  // ============================================================================
+
+  /**
+   * EDITOR-3510: Get the computed nesting depth of this block
+   */
+  private _getBlockDepth(): number {
+    let depth = 0
+    let parent = this.model.parent
+    while (parent && parent.flavour === 'hydra:bullet') {
+      depth++
+      parent = parent.parent
+    }
+    return depth
+  }
+
+  /**
+   * EDITOR-3510: Get the list number for numbered lists
+   */
+  private _getListNumber(): number {
+    const parent = this.model.parent
+    if (!parent) return 1
+
+    const siblings = parent.children.filter(c => c.flavour === 'hydra:bullet')
+    const currentIndex = siblings.indexOf(this.model)
+    const previousSiblings = siblings.slice(0, currentIndex).map(s => ({
+      blockType: (s as BulletBlockModel).blockType ?? 'bullet',
+    }))
+
+    return computeListNumber({
+      siblingIndex: currentIndex,
+      previousSiblings,
+    })
+  }
+
+  /**
+   * EDITOR-3510: Toggle checkbox checked state
+   */
+  private _toggleCheckbox(e: Event): void {
+    e.stopPropagation()
+    if (this.model.blockType !== 'checkbox') return
+
+    this.doc.updateBlock(this.model, {
+      isChecked: !this.model.isChecked,
+    })
+  }
+
+  /**
+   * EDITOR-3510: Handle space key for markdown shortcut conversion
+   */
+  private _handleMarkdownShortcut(): boolean {
+    const currentText = this.model.text.toString()
+    const result = parseMarkdownShortcut(currentText)
+
+    if (!result) return false
+
+    // Convert block type
+    this.doc.updateBlock(this.model, {
+      blockType: result.blockType,
+      isChecked: result.isChecked,
+    })
+
+    // Update text content (remove the markdown prefix)
+    this.model.text.delete(0, this.model.text.length)
+    if (result.remainingText) {
+      this.model.text.insert(result.remainingText, 0)
+    }
+
+    return true
+  }
+
+  /**
+   * EDITOR-3510: Dispatch slash menu open event
+   */
+  private _dispatchSlashMenuOpen(): void {
+    const richText = this.querySelector('rich-text') as RichText | null
+    const selection = window.getSelection()
+    let position = { top: 0, left: 0 }
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    } else if (richText) {
+      const rect = richText.getBoundingClientRect()
+      position = {
+        top: rect.bottom + 4,
+        left: rect.left,
+      }
+    }
+
+    const event = new CustomEvent('hydra-slash-menu-open', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        blockId: this.model.id,
+        position,
+      },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3510: Render block type prefix (checkbox, number, bullet marker)
+   */
+  private _renderBlockTypePrefix(): TemplateResult | typeof nothing {
+    const blockType = this.model.blockType ?? 'bullet'
+
+    // Don't show prefix for divider (it's just a line)
+    if (blockType === 'divider') {
+      return nothing
+    }
+
+    // Don't show prefix for headings (they just have different font size)
+    if (blockType.startsWith('heading')) {
+      return nothing
+    }
+
+    const depth = this._getBlockDepth()
+    const listNumber = blockType === 'numbered' ? this._getListNumber() : undefined
+
+    if (blockType === 'checkbox') {
+      // Render clickable checkbox
+      const icon = this.model.isChecked
+        ? html`<svg viewBox="0 0 16 16" fill="none">
+            <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" fill="var(--affine-primary-color, #1976d2)"/>
+            <polyline points="4,8 7,11 12,5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        : html`<svg viewBox="0 0 16 16" fill="none">
+            <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>`
+
+      return html`
+        <div
+          class="block-prefix checkbox"
+          @click=${this._toggleCheckbox}
+          role="checkbox"
+          aria-checked=${this.model.isChecked ? 'true' : 'false'}
+          tabindex="0"
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              this._toggleCheckbox(e)
+            }
+          }}
+        >
+          ${icon}
+        </div>
+      `
+    }
+
+    if (blockType === 'numbered') {
+      return html`
+        <div class="block-prefix numbered">
+          ${listNumber}.
+        </div>
+      `
+    }
+
+    // Default bullet marker
+    const marker = getBulletMarker(depth)
+    return html`
+      <div class="block-prefix bullet">
+        ${marker}
+      </div>
+    `
+  }
+
+  /**
+   * EDITOR-3510: Get container class with block type modifiers
+   */
+  private _getBlockTypeContainerClass(): string {
+    const blockType = this.model.blockType ?? 'bullet'
+    const classes = ['bullet-container']
+
+    // Add descriptor class
+    if (this.model.isDescriptor) {
+      classes.push('descriptor-block')
+    }
+
+    // Add block type class
+    classes.push(blockType)
+
+    // Add checked state for checkbox
+    if (blockType === 'checkbox' && this.model.isChecked) {
+      classes.push('checkbox-checked')
+    }
+
+    return classes.join(' ')
+  }
+
+  // ============================================================================
+  // EDITOR-3511: Ghost Bullet Suggestions
+  // ============================================================================
+
+  /**
+   * EDITOR-3511: Handle ghost bullet click - convert to real bullet and trigger AI expansion
+   */
+  private _handleGhostBulletClick(suggestion: GhostSuggestion): void {
+    // Mark as loading
+    this._loadingGhostId = suggestion.id
+    this.requestUpdate()
+
+    // Create a new child bullet with the ghost text
+    const newBlockProps = {
+      text: new this.doc.Text(suggestion.text),
+      isExpanded: true,
+    }
+
+    // Add the new block as a child of this block
+    const newBlockId = this.doc.addBlock(
+      'hydra:bullet',
+      newBlockProps,
+      this.model
+    )
+
+    // Dismiss this ghost suggestion since it's now a real bullet
+    this._dismissedGhostIds.add(suggestion.id)
+    this._loadingGhostId = null
+    this.requestUpdate()
+
+    // Dispatch expand event for the new block to trigger AI generation
+    setTimeout(() => {
+      // Get context for expansion
+      const siblings = this.model.children
+        .filter(c => c.flavour === 'hydra:bullet' && c.id !== newBlockId)
+        .map(s => (s as BulletBlockModel).text?.toString() || '')
+        .filter(text => text.length > 0)
+
+      const event = new CustomEvent('hydra-expand-block', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          blockId: newBlockId,
+          blockText: suggestion.text,
+          siblingTexts: siblings,
+          parentText: this.model.text?.toString() || null,
+        },
+      })
+      this.dispatchEvent(event)
+    }, 100) // Small delay to allow block creation to complete
+  }
+
+  /**
+   * EDITOR-3511: Handle ghost bullet dismiss
+   */
+  private _handleGhostBulletDismiss(e: Event, suggestionId: string): void {
+    e.stopPropagation()
+    this._dismissedGhostIds.add(suggestionId)
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3511: Render ghost bullet suggestions
+   * Shows inline suggestions below the block's children
+   */
+  private _renderGhostBullets(): TemplateResult | typeof nothing {
+    // Check if ghost bullets should be shown
+    const hasText = this.model.text?.toString().trim().length > 0
+    const shouldShow = shouldShowGhostBullets({
+      hasText,
+      isExpanded: this.model.isExpanded,
+      hasChildren: this._hasChildren,
+      isInFocusMode: false, // Will be enhanced in future
+    })
+
+    if (!shouldShow) {
+      return nothing
+    }
+
+    // Generate suggestions
+    const suggestions = generateGhostSuggestions({
+      parentText: this.model.text?.toString() || '',
+      siblingTexts: this.model.children
+        .filter(c => c.flavour === 'hydra:bullet')
+        .map(c => (c as BulletBlockModel).text?.toString() || '')
+        .filter(t => t.length > 0),
+      depth: this._getBlockDepth(),
+    })
+
+    // Filter out dismissed suggestions
+    const visibleSuggestions = suggestions.filter(
+      s => !this._dismissedGhostIds.has(s.id)
+    )
+
+    if (visibleSuggestions.length === 0) {
+      return nothing
+    }
+
+    return html`
+      <div class="ghost-bullets-container">
+        ${visibleSuggestions.map(suggestion => {
+          const isLoading = this._loadingGhostId === suggestion.id
+          const bulletClass = isLoading ? 'ghost-bullet loading' : 'ghost-bullet'
+
+          return html`
+            <div
+              class="${bulletClass}"
+              @click=${() => this._handleGhostBulletClick(suggestion)}
+              role="button"
+              tabindex="0"
+              aria-label="Add suggestion: ${suggestion.text}"
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  this._handleGhostBulletClick(suggestion)
+                }
+              }}
+            >
+              <div class="ghost-bullet-icon">●</div>
+              <div class="ghost-bullet-text">${suggestion.text}</div>
+              <button
+                class="ghost-bullet-dismiss"
+                @click=${(e: Event) => this._handleGhostBulletDismiss(e, suggestion.id)}
+                aria-label="Dismiss suggestion"
+                title="Dismiss"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          `
+        })}
+      </div>
+    `
+  }
+
   override renderBlock(): TemplateResult {
-    // Additional guard (render() guard should catch this, but being defensive)
-    if (!this.model) {
+    // BUG-EDITOR-3064: Additional guard (render() guard should catch this, but being defensive)
+    // Uses isDummyModel since model getter always returns something now
+    if (isDummyModel(this.model)) {
       return html``
     }
 
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
-    // EDITOR-3201: Add descriptor class for styling
-    const containerClass = this.model.isDescriptor
-      ? 'bullet-container descriptor-block'
-      : 'bullet-container'
+    // EDITOR-3510: Use block type container class
+    // EDITOR-3507: Add selection class for multi-select highlight
+    const isSelected = isBlockSelected(HydraBulletBlock._blockSelectionState, this.model.id)
+    const baseContainerClass = this._getBlockTypeContainerClass()
+    const containerClass = [
+      baseContainerClass,
+      isSelected ? 'selected' : '',
+    ].filter(Boolean).join(' ')
+    const blockType = this.model.blockType ?? 'bullet'
+
+    // EDITOR-3510: Divider renders as a horizontal line with no text
+    if (blockType === 'divider') {
+      return html`
+        <div class="${containerClass}">
+          <div class="divider-line"></div>
+        </div>
+      `
+    }
 
     // EDITOR-3053: Use rich-text component instead of contenteditable
     // This provides InlineEditor which routes input based on selection, not DOM focus
     // EDITOR-3102: Pass extended schema to enable background/color attributes
     // EDITOR-3103: Add contextmenu handler for color picker
     // EDITOR-3303: Add visibility toggle for descriptor blocks
+    // EDITOR-3508: Use grip handle + expand toggle (Affine-style) instead of bullet-toggle
+    // EDITOR-3507: Add drop indicator for drag-and-drop
+    // EDITOR-3510: Render block type prefix before grip handle
+    // EDITOR-3511: Render ghost bullets after children
     return html`
+      ${this._renderDropIndicator()}
       <div class="${containerClass}">
-        ${this._renderToggle()}
+        ${this._renderBlockTypePrefix()}
+        ${this._renderGripHandle()}
+        ${this._renderExpandToggle()}
         ${this._renderDescriptorPrefix()}
         <rich-text
           .yText=${this.model.text.yText}
@@ -2333,12 +3938,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           @contextmenu=${this._handleContextMenu}
         ></rich-text>
         ${this._renderInlinePreview()}
+        ${this._renderInlinePreviewRestoreButton()}
         ${this._renderVisibilityToggle()}
         ${this._renderExpandButton()}
       </div>
       <div class="bullet-children ${childrenClass}">
         ${this.std ? this.renderChildren(this.model) : nothing}
       </div>
+      ${this._renderGhostBullets()}
       ${this._renderContextMenu()}
     `
   }

@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str = ""
 
+    # OpenAI
+    openai_api_key: str = ""
+
     # JWT
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"

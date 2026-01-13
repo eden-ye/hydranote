@@ -132,7 +132,8 @@ For each task/feature, execute this sequence:
    □ Especially checking why user actively communicated with you in the conversation: If that's due to something you are missing or didn't follow but already listed in CLAUDE.md or user's instructions, to avoid the same/similar problems happen again, create concise AI instruction as bullets to "## YOU MUST" section in CLAUDE_backlog.md
    □ Token cost and time cost on each step
    □ Move task file to docs/tasks/done/
-   □ Update docs/tasks/current.md
+   □ Update docs/release/sprint-tracker.md
+   □ Add ticket to docs/release/queues/ready-to-test-in-sat.md
         ↓
 9. COMMIT, PUSH & MERGE (only after all tests pass)
    $ git add <files>
@@ -146,6 +147,42 @@ For each task/feature, execute this sequence:
 ```
 
 See `docs/design/testing-workflow.md` for full details.
+
+### Release Workflow (After Step 9)
+
+**Environments:**
+- SAT: https://frontend-taylorye.vercel.app/
+- PROD: https://hydranote.vercel.app/
+
+**Status Legend (in sprint-tracker.md):**
+```
+[ ] Pending      [~] In Progress   [x] Merged
+[L] Local E2E OK [D] SAT Deployed  [S] SAT Verified
+[E] Elevated     [P] PROD OK
+```
+
+**Post-Merge Flow:**
+```
+9. MERGE + Local E2E → Update sprint-tracker.md: [x] → [L]
+      ↓
+(Vercel auto-deploys to SAT) → [L] → [D]
+      ↓
+User: "test remaining tickets in SAT"
+      → Chrome E2E on SAT for each [D] ticket
+      → PASS: [D] → [S]
+      → FAIL: create bug ticket
+      ↓
+User: "elevate now"
+      → Generate release notes
+      → Deploy to PROD
+      → Chrome E2E on PROD
+      → PASS: [S] → [E] → [P]
+      → FAIL: rollback + PROD-xxx ticket
+```
+
+**Chrome E2E is the trusted gate.** Bruno tests are sanity checks only.
+
+**Release Docs:** `docs/release/` (sprint-tracker.md, thread-scheduler.md)
 
 ## CI/CD
 
@@ -168,9 +205,14 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
   6. Commit, push & create PR (Step 9)
   7. Wait until all GitHub checks pass, then merge to main
   8. Only then start the next ticket
+- **NEVER skip E2E tests before merging**
+  - API tickets: Run Bruno (`cd bruno && bru run collections/<name> --env local`)
+  - EDITOR tickets: Run Chrome E2E tests
+  - Backend runs locally: `python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000`
+  - `.env.local` has all credentials - don't assume tests won't work, just run them
+- NEVER claim TDD complete without E2E tests (Bruno for API, Chrome for EDITOR)
 - NEVER commit `docs/api/` to git - contains sensitive API documentation (in .gitignore)
 - NEVER include API keys, secrets, or credentials in any documentation
-- NEVER say you Complete all TDD if you are missing Chrome testing but working on EDITOR ticket
 - NEVER use `git reset --hard <commit_number>`, remember you have your peers work on other file
 - Do `rm -rf node_modules/.vite` Rerun the frontend in local when you have updated the code and using Chrome to validate it
 - **For unfamiliar framework features (BlockSuite, etc.), do a 5-minute spike test in the browser console BEFORE writing tests and implementation.** This prevents wasted hours discovering architectural limitations after full implementation. Example: try `formatText({background: '#FEF3C7'})` in console first to verify it renders, before writing 300 lines of code.
@@ -182,7 +224,7 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
 
 **CRITICAL**: Documentation is a MANDATORY part of every task. You MUST proactively update documentation and ask the user to confirm updates.
 
-**CRITICAL**: You should check `docs/tasks/current.md` and identify which task/bug you are working on. If you cannot find existing one, you should proactively create markdown for either task or bug, based on `docs/README.md` template.
+**CRITICAL**: You should check `docs/release/sprint-tracker.md` and identify which task/bug you are working on. If you cannot find existing one, you should proactively create markdown for either task or bug, based on `docs/README.md` template.
 
 ### Documentation is Non-Negotiable
 
@@ -196,7 +238,7 @@ All project documentation is in the `docs/` folder:
 - `docs/bugs/` - Bug fix documentation (symptoms, attempts, solution, prevention)
 - `docs/design/` - Design documents and architecture
 - `docs/api/` - API documentation (backend and frontend)
-- `docs/tasks/current.md` - **Active tasks and next steps** (rolling update)
+- `docs/release/sprint-tracker.md` - **Active tasks and next steps** (replaces current.md)
 - `docs/tasks/` - Active task tickets
 - `docs/tasks/backlog/` - **Future tasks** (can be picked up if have capacity)
 - `docs/tasks/done/` - **Completed tasks** (permanent record)
@@ -342,7 +384,7 @@ Use component-based prefixes that map to git worktrees:
    - APIs: Update `docs/api/backend-api.md` or `docs/api/frontend-api.md`
    - Design: Update `docs/design/architecture.md`
    - Phase deliverables: Check boxes in `docs/roadmap.md`
-   - **ALWAYS**: Update `docs/tasks/current.md`
+   - **ALWAYS**: Update `docs/release/sprint-tracker.md`
 
 3. **Propose specific updates**:
    - List commits with hashes and messages
@@ -356,7 +398,7 @@ Use component-based prefixes that map to git worktrees:
 
 **When asked to "continue work" or "finish recent task":**
 1. **FIRST** read `docs/roadmap.md` to understand the current development phase
-2. Read `docs/tasks/current.md` to understand context
-3. Check the "For Claude Code" section for quick start instructions
+2. Read `docs/release/sprint-tracker.md` to understand context
+3. Check `docs/release/README.md` for quick start commands
 4. Review related feature/bug docs if referenced
 5. Proceed with the documented "Next Steps"

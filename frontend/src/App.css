@@ -16,6 +16,13 @@
   font-weight: 600;
 }
 
+/* FE-503: App body with sidebar */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
 .app-main {
   flex: 1;
   overflow: hidden;

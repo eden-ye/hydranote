@@ -27,3 +27,17 @@ export * from './portal-editing'
 export * from './portal-picker'
 export * from './portal-creation-shortcut'
 export * from './portal-slash-command'
+
+// EDITOR-3407: Auto-reorg foundation
+export * from './auto-reorg'
+export * from './portal-placement'
+
+// EDITOR-3507: Drag-drop utilities
+export * from './drag-drop'
+export * from './block-selection'
+
+// EDITOR-3510: Block type system
+export * from './markdown-shortcuts'
+export * from './numbered-list'
+export * from './block-icons'
+export * from './slash-menu'
