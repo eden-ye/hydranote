@@ -9,7 +9,12 @@ import '@toeverything/theme/style.css'
 
 // Import Hydra custom blocks
 import { BulletBlockSchema, BulletBlockSpec, PortalBlockSchema, PortalBlockSpec } from '@/blocks'
-import { HYDRA_DB_PREFIX, type PersistenceStatus } from '@/hooks'
+import {
+  HYDRA_DB_PREFIX,
+  type PersistenceStatus,
+  checkAndClearOnVersionMismatch,
+  savePersistenceVersion,
+} from '@/hooks'
 // FE-406: Focus mode navigation
 import { useFocusMode } from '@/hooks/useFocusMode'
 // FE-407: Breadcrumb navigation
@@ -184,6 +189,39 @@ export default function Editor() {
     status: 'loading',
     error: null,
   })
+
+  // BUG-EDITOR-3064: Track version check completion
+  const [versionCheckComplete, setVersionCheckComplete] = useState(false)
+
+  // BUG-EDITOR-3064: Run version check before editor initialization
+  // Clears IndexedDB if version mismatch to remove orphaned blocks
+  useEffect(() => {
+    let mounted = true
+
+    const runVersionCheck = async () => {
+      try {
+        const wasCleared = await checkAndClearOnVersionMismatch()
+        if (wasCleared) {
+          console.log('[Editor] IndexedDB cleared due to version upgrade')
+        } else {
+          // Save version on first run (when no previous version stored)
+          savePersistenceVersion()
+        }
+      } catch (error) {
+        console.error('[Editor] Version check failed:', error)
+      }
+
+      if (mounted) {
+        setVersionCheckComplete(true)
+      }
+    }
+
+    runVersionCheck()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   // FE-406: Focus mode state
   const { isInFocusMode, focusedBlockId, enterFocusMode, exitFocusMode } = useFocusMode()
@@ -963,6 +1001,10 @@ export default function Editor() {
     // Prevent double initialization in StrictMode
     if (editorRef.current) return
 
+    // BUG-EDITOR-3064: Wait for version check to complete before initializing
+    // This ensures orphaned blocks are cleared before persistence loads
+    if (!versionCheckComplete) return
+
     // Create schema with Affine block schemas and Hydra custom blocks
     const schema = new Schema()
       .register(AffineSchemas)
@@ -1178,7 +1220,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
+  }, [versionCheckComplete, enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
 
   // EDITOR-3506: Separate useEffect for selection change listener
   // This needs to be separate from the main editor initialization useEffect

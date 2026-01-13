@@ -106,7 +106,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 | Ticket | Title | Status |
 |--------|-------|--------|
-| BUG-EDITOR-3064 | Null Model Render Error | open (orphaned blocks in IndexedDB) |
+| BUG-EDITOR-3064 | Null Model Render Error | [L] Local E2E OK - version-based cleanup implemented |
 
 ---
 
