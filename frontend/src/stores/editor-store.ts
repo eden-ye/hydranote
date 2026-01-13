@@ -9,6 +9,7 @@
  * EDITOR-3602: Auto-Generate Settings
  * EDITOR-3407: Auto-Reorg Settings
  * EDITOR-3502: Reorganization Modal State
+ * FE-503: Favorites State
  *
  * Manages editor state including:
  * - Current document ID
@@ -21,6 +22,7 @@
  * - Auto-generate settings and status
  * - Auto-reorg settings and status
  * - Reorganization modal state (Cmd+Shift+L)
+ * - Favorite blocks list (FE-503)
  */
 import { create } from 'zustand'
 import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
@@ -132,6 +134,9 @@ interface EditorState {
   reorgModalConceptMatches: ConceptMatch[]
   /** Error message if any */
   reorgModalError: string | null
+  // FE-503: Favorites state
+  /** Array of favorite block IDs in display order */
+  favoriteBlockIds: string[]
 }
 
 /**
@@ -223,6 +228,17 @@ interface EditorActions {
   setReorgModalError: (error: string | null) => void
   /** Toggle selection of a match for a concept */
   toggleReorgMatch: (concept: string, blockId: string) => void
+  // FE-503: Favorites actions
+  /** Load favorites from localStorage */
+  loadFavorites: () => void
+  /** Toggle a block as favorite (add if not present, remove if present) */
+  toggleFavorite: (blockId: string) => void
+  /** Check if a block is favorited */
+  isFavorite: (blockId: string) => boolean
+  /** Reorder favorites by moving a block to a new index */
+  reorderFavorites: (blockId: string, newIndex: number) => void
+  /** Clear all favorites */
+  clearFavorites: () => void
 }
 
 /**
@@ -269,6 +285,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   reorgModalDocumentId: null,
   reorgModalConceptMatches: [],
   reorgModalError: null,
+  // FE-503: Favorites initial state
+  favoriteBlockIds: [],
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -481,6 +499,64 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
       })
       return { reorgModalConceptMatches: updatedMatches }
     }),
+
+  // FE-503: Favorites actions
+  loadFavorites: () => {
+    try {
+      const stored = localStorage.getItem('hydra:favorites')
+      if (stored) {
+        const favoriteBlockIds = JSON.parse(stored)
+        if (Array.isArray(favoriteBlockIds)) {
+          set({ favoriteBlockIds })
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  },
+
+  toggleFavorite: (blockId) =>
+    set((state) => {
+      const index = state.favoriteBlockIds.indexOf(blockId)
+      let newFavorites: string[]
+      if (index >= 0) {
+        // Remove from favorites
+        newFavorites = state.favoriteBlockIds.filter((id) => id !== blockId)
+      } else {
+        // Add to favorites
+        newFavorites = [...state.favoriteBlockIds, blockId]
+      }
+      // Persist to localStorage
+      localStorage.setItem('hydra:favorites', JSON.stringify(newFavorites))
+      return { favoriteBlockIds: newFavorites }
+    }),
+
+  isFavorite: function (blockId: string): boolean {
+    // Access state via this method to avoid circular reference
+    // This is a bound method that checks current favorites
+    const { favoriteBlockIds } = useEditorStore.getState()
+    return favoriteBlockIds.includes(blockId)
+  },
+
+  reorderFavorites: (blockId, newIndex) =>
+    set((state) => {
+      const currentIndex = state.favoriteBlockIds.indexOf(blockId)
+      if (currentIndex < 0) return state // Block not in favorites
+
+      const newFavorites = [...state.favoriteBlockIds]
+      // Remove from current position
+      newFavorites.splice(currentIndex, 1)
+      // Insert at new position
+      newFavorites.splice(newIndex, 0, blockId)
+      // Persist to localStorage
+      localStorage.setItem('hydra:favorites', JSON.stringify(newFavorites))
+      return { favoriteBlockIds: newFavorites }
+    }),
+
+  clearFavorites: () => {
+    localStorage.setItem('hydra:favorites', JSON.stringify([]))
+    set({ favoriteBlockIds: [] })
+  },
 }))
 
 /**
@@ -698,3 +774,23 @@ export const selectReorgModalError = (state: EditorState): string | null =>
  */
 export const selectReorgModalSelectedCount = (state: EditorState): number =>
   state.reorgModalConceptMatches.reduce((total, cm) => total + cm.selectedMatches.size, 0)
+
+// FE-503: Favorites selectors
+
+/**
+ * Selector for getting the favorite block IDs
+ */
+export const selectFavoriteBlockIds = (state: EditorState): string[] =>
+  state.favoriteBlockIds
+
+/**
+ * Selector for checking if there are any favorites
+ */
+export const selectHasFavorites = (state: EditorState): boolean =>
+  state.favoriteBlockIds.length > 0
+
+/**
+ * Selector for getting favorites count
+ */
+export const selectFavoritesCount = (state: EditorState): number =>
+  state.favoriteBlockIds.length
