@@ -526,9 +526,6 @@ export default function Editor() {
     startAutoGenerate,
     setAutoGenerateStatus,
     expandBlock,
-    completeAutoGenerate,
-    cancelAutoGenerate,
-    resetAutoGenerate,
   ])
 
   // EDITOR-3405: Handle portal picker open event
