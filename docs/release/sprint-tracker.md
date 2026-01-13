@@ -84,7 +84,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | EDITOR-3509 | Collapsible Inline Preview | 2h | [x] | Clickable dash separator to hide/show inline preview, merged PR #106 |
 | EDITOR-3510 | Block Type System | 8h | [x] | Checkbox, numbered list, bullet, headings + slash menu + markdown |
 | EDITOR-3511 | Ghost Bullet Suggestions | 6h | [ ] | Inline grey bullets under parents, click to convert + AI expand |
-| EDITOR-3512 | Add Block Button UX | 3h | [~] | Fix unclear state + position shift during typing |
+| EDITOR-3512 | Add Block Button UX | 3h | [x] | Fix unclear state + position shift during typing, merged PR #111 |
 
 ---
 
@@ -95,8 +95,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
-- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510
-- **In Progress [~]**: EDITOR-3512
+- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3512
 - **Backlog [ ]**: API-303, EDITOR-3408, FE-503, EDITOR-3511
 
 ---
