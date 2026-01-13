@@ -3598,7 +3598,8 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    */
   private _handleMarkdownShortcut(): boolean {
     const currentText = this.model.text.toString()
-    const result = parseMarkdownShortcut(currentText)
+    // BUG-EDITOR-3510: Add space to text since the space key was pressed but not yet inserted
+    const result = parseMarkdownShortcut(currentText + ' ')
 
     if (!result) return false
 
