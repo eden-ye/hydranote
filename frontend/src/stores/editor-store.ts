@@ -143,6 +143,11 @@ interface EditorState {
   blockTitles: Map<string, string>
   /** Array of top-level block IDs (root bullets in document) */
   topLevelBlockIds: string[]
+  // FE-508: Block metadata for filtering
+  /** Map of block IDs to whether they have children */
+  blockHasChildren: Map<string, boolean>
+  /** Map of block IDs to whether they are descriptors */
+  blockIsDescriptor: Map<string, boolean>
   // FE-506: Navigation history state
   /** Array of block IDs representing navigation history */
   navigationHistory: string[]
@@ -252,7 +257,12 @@ interface EditorActions {
   clearFavorites: () => void
   // FE-504: Block data actions
   /** Sync all block data from document */
-  syncBlockData: (topLevelBlockIds: string[], blockTitles: Map<string, string>) => void
+  syncBlockData: (
+    topLevelBlockIds: string[],
+    blockTitles: Map<string, string>,
+    blockHasChildren: Map<string, boolean>,
+    blockIsDescriptor: Map<string, boolean>
+  ) => void
   // FE-506: Navigation history actions
   /** Push a new block to navigation history */
   pushNavigation: (blockId: string) => void
@@ -317,6 +327,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   // FE-504: Block data initial state
   blockTitles: new Map(),
   topLevelBlockIds: [],
+  // FE-508: Block metadata initial state
+  blockHasChildren: new Map(),
+  blockIsDescriptor: new Map(),
   // FE-506: Navigation history initial state
   navigationHistory: [],
   navigationIndex: -1,
@@ -592,8 +605,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   },
 
   // FE-504: Block data actions
-  syncBlockData: (topLevelBlockIds, blockTitles) =>
-    set({ topLevelBlockIds, blockTitles }),
+  syncBlockData: (topLevelBlockIds, blockTitles, blockHasChildren, blockIsDescriptor) =>
+    set({ topLevelBlockIds, blockTitles, blockHasChildren, blockIsDescriptor }),
 
   // FE-506: Navigation history actions
   pushNavigation: (blockId) =>
