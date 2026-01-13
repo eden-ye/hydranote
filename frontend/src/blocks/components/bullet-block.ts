@@ -30,6 +30,27 @@ import {
 } from '../utils/cheatsheet'
 // EDITOR-3405: Import portal slash command utilities
 import { isPortalSlashCommand } from '../utils/portal-slash-command'
+// EDITOR-3507: Import drag-drop and block selection utilities
+import {
+  type DragState,
+  type DropPlacement,
+  computeDropPlacement,
+  isValidDropTarget,
+  getAllDescendantIds,
+  createDragState,
+  createEmptyDragState,
+  INDENT_THRESHOLD,
+} from '../utils/drag-drop'
+import {
+  type BlockSelectionState,
+  computeSelectionAfterClick,
+  isBlockSelected,
+  clearSelection,
+  createSingleSelection,
+  getSelectedBlockIds,
+} from '../utils/block-selection'
+// EDITOR-3507: Import drop indicator component
+import './drop-indicator'
 // EDITOR-3510: Import block type utilities
 import { parseMarkdownShortcut } from '../utils/markdown-shortcuts'
 import { computeListNumber } from '../utils/numbered-list'
@@ -497,6 +518,19 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   private _contextMenuX = 0
   private _contextMenuY = 0
 
+  /**
+   * EDITOR-3507: Shared drag-drop state across all bullet blocks
+   * Using static to share state between component instances
+   */
+  private static _dragState: DragState = createEmptyDragState()
+  private static _blockSelectionState: BlockSelectionState = clearSelection()
+
+  /**
+   * EDITOR-3507: Local drop target state for this block
+   */
+  private _isDropTarget = false
+  private _dropPlacement: DropPlacement = 'after'
+
   static override styles = css`
     :host {
       display: block;
@@ -569,6 +603,76 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       font-size: 10px;
       color: var(--affine-icon-color, #888);
       letter-spacing: -2px;
+    }
+
+    /* EDITOR-3507: Drag handle cursor when hovering */
+    .bullet-grip {
+      cursor: grab;
+    }
+
+    .bullet-grip:active {
+      cursor: grabbing;
+    }
+
+    /* EDITOR-3507: Block selection highlight */
+    .bullet-container.selected {
+      background-color: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+      border-radius: 4px;
+    }
+
+    /* EDITOR-3507: Dragging state - reduce opacity */
+    :host(.dragging) {
+      opacity: 0.7;
+    }
+
+    /* EDITOR-3507: Drop target indicator */
+    :host(.drop-target) {
+      position: relative;
+    }
+
+    /* Drop indicator line for before/after */
+    .drop-indicator-line {
+      position: absolute;
+      left: 24px;
+      right: 0;
+      height: 2px;
+      background-color: var(--affine-primary-color, #1976d2);
+      border-radius: 1px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .drop-indicator-line::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: -3px;
+      width: 8px;
+      height: 8px;
+      background-color: var(--affine-primary-color, #1976d2);
+      border-radius: 50%;
+    }
+
+    .drop-indicator-line.before {
+      top: 0;
+    }
+
+    .drop-indicator-line.after {
+      bottom: 0;
+    }
+
+    /* Drop indicator for nesting */
+    .drop-indicator-nest {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 40px;
+      right: 0;
+      background-color: var(--affine-primary-color, #1976d2);
+      opacity: 0.15;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 100;
     }
 
     /* EDITOR-3508: Expand toggle styles (separate from grip) */
@@ -1973,22 +2077,33 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3508: Render grip handle for focus mode zoom
-   * Clicking the grip handle dispatches hydra-focus-block event
-   * Dragging will be handled in EDITOR-3507
+   * EDITOR-3507: Also handles drag-and-drop
+   * - Click: Zoom into block (focus mode)
+   * - Drag: Start drag operation
+   * - Shift+Click: Extend selection range
+   * - Cmd/Ctrl+Click: Toggle selection
    */
   private _renderGripHandle(): TemplateResult {
     return html`
       <div
         class="bullet-grip"
+        draggable="true"
         @click=${this._handleGripClick}
-        title="Click to zoom"
+        @mousedown=${this._handleGripMouseDown}
+        @dragstart=${this._handleDragStart}
+        @dragend=${this._handleDragEnd}
+        title="Click to zoom, drag to move"
         role="button"
-        aria-label="Click to zoom into this bullet"
+        aria-label="Click to zoom into this bullet, or drag to reorder"
         tabindex="0"
         @keydown=${(e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             this._handleGripClick(e)
+          }
+          // EDITOR-3507: Escape cancels drag
+          if (e.key === 'Escape' && HydraBulletBlock._dragState.isDragging) {
+            this._cancelDrag()
           }
         }}
       ></div>
@@ -1996,17 +2111,372 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
+   * EDITOR-3507: Handle mousedown on grip for selection management
+   */
+  private _handleGripMouseDown(e: MouseEvent): void {
+    // Only handle selection modifiers, let click/drag handle the rest
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      this._handleSelectionClick(e)
+    }
+  }
+
+  /**
+   * EDITOR-3507: Handle selection click with modifiers
+   */
+  private _handleSelectionClick(e: MouseEvent): void {
+    const orderedBlockIds = this._getOrderedBlockIds()
+    const newSelection = computeSelectionAfterClick(
+      HydraBulletBlock._blockSelectionState,
+      {
+        blockId: this.model.id,
+        shiftKey: e.shiftKey,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+      },
+      orderedBlockIds
+    )
+    HydraBulletBlock._blockSelectionState = newSelection
+    this._notifySelectionChange()
+  }
+
+  /**
    * EDITOR-3508: Handle grip handle click to enter focus mode
-   * Dispatches hydra-focus-block event which Editor.tsx listens for
+   * EDITOR-3507: Also handles single-click selection
    */
   private _handleGripClick(e: Event): void {
     e.stopPropagation()
+
+    // Don't trigger focus mode if we were dragging
+    if (HydraBulletBlock._dragState.isDragging) {
+      return
+    }
+
+    // Check if modifier keys are held - don't enter focus mode
+    const mouseEvent = e as MouseEvent
+    if (mouseEvent.shiftKey || mouseEvent.metaKey || mouseEvent.ctrlKey) {
+      return
+    }
+
+    // Single click with no modifiers: enter focus mode
     const event = new CustomEvent('hydra-focus-block', {
       bubbles: true,
       composed: true,
       detail: { blockId: this.model.id },
     })
     this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3507: Handle drag start
+   */
+  private _handleDragStart(e: DragEvent): void {
+    if (!e.dataTransfer) return
+
+    // Set drag data
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', this.model.id)
+
+    // Determine which blocks are being dragged
+    let draggedIds: string[]
+    if (isBlockSelected(HydraBulletBlock._blockSelectionState, this.model.id)) {
+      // Drag all selected blocks
+      draggedIds = getSelectedBlockIds(HydraBulletBlock._blockSelectionState)
+    } else {
+      // Single block drag - select this block first
+      HydraBulletBlock._blockSelectionState = createSingleSelection(this.model.id)
+      draggedIds = [this.model.id]
+    }
+
+    // Create drag state
+    HydraBulletBlock._dragState = createDragState(
+      draggedIds,
+      e.clientX,
+      e.clientY
+    )
+
+    // Add dragging class to all dragged blocks
+    this._updateDraggingClasses(true)
+
+    // Add global listeners
+    document.addEventListener('dragover', this._handleGlobalDragOver)
+    document.addEventListener('drop', this._handleGlobalDrop)
+    document.addEventListener('keydown', this._handleGlobalKeyDown)
+
+    console.log('[DragDrop] Drag started, blocks:', draggedIds)
+  }
+
+  /**
+   * EDITOR-3507: Handle drag end
+   */
+  private _handleDragEnd(): void {
+    // Clean up drag state
+    this._cleanupDrag()
+    console.log('[DragDrop] Drag ended')
+  }
+
+  /**
+   * EDITOR-3507: Global dragover handler
+   */
+  private _handleGlobalDragOver = (e: DragEvent): void => {
+    e.preventDefault()
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move'
+    }
+
+    // Update current position
+    HydraBulletBlock._dragState.currentPosition = { x: e.clientX, y: e.clientY }
+
+    // Find the target block under cursor
+    const target = document.elementFromPoint(e.clientX, e.clientY)
+    const blockElement = target?.closest('hydra-bullet-block') as HydraBulletBlock | null
+
+    // Clear all drop indicators first
+    this._clearAllDropIndicators()
+
+    if (blockElement && blockElement.model) {
+      const targetId = blockElement.model.id
+      const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
+
+      // Check if valid drop target
+      const descendantIds = Array.from(getAllDescendantIds(draggedIds, (id) => {
+        const block = this.doc.getBlockById(id) as BulletBlockModel | null
+        return block?.children.map(c => c.id) || []
+      }))
+
+      if (isValidDropTarget(draggedIds, targetId, descendantIds)) {
+        // Calculate drop placement
+        const rect = blockElement.getBoundingClientRect()
+        const placement = computeDropPlacement(
+          e.clientX,
+          e.clientY,
+          {
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            height: rect.height,
+            width: rect.width,
+          },
+          INDENT_THRESHOLD
+        )
+
+        // Update drop target state
+        blockElement._isDropTarget = true
+        blockElement._dropPlacement = placement
+        blockElement.requestUpdate()
+
+        HydraBulletBlock._dragState.dropTarget = {
+          blockId: targetId,
+          placement,
+        }
+      } else {
+        HydraBulletBlock._dragState.dropTarget = null
+      }
+    } else {
+      HydraBulletBlock._dragState.dropTarget = null
+    }
+  }
+
+  /**
+   * EDITOR-3507: Global drop handler
+   */
+  private _handleGlobalDrop = (e: DragEvent): void => {
+    e.preventDefault()
+
+    const dropTarget = HydraBulletBlock._dragState.dropTarget
+    if (!dropTarget) {
+      this._cleanupDrag()
+      return
+    }
+
+    const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
+    const targetId = dropTarget.blockId
+    const placement = dropTarget.placement
+
+    console.log('[DragDrop] Drop:', { draggedIds, targetId, placement })
+
+    // Perform the move operation
+    this._performDrop(draggedIds, targetId, placement)
+
+    // Clean up
+    this._cleanupDrag()
+  }
+
+  /**
+   * EDITOR-3507: Global keydown handler for Escape
+   */
+  private _handleGlobalKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this._cancelDrag()
+    }
+  }
+
+  /**
+   * EDITOR-3507: Perform the drop operation using BlockSuite's moveBlocks
+   */
+  private _performDrop(draggedIds: string[], targetId: string, placement: DropPlacement): void {
+    const targetBlock = this.doc.getBlockById(targetId)
+    if (!targetBlock) return
+
+    // Get the actual block models
+    const blocksToMove = draggedIds
+      .map(id => this.doc.getBlockById(id))
+      .filter((block): block is BlockModel => block !== null)
+
+    if (blocksToMove.length === 0) return
+
+    try {
+      switch (placement) {
+        case 'before': {
+          // Move before target (sibling of target)
+          const parent = targetBlock.parent
+          if (parent) {
+            const targetIndex = parent.children.indexOf(targetBlock)
+            const beforeRef = parent.children[targetIndex] || null
+            this.doc.moveBlocks(blocksToMove, parent, beforeRef)
+          }
+          break
+        }
+        case 'after': {
+          // Move after target (sibling of target)
+          const parent = targetBlock.parent
+          if (parent) {
+            const targetIndex = parent.children.indexOf(targetBlock)
+            const afterRef = parent.children[targetIndex + 1] || null
+            this.doc.moveBlocks(blocksToMove, parent, afterRef)
+          }
+          break
+        }
+        case 'in': {
+          // Move as child of target (first child)
+          const firstChildRef = targetBlock.children[0] || null
+          this.doc.moveBlocks(blocksToMove, targetBlock, firstChildRef)
+
+          // Expand target if collapsed
+          if (targetBlock.flavour === 'hydra:bullet') {
+            const bulletTarget = targetBlock as BulletBlockModel
+            if (!bulletTarget.isExpanded) {
+              this.doc.updateBlock(targetBlock, { isExpanded: true })
+            }
+          }
+          break
+        }
+      }
+
+      console.log('[DragDrop] Move completed')
+    } catch (error) {
+      console.error('[DragDrop] Move failed:', error)
+    }
+  }
+
+  /**
+   * EDITOR-3507: Cancel drag operation
+   */
+  private _cancelDrag(): void {
+    console.log('[DragDrop] Drag cancelled')
+    this._cleanupDrag()
+  }
+
+  /**
+   * EDITOR-3507: Clean up drag state and UI
+   */
+  private _cleanupDrag(): void {
+    // Remove dragging classes
+    this._updateDraggingClasses(false)
+
+    // Clear drop indicators
+    this._clearAllDropIndicators()
+
+    // Reset drag state
+    HydraBulletBlock._dragState = createEmptyDragState()
+
+    // Remove global listeners
+    document.removeEventListener('dragover', this._handleGlobalDragOver)
+    document.removeEventListener('drop', this._handleGlobalDrop)
+    document.removeEventListener('keydown', this._handleGlobalKeyDown)
+  }
+
+  /**
+   * EDITOR-3507: Update dragging classes on all dragged blocks
+   */
+  private _updateDraggingClasses(isDragging: boolean): void {
+    const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
+    draggedIds.forEach(id => {
+      const element = this.host?.view?.getBlock(id) as HTMLElement | null
+      if (element) {
+        if (isDragging) {
+          element.classList.add('dragging')
+        } else {
+          element.classList.remove('dragging')
+        }
+      }
+    })
+  }
+
+  /**
+   * EDITOR-3507: Clear all drop indicators
+   */
+  private _clearAllDropIndicators(): void {
+    // Query all bullet blocks and clear their drop state
+    const allBlocks = document.querySelectorAll('hydra-bullet-block') as NodeListOf<HydraBulletBlock>
+    allBlocks.forEach(block => {
+      if (block._isDropTarget) {
+        block._isDropTarget = false
+        block.requestUpdate()
+      }
+    })
+  }
+
+  /**
+   * EDITOR-3507: Notify about selection change
+   */
+  private _notifySelectionChange(): void {
+    // Request update on all blocks to reflect selection state
+    const allBlocks = document.querySelectorAll('hydra-bullet-block') as NodeListOf<HydraBulletBlock>
+    allBlocks.forEach(block => block.requestUpdate())
+  }
+
+  /**
+   * EDITOR-3507: Get ordered list of all visible block IDs (for range selection)
+   */
+  private _getOrderedBlockIds(): string[] {
+    const ids: string[] = []
+
+    const collectIds = (block: BlockModel) => {
+      if (block.flavour === 'hydra:bullet') {
+        ids.push(block.id)
+        const bulletBlock = block as BulletBlockModel
+        // Only include children if expanded
+        if (bulletBlock.isExpanded) {
+          block.children.forEach(child => collectIds(child))
+        }
+      }
+    }
+
+    // Start from root
+    const rootBlock = this.doc.root
+    if (rootBlock) {
+      rootBlock.children.forEach(child => collectIds(child))
+    }
+
+    return ids
+  }
+
+  /**
+   * EDITOR-3507: Render drop indicator if this block is a drop target
+   */
+  private _renderDropIndicator(): TemplateResult | typeof nothing {
+    if (!this._isDropTarget) {
+      return nothing
+    }
+
+    if (this._dropPlacement === 'in') {
+      return html`<div class="drop-indicator-nest"></div>`
+    }
+
+    return html`<div class="drop-indicator-line ${this._dropPlacement}"></div>`
   }
 
   /**
@@ -2832,7 +3302,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
     // EDITOR-3510: Use block type container class
-    const containerClass = this._getBlockTypeContainerClass()
+    // EDITOR-3507: Add selection class for multi-select highlight
+    const isSelected = isBlockSelected(HydraBulletBlock._blockSelectionState, this.model.id)
+    const baseContainerClass = this._getBlockTypeContainerClass()
+    const containerClass = [
+      baseContainerClass,
+      isSelected ? 'selected' : '',
+    ].filter(Boolean).join(' ')
     const blockType = this.model.blockType ?? 'bullet'
 
     // EDITOR-3510: Divider renders as a horizontal line with no text
@@ -2850,8 +3326,10 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // EDITOR-3103: Add contextmenu handler for color picker
     // EDITOR-3303: Add visibility toggle for descriptor blocks
     // EDITOR-3508: Use grip handle + expand toggle (Affine-style) instead of bullet-toggle
+    // EDITOR-3507: Add drop indicator for drag-and-drop
     // EDITOR-3510: Render block type prefix before grip handle
     return html`
+      ${this._renderDropIndicator()}
       <div class="${containerClass}">
         ${this._renderBlockTypePrefix()}
         ${this._renderGripHandle()}

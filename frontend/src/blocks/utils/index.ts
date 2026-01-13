@@ -32,6 +32,10 @@ export * from './portal-slash-command'
 export * from './auto-reorg'
 export * from './portal-placement'
 
+// EDITOR-3507: Drag-drop utilities
+export * from './drag-drop'
+export * from './block-selection'
+
 // EDITOR-3510: Block type system
 export * from './markdown-shortcuts'
 export * from './numbered-list'

@@ -37,14 +37,19 @@ vi.mock('@blocksuite/affine-components/rich-text', () => ({
 }))
 
 // Mock lit - return minimal implementation
+// EDITOR-3507: Added LitElement for drop-indicator component
 vi.mock('lit', () => ({
   html: () => '',
   css: () => '',
   nothing: '',
+  LitElement: class LitElement extends HTMLElement {
+    requestUpdate() {}
+  },
 }))
 
 vi.mock('lit/decorators.js', () => ({
   customElement: () => () => {},
+  property: () => () => {},
 }))
 
 import {
