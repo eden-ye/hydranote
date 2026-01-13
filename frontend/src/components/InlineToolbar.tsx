@@ -29,17 +29,14 @@ const InlineToolbar: React.FC<InlineToolbarProps> = ({
   const [highlightDropdownOpen, setHighlightDropdownOpen] = useState(false)
   const toolbarRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when toolbar becomes hidden
-  useEffect(() => {
-    if (!isVisible) {
-      setHighlightDropdownOpen(false)
-    }
-  }, [isVisible])
+  // EDITOR-3512: Derive effective dropdown state to avoid setState in effect
+  // Dropdown is only open when toolbar is visible AND user has opened it
+  const effectiveDropdownOpen = isVisible && highlightDropdownOpen
 
   // Handle escape key to close toolbar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isVisible && !highlightDropdownOpen) {
+      if (e.key === 'Escape' && isVisible && !effectiveDropdownOpen) {
         e.preventDefault()
         onClose()
       }
@@ -47,7 +44,7 @@ const InlineToolbar: React.FC<InlineToolbarProps> = ({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isVisible, highlightDropdownOpen, onClose])
+  }, [isVisible, effectiveDropdownOpen, onClose])
 
   const handleFormatClick = useCallback(
     (formatId: string) => {
@@ -167,7 +164,7 @@ const InlineToolbar: React.FC<InlineToolbarProps> = ({
         <button
           data-testid="format-highlight"
           aria-label="Highlight"
-          aria-expanded={highlightDropdownOpen}
+          aria-expanded={effectiveDropdownOpen}
           aria-haspopup="menu"
           className={activeFormats.color || activeFormats.background ? 'active' : ''}
           style={activeFormats.color || activeFormats.background ? activeButtonStyle : buttonStyle}
@@ -188,7 +185,7 @@ const InlineToolbar: React.FC<InlineToolbarProps> = ({
         </button>
 
         <HighlightDropdown
-          isOpen={highlightDropdownOpen}
+          isOpen={effectiveDropdownOpen}
           onColorSelect={handleColorSelect}
           onBackgroundSelect={handleBackgroundSelect}
           onClose={handleDropdownClose}
