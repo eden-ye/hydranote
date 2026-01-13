@@ -110,6 +110,6 @@ describe('getMenuItemByBlockType', () => {
   })
 
   it('should return undefined for unknown block type', () => {
-    expect(getMenuItemByBlockType('unknown' as any)).toBeUndefined()
+    expect(getMenuItemByBlockType('unknown' as unknown as Parameters<typeof getMenuItemByBlockType>[0])).toBeUndefined()
   })
 })
