@@ -19,6 +19,8 @@ const mockStore = {
   enterFocusMode: vi.fn(),
   toggleFavorite: vi.fn(),
   isFavorite: vi.fn(() => false),
+  // FE-506: Navigation history
+  pushNavigation: vi.fn(),
 }
 
 // Mock top-level blocks (root blocks in the document)

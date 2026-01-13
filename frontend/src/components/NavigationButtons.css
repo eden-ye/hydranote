@@ -1,0 +1,48 @@
+/**
+ * NavigationButtons Component Styles
+ * FE-506: Back/Forward Navigation Buttons
+ *
+ * Browser-style back and forward navigation buttons.
+ */
+
+.navigation-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.navigation-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--affine-icon-color, #888);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.navigation-button:hover:not(:disabled) {
+  background-color: var(--affine-hover-color, #e0e0e0);
+  color: var(--affine-text-primary-color, #333);
+}
+
+.navigation-button:focus-visible {
+  outline: 2px solid var(--affine-primary-color, #1976d2);
+  outline-offset: 2px;
+}
+
+.navigation-button:disabled {
+  color: var(--affine-text-disable-color, #ccc);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.navigation-button svg {
+  flex-shrink: 0;
+}

@@ -73,6 +73,8 @@ import { TEXT_FORMAT_CONFIGS } from '@/utils/format-commands'
 import { SlashMenu } from './SlashMenu'
 import type { SlashMenuItem } from '@/blocks/utils/slash-menu'
 import type { BlockType } from '@/blocks/utils/markdown-shortcuts'
+// FE-506: Navigation history buttons
+import { NavigationButtons } from './NavigationButtons'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -244,6 +246,16 @@ export default function Editor() {
   // const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
   // const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
 
+  // FE-506: Navigation history state
+  // Must be declared before callbacks that use them
+  const {
+    pushNavigation,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  } = useEditorStore()
+
   // Update breadcrumb and title when focus changes
   useEffect(() => {
     if (isInFocusMode && focusedBlockId && docRef.current) {
@@ -269,8 +281,25 @@ export default function Editor() {
 
   // FE-407: Handle breadcrumb navigation
   const handleBreadcrumbNavigate = useCallback((id: string) => {
+    pushNavigation(id)
     enterFocusMode(id)
-  }, [enterFocusMode])
+  }, [enterFocusMode, pushNavigation])
+
+  // FE-506: Handle back button click
+  const handleNavigationBack = useCallback(() => {
+    const blockId = goBack()
+    if (blockId) {
+      enterFocusMode(blockId)
+    }
+  }, [goBack, enterFocusMode])
+
+  // FE-506: Handle forward button click
+  const handleNavigationForward = useCallback(() => {
+    const blockId = goForward()
+    if (blockId) {
+      enterFocusMode(blockId)
+    }
+  }, [goForward, enterFocusMode])
 
   // FE-409/EDITOR-3511: Ghost question click now handled inline in bullet-block.ts
   // const handleQuestionClick = useCallback((question: GhostQuestion) => {
@@ -520,12 +549,14 @@ export default function Editor() {
   }, [accessToken, canExpand, expandBlock])
 
   // EDITOR-3508: Handle focus block event from grip handle click
+  // FE-506: Also track navigation history
   const handleFocusBlockEvent = useCallback((event: Event) => {
     const customEvent = event as CustomEvent<{ blockId: string }>
     const { blockId } = customEvent.detail
     console.log('[FocusMode] Entering focus mode for block:', blockId)
+    pushNavigation(blockId)
     enterFocusMode(blockId)
-  }, [enterFocusMode])
+  }, [enterFocusMode, pushNavigation])
 
   // EDITOR-3601: Handle descriptor generation event (Tab trigger at deepest level)
   const handleDescriptorGenerateEvent = useCallback((event: Event) => {
@@ -1236,6 +1267,7 @@ export default function Editor() {
     container.appendChild(editor)
 
     // FE-406: Add double-click handler for focus mode
+    // FE-506: Also track navigation history
     const handleDoubleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       // Find the closest hydra-bullet-block element
@@ -1243,6 +1275,7 @@ export default function Editor() {
       if (bulletBlock) {
         const blockId = bulletBlock.getAttribute('data-block-id')
         if (blockId) {
+          pushNavigation(blockId)
           enterFocusMode(blockId)
         }
       }
@@ -1346,7 +1379,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [versionCheckComplete, enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
+  }, [versionCheckComplete, enterFocusMode, pushNavigation, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
 
   // EDITOR-3506: Separate useEffect for selection change listener
   // This needs to be separate from the main editor initialization useEffect
@@ -1474,6 +1507,16 @@ export default function Editor() {
         flexDirection: 'column',
       }}
     >
+      {/* FE-506: Show navigation buttons in focus mode */}
+      {isInFocusMode && (
+        <NavigationButtons
+          canGoBack={canGoBack()}
+          canGoForward={canGoForward()}
+          onBack={handleNavigationBack}
+          onForward={handleNavigationForward}
+        />
+      )}
+
       {/* FE-407: Show breadcrumb in focus mode */}
       {isInFocusMode && breadcrumbItems.length > 0 && (
         <Breadcrumb

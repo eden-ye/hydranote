@@ -20,15 +20,18 @@ export function FavoritesSection({ getBlockTitle }: FavoritesSectionProps) {
   const enterFocusMode = useEditorStore((state) => state.enterFocusMode)
   const toggleFavorite = useEditorStore((state) => state.toggleFavorite)
   const reorderFavorites = useEditorStore((state) => state.reorderFavorites)
+  // FE-506: Track navigation history
+  const pushNavigation = useEditorStore((state) => state.pushNavigation)
 
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const handleClick = useCallback(
     (id: string) => {
+      pushNavigation(id)
       enterFocusMode(id)
     },
-    [enterFocusMode]
+    [enterFocusMode, pushNavigation]
   )
 
   const handleToggleFavorite = useCallback(

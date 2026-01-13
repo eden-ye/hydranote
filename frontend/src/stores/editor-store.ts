@@ -10,6 +10,7 @@
  * EDITOR-3407: Auto-Reorg Settings
  * EDITOR-3502: Reorganization Modal State
  * FE-503: Favorites State
+ * FE-506: Navigation History State
  *
  * Manages editor state including:
  * - Current document ID
@@ -142,6 +143,11 @@ interface EditorState {
   blockTitles: Map<string, string>
   /** Array of top-level block IDs (root bullets in document) */
   topLevelBlockIds: string[]
+  // FE-506: Navigation history state
+  /** Array of block IDs representing navigation history */
+  navigationHistory: string[]
+  /** Current position in navigation history (-1 when empty) */
+  navigationIndex: number
 }
 
 /**
@@ -247,6 +253,19 @@ interface EditorActions {
   // FE-504: Block data actions
   /** Sync all block data from document */
   syncBlockData: (topLevelBlockIds: string[], blockTitles: Map<string, string>) => void
+  // FE-506: Navigation history actions
+  /** Push a new block to navigation history */
+  pushNavigation: (blockId: string) => void
+  /** Go back in navigation history, returns the block ID to navigate to or null */
+  goBack: () => string | null
+  /** Go forward in navigation history, returns the block ID to navigate to or null */
+  goForward: () => string | null
+  /** Clear all navigation history */
+  clearNavigationHistory: () => void
+  /** Check if can go back in history */
+  canGoBack: () => boolean
+  /** Check if can go forward in history */
+  canGoForward: () => boolean
 }
 
 /**
@@ -298,6 +317,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   // FE-504: Block data initial state
   blockTitles: new Map(),
   topLevelBlockIds: [],
+  // FE-506: Navigation history initial state
+  navigationHistory: [],
+  navigationIndex: -1,
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -572,6 +594,69 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   // FE-504: Block data actions
   syncBlockData: (topLevelBlockIds, blockTitles) =>
     set({ topLevelBlockIds, blockTitles }),
+
+  // FE-506: Navigation history actions
+  pushNavigation: (blockId) =>
+    set((state) => {
+      const MAX_HISTORY_SIZE = 50
+
+      // Don't add duplicate consecutive entries
+      const currentBlockId = state.navigationIndex >= 0 ? state.navigationHistory[state.navigationIndex] : null
+      if (currentBlockId === blockId) {
+        return state
+      }
+
+      // Truncate forward history if we're not at the end
+      let newHistory = state.navigationHistory.slice(0, state.navigationIndex + 1)
+
+      // Add new entry
+      newHistory.push(blockId)
+
+      // Limit history size
+      if (newHistory.length > MAX_HISTORY_SIZE) {
+        newHistory = newHistory.slice(newHistory.length - MAX_HISTORY_SIZE)
+      }
+
+      return {
+        navigationHistory: newHistory,
+        navigationIndex: newHistory.length - 1,
+      }
+    }),
+
+  goBack: function (): string | null {
+    const state = useEditorStore.getState()
+    if (state.navigationIndex <= 0) {
+      return null
+    }
+    const newIndex = state.navigationIndex - 1
+    const blockId = state.navigationHistory[newIndex]
+    useEditorStore.setState({ navigationIndex: newIndex })
+    return blockId
+  },
+
+  goForward: function (): string | null {
+    const state = useEditorStore.getState()
+    if (state.navigationIndex >= state.navigationHistory.length - 1) {
+      return null
+    }
+    const newIndex = state.navigationIndex + 1
+    const blockId = state.navigationHistory[newIndex]
+    useEditorStore.setState({ navigationIndex: newIndex })
+    return blockId
+  },
+
+  clearNavigationHistory: () =>
+    set({ navigationHistory: [], navigationIndex: -1 }),
+
+  canGoBack: function (): boolean {
+    const { navigationIndex } = useEditorStore.getState()
+    return navigationIndex > 0
+  },
+
+  canGoForward: function (): boolean {
+    const { navigationIndex, navigationHistory } = useEditorStore.getState()
+    return navigationIndex < navigationHistory.length - 1
+  },
 }))
 
 /**
@@ -809,3 +894,29 @@ export const selectHasFavorites = (state: EditorState): boolean =>
  */
 export const selectFavoritesCount = (state: EditorState): number =>
   state.favoriteBlockIds.length
+
+// FE-506: Navigation history selectors
+
+/**
+ * Selector for getting navigation history
+ */
+export const selectNavigationHistory = (state: EditorState): string[] =>
+  state.navigationHistory
+
+/**
+ * Selector for getting current navigation index
+ */
+export const selectNavigationIndex = (state: EditorState): number =>
+  state.navigationIndex
+
+/**
+ * Selector for checking if can go back in history
+ */
+export const selectCanGoBack = (state: EditorState): boolean =>
+  state.navigationIndex > 0
+
+/**
+ * Selector for checking if can go forward in history
+ */
+export const selectCanGoForward = (state: EditorState): boolean =>
+  state.navigationIndex < state.navigationHistory.length - 1
