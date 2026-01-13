@@ -27,6 +27,8 @@ export interface BulletBlockProps {
   isChecked: boolean
   /** EDITOR-3509: Whether inline preview is visible (default: true) */
   inlinePreviewVisible: boolean
+  /** EDITOR-3703: Manual inline preview text (created via == syntax) */
+  manualPreviewText: string | undefined
 }
 
 /**
@@ -54,6 +56,8 @@ export const BulletBlockSchema = defineBlockSchema({
     isChecked: false,
     // EDITOR-3509: Inline preview visibility (default: true)
     inlinePreviewVisible: true,
+    // EDITOR-3703: Manual inline preview text (default: undefined)
+    manualPreviewText: undefined,
   }),
   metadata: {
     version: 1,
