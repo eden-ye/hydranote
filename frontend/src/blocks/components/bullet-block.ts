@@ -2136,7 +2136,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   /**
    * EDITOR-3507: Handle drag end
    */
-  private _handleDragEnd(_e: DragEvent): void {
+  private _handleDragEnd(): void {
     // Clean up drag state
     this._cleanupDrag()
     console.log('[DragDrop] Drag ended')
