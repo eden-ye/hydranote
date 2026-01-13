@@ -1,7 +1,7 @@
 name: Deploy Backend to Railway (SAT)
 
 on:
-  pull_request:
+  push:
     branches: [main]
     paths:
       - 'backend/**'
