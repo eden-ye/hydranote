@@ -54,6 +54,10 @@ import { extractConcepts, semanticSearch } from '@/services/api-client.mock'
 import type { ConceptMatch } from '@/stores/editor-store'
 // EDITOR-3503: Toast notifications
 import { toast } from 'sonner'
+// EDITOR-3510: Slash menu
+import { SlashMenu } from './SlashMenu'
+import type { SlashMenuItem } from '@/blocks/utils/slash-menu'
+import type { BlockType } from '@/blocks/utils/markdown-shortcuts'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -245,6 +249,19 @@ export default function Editor() {
   const [portalPickerPosition, setPortalPickerPosition] = useState({ top: 0, left: 0 })
   const [allBullets, setAllBullets] = useState<BulletItem[]>([])
   const filteredBullets = filterBullets(allBullets, portalPickerQuery)
+
+  // EDITOR-3510: Slash menu state
+  const {
+    slashMenuOpen,
+    slashMenuQuery,
+    slashMenuBlockId,
+    slashMenuSelectedIndex,
+    openSlashMenu,
+    closeSlashMenu,
+    setSlashMenuQuery,
+    setSlashMenuSelectedIndex,
+  } = useEditorStore()
+  const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 })
 
   // EDITOR-3602: Auto-generate after descriptor state
   const {
@@ -546,6 +563,57 @@ export default function Editor() {
     setPortalPickerPosition(position)
     openPortalPicker(blockId)
   }, [openPortalPicker])
+
+  // EDITOR-3510: Handle slash menu open event
+  const handleSlashMenuOpenEvent = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ blockId: string; position: { top: number; left: number } }>
+    const { blockId, position } = customEvent.detail
+
+    setSlashMenuPosition(position)
+    openSlashMenu(blockId)
+  }, [openSlashMenu])
+
+  // EDITOR-3510: Handle slash menu selection
+  const handleSlashMenuSelect = useCallback((item: SlashMenuItem) => {
+    console.log('[SlashMenu] Item selected:', item.blockType)
+
+    const doc = docRef.current
+    if (!doc || !slashMenuBlockId) {
+      console.warn('[SlashMenu] No doc or blockId available')
+      closeSlashMenu()
+      return
+    }
+
+    const block = doc.getBlockById(slashMenuBlockId) as BulletBlockModel | null
+    if (!block) {
+      console.warn('[SlashMenu] Block not found:', slashMenuBlockId)
+      closeSlashMenu()
+      return
+    }
+
+    // Remove the / character from text
+    const currentText = block.text.toString()
+    if (currentText.startsWith('/')) {
+      block.text.delete(0, currentText.length)
+    }
+
+    // Update block type
+    doc.updateBlock(block, {
+      blockType: item.blockType as BlockType,
+      isChecked: item.blockType === 'checkbox' ? false : block.isChecked,
+    })
+
+    console.log('[SlashMenu] Block type updated to:', item.blockType)
+
+    // Focus the block after type change
+    setTimeout(() => {
+      const blockElement = document.querySelector(`hydra-bullet-block[data-block-id="${slashMenuBlockId}"]`)
+      const richText = blockElement?.querySelector('rich-text .inline-editor') as HTMLElement | null
+      richText?.focus()
+    }, 0)
+
+    closeSlashMenu()
+  }, [slashMenuBlockId, closeSlashMenu])
 
   // EDITOR-3405: Handle portal selection and creation
   const handlePortalSelect = useCallback((bullet: BulletItem) => {
@@ -893,6 +961,9 @@ export default function Editor() {
     // EDITOR-3405: Add portal picker open event listener
     container.addEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
 
+    // EDITOR-3510: Add slash menu open event listener
+    container.addEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
+
     // EDITOR-3602: Cancel auto-generation when user starts typing
     // EDITOR-3410: Cmd+S portal search modal
     // EDITOR-3502: Cmd+Shift+L reorganization modal
@@ -952,6 +1023,7 @@ export default function Editor() {
       container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)
       container.removeEventListener('hydra-descriptor-autocomplete-open', handleAutocompleteOpenEvent as EventListener)
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
+      container.removeEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
       container.removeEventListener('keydown', handleKeyDown)
       // Destroy persistence first
       if (persistenceRef.current) {
@@ -966,7 +1038,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
+  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
 
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
@@ -1135,6 +1207,18 @@ export default function Editor() {
         onClose={closePortalPicker}
         onQueryChange={setPortalPickerQuery}
         onSelectedIndexChange={setPortalPickerSelectedIndex}
+      />
+
+      {/* EDITOR-3510: Slash menu dropdown */}
+      <SlashMenu
+        isOpen={slashMenuOpen}
+        query={slashMenuQuery}
+        selectedIndex={slashMenuSelectedIndex}
+        position={slashMenuPosition}
+        onSelect={handleSlashMenuSelect}
+        onClose={closeSlashMenu}
+        onQueryChange={setSlashMenuQuery}
+        onSelectedIndexChange={setSlashMenuSelectedIndex}
       />
 
       {/* EDITOR-3410: Portal search modal (Cmd+S) */}

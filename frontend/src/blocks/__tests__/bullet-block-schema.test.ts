@@ -76,6 +76,9 @@ describe('BulletBlockSchema', () => {
       isDescriptor: boolean
       descriptorType: string | null
       descriptorLabel: string | undefined
+      cheatsheetVisible: boolean
+      blockType: string
+      isChecked: boolean
     }
 
     it('should define text and isExpanded props', () => {
@@ -201,6 +204,75 @@ describe('BulletBlockSchema', () => {
       const props = propsFactory(mockInternal)
 
       expect(props.descriptorLabel).toBeUndefined()
+    })
+
+    // EDITOR-3510: Block type system props tests
+    it('should define blockType prop', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal) as { blockType: string }
+
+      expect(props).toHaveProperty('blockType')
+    })
+
+    it('should default blockType to bullet', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal) as { blockType: string }
+
+      expect(props.blockType).toBe('bullet')
+    })
+
+    it('should define isChecked prop', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal) as { isChecked: boolean }
+
+      expect(props).toHaveProperty('isChecked')
+    })
+
+    it('should default isChecked to false', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal) as { isChecked: boolean }
+
+      expect(props.isChecked).toBe(false)
     })
   })
 })
