@@ -62,10 +62,11 @@ export interface DragState {
 
 /**
  * Horizontal threshold for determining 'in' vs 'after' placement.
- * When mouse X is >= blockRect.left + INDENT_THRESHOLD, we treat it as 'in'.
- * This matches the 24px children padding.
+ * EDITOR-3701 FIX: This is now a RELATIVE threshold from the block's right edge.
+ * User must drag cursor far to the RIGHT (past 60% of block width) to nest.
+ * This prevents accidental nesting when dragging for sibling reordering.
  */
-export const INDENT_THRESHOLD = 24
+export const INDENT_THRESHOLD = 0.6 // 60% of block width - nesting requires explicit intent
 
 /**
  * Vertical zone ratio for 'before' placement (top 25% of block)
@@ -84,17 +85,22 @@ export const BOTTOM_ZONE_RATIO = 0.25
 /**
  * Compute drop placement based on mouse position relative to block bounds.
  *
+ * EDITOR-3701 FIX: Nesting now requires explicit user intent.
+ *
  * Drop logic:
  * - Top 25%: 'before' (drop above as sibling)
  * - Bottom 25%: 'after' (drop below as sibling)
  * - Middle 50%:
- *   - If mouse X < block.left + indentThreshold: 'after'
- *   - If mouse X >= block.left + indentThreshold: 'in' (drop as child)
+ *   - Default: 'after' (sibling placement is the common case)
+ *   - If mouse X is past 60% of block width from left edge: 'in' (nest as child)
+ *
+ * This prevents accidental nesting - users must drag significantly to the right
+ * to trigger nesting behavior.
  *
  * @param mouseX - Current mouse X coordinate
  * @param mouseY - Current mouse Y coordinate
  * @param blockRect - Target block bounding rectangle
- * @param indentThreshold - X offset threshold for 'in' placement
+ * @param indentThreshold - Ratio of block width (0-1) for 'in' placement
  * @returns The computed drop placement
  */
 export function computeDropPlacement(
@@ -103,13 +109,13 @@ export function computeDropPlacement(
   blockRect: BlockRect,
   indentThreshold: number = INDENT_THRESHOLD
 ): DropPlacement {
-  const { top, height, left } = blockRect
+  const { top, height, left, width } = blockRect
 
   // Calculate zone boundaries
   const topZoneEnd = top + height * TOP_ZONE_RATIO
   const bottomZoneStart = top + height * (1 - BOTTOM_ZONE_RATIO)
 
-  // Check vertical position
+  // Check vertical position first - top/bottom zones are always sibling placement
   if (mouseY < topZoneEnd) {
     return 'before'
   }
@@ -119,11 +125,16 @@ export function computeDropPlacement(
   }
 
   // Middle zone - check horizontal position for nest behavior
-  const nestThreshold = left + indentThreshold
-  if (mouseX >= nestThreshold) {
+  // EDITOR-3701 FIX: Use RELATIVE position from block's left edge
+  // Nesting only triggers when cursor is past 60% of the block width
+  const relativeX = mouseX - left
+  const nestThreshold = width * indentThreshold // e.g., 60% of block width
+
+  if (relativeX >= nestThreshold) {
     return 'in'
   }
 
+  // Default to sibling placement - this is the most common user intent
   return 'after'
 }
 
