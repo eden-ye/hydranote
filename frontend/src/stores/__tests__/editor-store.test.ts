@@ -963,4 +963,346 @@ describe('Editor Store', () => {
       })
     })
   })
+
+  // FE-506: Navigation history state
+  describe('Navigation History State (FE-506)', () => {
+    beforeEach(() => {
+      // Reset navigation history state
+      useEditorStore.setState({
+        navigationHistory: [],
+        navigationIndex: -1,
+      })
+    })
+
+    describe('Initial State', () => {
+      it('should have empty navigation history initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.navigationHistory).toEqual([])
+      })
+
+      it('should have navigation index at -1 initially', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.navigationIndex).toBe(-1)
+      })
+    })
+
+    describe('pushNavigation action', () => {
+      it('should add a navigation entry to history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+        })
+
+        expect(result.current.navigationHistory).toEqual(['block-1'])
+        expect(result.current.navigationIndex).toBe(0)
+      })
+
+      it('should add multiple entries sequentially', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+        })
+
+        act(() => {
+          result.current.pushNavigation('block-2')
+        })
+
+        act(() => {
+          result.current.pushNavigation('block-3')
+        })
+
+        expect(result.current.navigationHistory).toEqual(['block-1', 'block-2', 'block-3'])
+        expect(result.current.navigationIndex).toBe(2)
+      })
+
+      it('should truncate forward history when adding after going back', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        // Add three entries
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+          result.current.pushNavigation('block-3')
+        })
+
+        // Go back once
+        act(() => {
+          result.current.goBack()
+        })
+
+        // Add new entry - should truncate block-3
+        act(() => {
+          result.current.pushNavigation('block-4')
+        })
+
+        expect(result.current.navigationHistory).toEqual(['block-1', 'block-2', 'block-4'])
+        expect(result.current.navigationIndex).toBe(2)
+      })
+
+      it('should not add duplicate consecutive entries', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+        })
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+        })
+
+        expect(result.current.navigationHistory).toEqual(['block-1'])
+        expect(result.current.navigationIndex).toBe(0)
+      })
+
+      it('should limit history to maximum size (50 entries)', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        // Add 55 entries
+        act(() => {
+          for (let i = 0; i < 55; i++) {
+            result.current.pushNavigation(`block-${i}`)
+          }
+        })
+
+        expect(result.current.navigationHistory.length).toBe(50)
+        // First 5 entries should have been removed
+        expect(result.current.navigationHistory[0]).toBe('block-5')
+        expect(result.current.navigationHistory[49]).toBe('block-54')
+      })
+    })
+
+    describe('goBack action', () => {
+      it('should navigate to previous entry', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+          result.current.pushNavigation('block-3')
+        })
+
+        let previousBlock: string | null = null
+        act(() => {
+          previousBlock = result.current.goBack()
+        })
+
+        expect(previousBlock).toBe('block-2')
+        expect(result.current.navigationIndex).toBe(1)
+      })
+
+      it('should return null when at start of history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+        })
+
+        let previousBlock: string | null = null
+        act(() => {
+          previousBlock = result.current.goBack()
+        })
+
+        expect(previousBlock).toBeNull()
+        expect(result.current.navigationIndex).toBe(0)
+      })
+
+      it('should return null when history is empty', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        let previousBlock: string | null = null
+        act(() => {
+          previousBlock = result.current.goBack()
+        })
+
+        expect(previousBlock).toBeNull()
+        expect(result.current.navigationIndex).toBe(-1)
+      })
+
+      it('should navigate multiple steps back', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+          result.current.pushNavigation('block-3')
+        })
+
+        act(() => {
+          result.current.goBack()
+        })
+
+        let previousBlock: string | null = null
+        act(() => {
+          previousBlock = result.current.goBack()
+        })
+
+        expect(previousBlock).toBe('block-1')
+        expect(result.current.navigationIndex).toBe(0)
+      })
+    })
+
+    describe('goForward action', () => {
+      it('should navigate to next entry after going back', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+          result.current.pushNavigation('block-3')
+        })
+
+        act(() => {
+          result.current.goBack()
+        })
+
+        let nextBlock: string | null = null
+        act(() => {
+          nextBlock = result.current.goForward()
+        })
+
+        expect(nextBlock).toBe('block-3')
+        expect(result.current.navigationIndex).toBe(2)
+      })
+
+      it('should return null when at end of history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+        })
+
+        let nextBlock: string | null = null
+        act(() => {
+          nextBlock = result.current.goForward()
+        })
+
+        expect(nextBlock).toBeNull()
+        expect(result.current.navigationIndex).toBe(1)
+      })
+
+      it('should return null when history is empty', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        let nextBlock: string | null = null
+        act(() => {
+          nextBlock = result.current.goForward()
+        })
+
+        expect(nextBlock).toBeNull()
+        expect(result.current.navigationIndex).toBe(-1)
+      })
+
+      it('should navigate multiple steps forward', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+          result.current.pushNavigation('block-3')
+        })
+
+        // Go back twice
+        act(() => {
+          result.current.goBack()
+          result.current.goBack()
+        })
+
+        // Go forward once
+        act(() => {
+          result.current.goForward()
+        })
+
+        let nextBlock: string | null = null
+        act(() => {
+          nextBlock = result.current.goForward()
+        })
+
+        expect(nextBlock).toBe('block-3')
+        expect(result.current.navigationIndex).toBe(2)
+      })
+    })
+
+    describe('clearNavigationHistory action', () => {
+      it('should clear all navigation history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+          result.current.pushNavigation('block-3')
+        })
+
+        act(() => {
+          result.current.clearNavigationHistory()
+        })
+
+        expect(result.current.navigationHistory).toEqual([])
+        expect(result.current.navigationIndex).toBe(-1)
+      })
+    })
+
+    describe('canGoBack selector', () => {
+      it('should return false when history is empty', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.canGoBack()).toBe(false)
+      })
+
+      it('should return false when at start of history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+        })
+
+        expect(result.current.canGoBack()).toBe(false)
+      })
+
+      it('should return true when there is previous history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+        })
+
+        expect(result.current.canGoBack()).toBe(true)
+      })
+    })
+
+    describe('canGoForward selector', () => {
+      it('should return false when history is empty', () => {
+        const { result } = renderHook(() => useEditorStore())
+        expect(result.current.canGoForward()).toBe(false)
+      })
+
+      it('should return false when at end of history', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+        })
+
+        expect(result.current.canGoForward()).toBe(false)
+      })
+
+      it('should return true after going back', () => {
+        const { result } = renderHook(() => useEditorStore())
+
+        act(() => {
+          result.current.pushNavigation('block-1')
+          result.current.pushNavigation('block-2')
+        })
+
+        act(() => {
+          result.current.goBack()
+        })
+
+        expect(result.current.canGoForward()).toBe(true)
+      })
+    })
+  })
 })
