@@ -49,6 +49,12 @@ import {
   createDebouncedAutoGenerate,
   DEFAULT_AUTO_GENERATE_SETTINGS,
 } from '@/blocks/utils/auto-generate'
+// EDITOR-3408: Auto-reorg integration
+import {
+  createAutoReorgObserver,
+  type AutoReorgContext,
+} from '@/blocks/utils/auto-reorg'
+import { executeAutoReorg } from '@/services/auto-reorg-service'
 // EDITOR-3409/3410: Portal search modal
 import { PortalSearchModal } from './PortalSearchModal'
 import { createPortalAsSibling, type DocWithBlocks } from '@/blocks/utils/portal-insertion'
@@ -341,6 +347,14 @@ export default function Editor() {
     closePortalSearchModal,
   } = useEditorStore()
 
+  // EDITOR-3408: Auto-reorg state
+  const {
+    autoReorgEnabled,
+    autoReorgThreshold,
+    setAutoReorgStatus,
+  } = useEditorStore()
+  const autoReorgRef = useRef<{ dispose: () => void } | null>(null)
+
   // FE-504: Sync block data to store for LeftPanel
   const syncBlockData = useEditorStore((state) => state.syncBlockData)
 
@@ -348,7 +362,6 @@ export default function Editor() {
   const {
     reorgModalOpen,
     reorgModalDocumentId,
-    autoReorgThreshold,
     openReorgModal,
     closeReorgModal,
     setReorgModalStatus,
@@ -373,6 +386,119 @@ export default function Editor() {
     }
     wasExpandingRef.current = isExpanding
   }, [isExpanding, autoGenerateStatus, completeAutoGenerate, resetAutoGenerate])
+
+  // EDITOR-3408: Auto-reorg document observer
+  // Observes document changes and triggers auto-reorganization after 2s debounce
+  useEffect(() => {
+    const doc = docRef.current
+    if (!doc) return
+    if (!autoReorgEnabled) return
+    if (!accessToken) return
+
+    console.log('[AutoReorg] Setting up document observer, enabled:', autoReorgEnabled)
+
+    // Define a function to extract text from all bullets in the document
+    const extractDocumentText = (): string => {
+      const texts: string[] = []
+      const extractTextRecursive = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          const bulletBlock = block as BlockModel & { text?: { toString(): string } }
+          const text = bulletBlock.text?.toString() || ''
+          if (text.trim()) {
+            texts.push(text)
+          }
+        }
+        if ('children' in block && Array.isArray(block.children)) {
+          for (const child of block.children) {
+            extractTextRecursive(child as BlockModel)
+          }
+        }
+      }
+
+      // Start from root and traverse
+      if (doc.root) {
+        extractTextRecursive(doc.root as BlockModel)
+      }
+      return texts.join('\n')
+    }
+
+    // Define a function to get all bullet IDs
+    const getAllBulletIds = (): string[] => {
+      const ids: string[] = []
+      const extractIdsRecursive = (block: BlockModel) => {
+        if (block.flavour === 'hydra:bullet') {
+          ids.push(block.id)
+        }
+        if ('children' in block && Array.isArray(block.children)) {
+          for (const child of block.children) {
+            extractIdsRecursive(child as BlockModel)
+          }
+        }
+      }
+
+      if (doc.root) {
+        extractIdsRecursive(doc.root as BlockModel)
+      }
+      return ids
+    }
+
+    // Create a doc wrapper for the observer
+    // Cast to MockDoc to match the auto-reorg observer interface
+    const docWrapper = {
+      id: doc.id,
+      spaceDoc: {
+        on: (event: string, callback: () => void) => doc.spaceDoc.on(event as 'update', callback),
+        off: (event: string, callback: () => void) => doc.spaceDoc.off(event as 'update', callback),
+      },
+      getText: extractDocumentText,
+      getAllBulletIds: getAllBulletIds,
+    }
+
+    // Create the auto-reorg observer
+    const observer = createAutoReorgObserver(
+      docWrapper,
+      {
+        enabled: autoReorgEnabled,
+        thresholdScore: autoReorgThreshold,
+        debounceMs: 2000,
+        maxResults: 5,
+      },
+      async (context: AutoReorgContext) => {
+        console.log('[AutoReorg] Triggered for document:', context.documentId)
+        setAutoReorgStatus('processing')
+
+        try {
+          const result = await executeAutoReorg(
+            context,
+            {
+              enabled: autoReorgEnabled,
+              thresholdScore: autoReorgThreshold,
+              debounceMs: 2000,
+              maxResults: 5,
+            },
+            accessToken
+          )
+
+          console.log('[AutoReorg] Completed:', result)
+          setAutoReorgStatus('completed')
+
+          // Reset status after a short delay
+          setTimeout(() => setAutoReorgStatus('idle'), 2000)
+        } catch (error) {
+          console.error('[AutoReorg] Failed:', error)
+          setAutoReorgStatus('idle')
+        }
+      }
+    )
+
+    autoReorgRef.current = observer
+
+    return () => {
+      console.log('[AutoReorg] Cleaning up document observer')
+      observer.dispose()
+      autoReorgRef.current = null
+    }
+  }, [autoReorgEnabled, autoReorgThreshold, accessToken, setAutoReorgStatus])
 
   // FE-408: Handle expand event from bullet blocks
   const handleExpandEvent = useCallback((event: Event) => {
