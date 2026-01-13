@@ -1220,65 +1220,178 @@ describe('Null Model Defense (BUG-EDITOR-3064)', () => {
   })
 })
 
-// Import ghost bullet functions (EDITOR-3511)
+// Import ghost bullet functions (EDITOR-3511, EDITOR-3702)
 import {
   generateGhostSuggestions,
   shouldShowGhostBullets,
+  handleGhostQuestionKeydown,
+  GHOST_QUESTION_DELAY_MS,
   type GhostSuggestion,
   type GhostSuggestionContext,
 } from '../components/bullet-block'
 
 /**
- * Tests for Ghost Bullet Suggestions (EDITOR-3511)
+ * Tests for Ghost Bullet Suggestions (EDITOR-3511, EDITOR-3702)
  *
- * Ghost bullets appear inline under parent bullets as suggestion placeholders.
- * When clicked, they convert to real bullets and trigger AI expansion.
+ * EDITOR-3702: Ghost questions now have delayed reveal behavior:
+ * - Only appear on EMPTY child bullets (not bullets with text)
+ * - Require parent to have content
+ * - 5-second delay before showing
+ * - Typing cancels the timer
+ * - Tab key accepts, click does NOT accept
+ * - Ghost elements are NOT in DOM when hidden (return `nothing`)
  */
-describe('Ghost Bullet Suggestions (EDITOR-3511)', () => {
-  describe('shouldShowGhostBullets', () => {
-    it('should return true when block has text and is expanded', () => {
+describe('Ghost Bullet Suggestions (EDITOR-3511, EDITOR-3702)', () => {
+  describe('shouldShowGhostBullets (EDITOR-3702 - Delayed Reveal)', () => {
+    it('should return true when bullet is EMPTY, parent has content, and delay is met', () => {
       expect(shouldShowGhostBullets({
-        hasText: true,
-        isExpanded: true,
-        hasChildren: true,
-        isInFocusMode: false,
+        textContent: '',
+        parentHasContent: true,
+        delayMet: true,
       })).toBe(true)
     })
 
-    it('should return true when block has text and no children (leaf node)', () => {
+    it('should return false when bullet has text (not empty)', () => {
       expect(shouldShowGhostBullets({
-        hasText: true,
-        isExpanded: true,
-        hasChildren: false,
-        isInFocusMode: false,
-      })).toBe(true)
-    })
-
-    it('should return false when block is collapsed', () => {
-      expect(shouldShowGhostBullets({
-        hasText: true,
-        isExpanded: false,
-        hasChildren: true,
-        isInFocusMode: false,
+        textContent: 'Some text',
+        parentHasContent: true,
+        delayMet: true,
       })).toBe(false)
     })
 
-    it('should return false when block has no text', () => {
+    it('should return false when parent has no content', () => {
       expect(shouldShowGhostBullets({
-        hasText: false,
-        isExpanded: true,
-        hasChildren: false,
-        isInFocusMode: false,
+        textContent: '',
+        parentHasContent: false,
+        delayMet: true,
       })).toBe(false)
     })
 
-    it('should return true in focus mode for focused block', () => {
+    it('should return false when delay is not met', () => {
       expect(shouldShowGhostBullets({
-        hasText: true,
-        isExpanded: true,
-        hasChildren: true,
-        isInFocusMode: true,
-      })).toBe(true)
+        textContent: '',
+        parentHasContent: true,
+        delayMet: false,
+      })).toBe(false)
+    })
+
+    it('should return false when all conditions are not met', () => {
+      expect(shouldShowGhostBullets({
+        textContent: 'Has text',
+        parentHasContent: false,
+        delayMet: false,
+      })).toBe(false)
+    })
+
+    it('should return false even with parent content if bullet has whitespace-only text', () => {
+      // Whitespace counts as "having text" - user has started typing
+      expect(shouldShowGhostBullets({
+        textContent: '   ',
+        parentHasContent: true,
+        delayMet: true,
+      })).toBe(false)
+    })
+  })
+
+  describe('GHOST_QUESTION_DELAY_MS constant', () => {
+    it('should be 5000ms (5 seconds)', () => {
+      expect(GHOST_QUESTION_DELAY_MS).toBe(5000)
+    })
+  })
+
+  describe('handleGhostQuestionKeydown (EDITOR-3702 - Keyboard Handling)', () => {
+    it('should return "accept" for Tab key when ghost questions are shown', () => {
+      const result = handleGhostQuestionKeydown({
+        key: 'Tab',
+        ghostQuestionsVisible: true,
+      })
+      expect(result).toBe('accept')
+    })
+
+    it('should return "cancel" for Tab key when ghost questions are not shown', () => {
+      const result = handleGhostQuestionKeydown({
+        key: 'Tab',
+        ghostQuestionsVisible: false,
+      })
+      expect(result).toBe('cancel')
+    })
+
+    it('should return "cancel" for Escape key', () => {
+      const result = handleGhostQuestionKeydown({
+        key: 'Escape',
+        ghostQuestionsVisible: true,
+      })
+      expect(result).toBe('cancel')
+    })
+
+    it('should return "cancel" for any typing key (letter)', () => {
+      const result = handleGhostQuestionKeydown({
+        key: 'a',
+        ghostQuestionsVisible: true,
+      })
+      expect(result).toBe('cancel')
+    })
+
+    it('should return "cancel" for number keys', () => {
+      const result = handleGhostQuestionKeydown({
+        key: '5',
+        ghostQuestionsVisible: true,
+      })
+      expect(result).toBe('cancel')
+    })
+
+    it('should return "cancel" for space key', () => {
+      const result = handleGhostQuestionKeydown({
+        key: ' ',
+        ghostQuestionsVisible: true,
+      })
+      expect(result).toBe('cancel')
+    })
+
+    it('should return "cancel" for Enter key', () => {
+      const result = handleGhostQuestionKeydown({
+        key: 'Enter',
+        ghostQuestionsVisible: true,
+      })
+      expect(result).toBe('cancel')
+    })
+
+    it('should return "ignore" for navigation keys (arrows)', () => {
+      expect(handleGhostQuestionKeydown({
+        key: 'ArrowUp',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+      expect(handleGhostQuestionKeydown({
+        key: 'ArrowDown',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+      expect(handleGhostQuestionKeydown({
+        key: 'ArrowLeft',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+      expect(handleGhostQuestionKeydown({
+        key: 'ArrowRight',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+    })
+
+    it('should return "ignore" for modifier keys', () => {
+      expect(handleGhostQuestionKeydown({
+        key: 'Shift',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+      expect(handleGhostQuestionKeydown({
+        key: 'Control',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+      expect(handleGhostQuestionKeydown({
+        key: 'Alt',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
+      expect(handleGhostQuestionKeydown({
+        key: 'Meta',
+        ghostQuestionsVisible: true,
+      })).toBe('ignore')
     })
   })
 
