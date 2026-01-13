@@ -2300,8 +2300,9 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * Only shown when preview is hidden and on hover.
    */
   private _renderInlinePreviewRestoreButton(): TemplateResult | typeof nothing {
-    // Only show when preview is hidden and block has children and is collapsed
-    if (this.model.inlinePreviewVisible || this.model.isExpanded || !this._hasChildren) {
+    // Only show when preview is explicitly hidden (false) and block has children and is collapsed
+    // Treat undefined as true (default for existing blocks without this property)
+    if (this.model.inlinePreviewVisible !== false || this.model.isExpanded || !this._hasChildren) {
       return nothing
     }
 
@@ -2327,7 +2328,8 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    */
   private _renderInlinePreview(): TemplateResult | typeof nothing {
     // EDITOR-3509: Check if preview is hidden
-    if (!this.model.inlinePreviewVisible) {
+    // Treat undefined as true (default for existing blocks without this property)
+    if (this.model.inlinePreviewVisible === false) {
       return nothing
     }
 
