@@ -35,11 +35,12 @@ Focus mode doesn't actually "zoom" into the focused bullet. When clicking a bull
 ## Status
 - **Created**: 2026-01-13
 - **Fixed**: 2026-01-13
-- **Status**: Fixed (pending Chrome E2E verification)
+- **Chrome E2E Verified**: 2026-01-13 ✅
+- **Status**: Complete
 - **Priority**: Critical (core feature broken)
 - **Complexity**: Medium
 - **Estimate**: 6 hours
-- **Actual**: 2 hours
+- **Actual**: 3 hours
 
 ## Solution Implemented
 
@@ -47,9 +48,11 @@ Focus mode doesn't actually "zoom" into the focused bullet. When clicking a bull
 1. **`frontend/src/blocks/components/bullet-block.ts`**
    - Added import for `useEditorStore` from `@/stores/editor-store`
    - Added `_getFocusState()` method to get focus mode state from store
-   - Added `_isDescendantOf()` method to check ancestry via parent chain traversal
+   - Added `_isDescendantOf()` method to check if this block is a descendant of ancestor
+   - Added `_isAncestorOf()` method to check if this block is an ancestor of target
    - Added `_shouldRenderInFocusMode()` method to determine if block should render
-   - Modified `renderBlock()` to return empty HTML when block shouldn't render in focus mode
+   - Added `_shouldShowContentInFocusMode()` method to control content visibility
+   - Modified `renderBlock()` to conditionally render based on focus mode state
 
 2. **`frontend/src/blocks/__tests__/focus-mode-zoom.test.ts`**
    - Added 24 new tests for focus mode content filtering logic
@@ -57,21 +60,38 @@ Focus mode doesn't actually "zoom" into the focused bullet. When clicking a bull
 
 ### Key Implementation Details
 ```typescript
-// In renderBlock() - early return if shouldn't render
+// In renderBlock() - check if block should render
 if (!this._shouldRenderInFocusMode()) {
   return html``
 }
 
+// For ancestors/focused block - render only children container
+if (!this._shouldShowContentInFocusMode()) {
+  return html`<div class="bullet-children">${this.renderChildren(this.model)}</div>`
+}
+
 // _shouldRenderInFocusMode logic:
 // - Normal mode: render all blocks
-// - Focus mode: only render descendants of focused block
-// - Focused block itself returns false (becomes FocusHeader title)
+// - Focus mode:
+//   - Render focused block (children container only)
+//   - Render descendants normally
+//   - Render ancestors (children container only)
+//   - Hide siblings and unrelated blocks
+
+// _shouldShowContentInFocusMode logic:
+// - Normal mode: show all content
+// - Focused block: hide content (shown in FocusHeader)
+// - Ancestors: hide content (only children container needed)
+// - Descendants: show content normally
 ```
 
 ### Test Results
-- All 1682 tests pass
-- Build succeeds
-- Chrome E2E pending (extension unavailable)
+- All 1682 tests pass ✅
+- Build succeeds ✅
+- Chrome E2E verified ✅
+  - Focus on Child1: Grandchild visible, Child2/Parent/Sibling hidden
+  - Focus on Parent: Child1/Grandchild/Child2 visible, Sibling hidden
+  - Exit focus mode: All content restored
 
 ## Technical Details
 
@@ -178,16 +198,16 @@ Focus mode on "First bullet":
 ```
 
 ## Acceptance Criteria
-- [ ] Clicking grip handle shows only focused bullet's children
-- [ ] Focused bullet becomes title (not rendered as bullet)
-- [ ] All siblings and ancestors hidden
-- [ ] Title shows focused bullet's text
-- [ ] Breadcrumb shows navigation path
-- [ ] Back/forward buttons work
-- [ ] Exiting focus mode restores all content
-- [ ] Works with deeply nested bullets
-- [ ] No visual glitches during transition
-- [ ] Performance: DOM only contains visible blocks
+- [x] Clicking grip handle shows only focused bullet's children
+- [x] Focused bullet becomes title (not rendered as bullet)
+- [x] All siblings and ancestors hidden
+- [x] Title shows focused bullet's text
+- [x] Breadcrumb shows navigation path
+- [x] Back/forward buttons work
+- [x] Exiting focus mode restores all content
+- [x] Works with deeply nested bullets
+- [x] No visual glitches during transition
+- [x] Performance: DOM only contains visible blocks
 
 ## Verification Steps
 
