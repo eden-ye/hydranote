@@ -27,7 +27,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 |--------|-------|-----|--------|-------|
 | API-301 | Embedding/Vector Storage | 6h | [L] | Needs SAT Chrome E2E |
 | API-302 | Semantic Search Endpoint | 4h | [L] | Needs SAT Chrome E2E |
-| API-303 | Concept Extraction | 3h | [ ] | Backlog |
+| API-303 | Concept Extraction | 3h | [L] | Bruno tests passed, merged PR #77 |
 
 ## Epic: Silent Auto-Reorg (2)
 
@@ -84,21 +84,21 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | EDITOR-3508 | Focus Mode Zoom | 6h | [x] | Affine grip handle + click=zoom (do first, shared UI with 3507) |
 | EDITOR-3509 | Collapsible Inline Preview | 2h | [x] | Clickable dash separator to hide/show inline preview, merged PR #106 |
 | EDITOR-3510 | Block Type System | 8h | [x] | Checkbox, numbered list, bullet, headings + slash menu + markdown |
-| EDITOR-3511 | Ghost Bullet Suggestions | 6h | [ ] | Inline grey bullets under parents, click to convert + AI expand |
+| EDITOR-3511 | Ghost Bullet Suggestions | 6h | [x] | Merged PR #104, Chrome E2E pending |
 | EDITOR-3512 | Add Block Button UX | 3h | [x] | Fix unclear state + position shift during typing, merged PR #111 |
 
 ---
 
 ## Quick Filter
 
-- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, FE-501, FE-504
+- **Local E2E OK [L]**: API-301, API-302, API-303, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, FE-501, FE-504
 - **SAT Deployed [D]**: (none - awaiting Vercel deploy)
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
-- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3512, FE-503
+- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512, FE-503
 - **In Progress [~]**: (none)
-- **Backlog [ ]**: API-303, EDITOR-3408, EDITOR-3511
+- **Backlog [ ]**: EDITOR-3408
 
 ---
 
@@ -106,7 +106,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 | Ticket | Title | Status |
 |--------|-------|--------|
-| BUG-EDITOR-3064 | Null Model Render Error | open |
+| BUG-EDITOR-3064 | Null Model Render Error | open (orphaned blocks in IndexedDB) |
 
 ---
 
