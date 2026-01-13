@@ -432,6 +432,87 @@ export function generateGhostSuggestions(context: GhostSuggestionContext): Ghost
 }
 
 /**
+ * EDITOR-3512: Expand button state type
+ * Represents the four distinct visual states of the expand button
+ */
+export type ExpandButtonState = 'default' | 'hover' | 'active' | 'disabled'
+
+/**
+ * EDITOR-3512: Input for computing expand button state
+ */
+export interface ExpandButtonStateInput {
+  isExpanding: boolean
+  isDisabled: boolean
+  isHovered: boolean
+}
+
+/**
+ * EDITOR-3512: Compute the expand button state based on input
+ * @param input - The current button state
+ * @returns The visual state to display
+ */
+export function getExpandButtonState(input: ExpandButtonStateInput): ExpandButtonState {
+  // Disabled takes precedence
+  if (input.isDisabled) {
+    return 'disabled'
+  }
+
+  // Active (expanding) takes precedence over hover
+  if (input.isExpanding) {
+    return 'active'
+  }
+
+  // Hover state
+  if (input.isHovered) {
+    return 'hover'
+  }
+
+  // Default state
+  return 'default'
+}
+
+/**
+ * EDITOR-3512: Get tooltip text based on button state
+ * @param state - The current button state
+ * @returns Tooltip text for accessibility
+ */
+export function getExpandButtonTooltip(state: ExpandButtonState): string {
+  switch (state) {
+    case 'default':
+    case 'hover':
+      return 'Expand with AI (generates child bullets)'
+    case 'active':
+      return 'Generating child bullets...'
+    case 'disabled':
+      return 'Cannot expand (empty text or already expanding)'
+  }
+}
+
+/**
+ * EDITOR-3512: Get CSS classes based on button state
+ * @param state - The current button state
+ * @returns CSS class string
+ */
+export function getExpandButtonClasses(state: ExpandButtonState): string {
+  const classes = ['bullet-expand']
+
+  switch (state) {
+    case 'hover':
+      classes.push('bullet-expand-hover')
+      break
+    case 'active':
+      classes.push('bullet-expand-active')
+      break
+    case 'disabled':
+      classes.push('bullet-expand-disabled')
+      break
+    // default: no additional classes
+  }
+
+  return classes.join(' ')
+}
+
+/**
  * Input for computing backspace merge strategy
  * EDITOR-3063: Added to handle children reparenting
  */
@@ -821,7 +902,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       background-color: var(--affine-hover-color, #f0f0f0);
     }
 
-    /* FE-408: Expand button styles */
+    /* FE-408, EDITOR-3512: Expand button styles
+     * EDITOR-3512 improvements:
+     * - Clear visual states (default, hover, active, disabled)
+     * - Stable positioning using absolute position (doesn't shift during typing)
+     */
     .bullet-expand {
       width: 20px;
       height: 20px;
@@ -834,25 +919,45 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       flex-shrink: 0;
       user-select: none;
       font-size: 12px;
-      transition: background-color 0.15s ease, color 0.15s ease;
-      margin-left: 4px;
+      transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+      /* EDITOR-3512: Use position:absolute for stable positioning */
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 0; /* Remove margin since using absolute positioning */
     }
 
     .bullet-container:hover .bullet-expand {
       display: flex;
     }
 
-    .bullet-expand:hover {
+    /* EDITOR-3512: Hover state - blue icon with subtle background */
+    .bullet-expand:hover,
+    .bullet-expand.bullet-expand-hover {
       background-color: var(--affine-hover-color, #f0f0f0);
       color: var(--affine-primary-color, #1976d2);
     }
 
-    .bullet-expand.expanding {
+    /* EDITOR-3512: Active state - expanding, filled background with animation */
+    .bullet-expand.expanding,
+    .bullet-expand.bullet-expand-active {
+      display: flex; /* Always visible when active */
+      background-color: var(--affine-primary-color-light, #e3f2fd);
       color: var(--affine-primary-color, #1976d2);
-      animation: pulse 1s ease-in-out infinite;
+      animation: expand-pulse 1s ease-in-out infinite;
     }
 
-    @keyframes pulse {
+    /* EDITOR-3512: Disabled state - muted appearance, no interaction */
+    .bullet-expand.bullet-expand-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+      color: var(--affine-icon-color, #888);
+      background-color: transparent;
+    }
+
+    @keyframes expand-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
@@ -3306,18 +3411,40 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
-   * FE-408: Render expand button with AI icon
+   * FE-408, EDITOR-3512: Render expand button with AI icon
+   * EDITOR-3512 improvements:
+   * - Clear visual states (default, hover, active, disabled)
+   * - Dynamic tooltip based on state
+   * - Proper disabled state handling
    */
   private _renderExpandButton(): TemplateResult {
+    // EDITOR-3512: Check if button should be disabled
+    const hasText = this.model.text && this.model.text.toString().trim().length > 0
+    const isDisabled = !hasText
+
+    // Get proper tooltip and aria-label based on state
+    // Note: The 'expanding' class is added by the React layer when expand is in progress
+    const tooltip = isDisabled
+      ? getExpandButtonTooltip('disabled')
+      : getExpandButtonTooltip('default')
+
+    const ariaLabel = isDisabled
+      ? 'Cannot expand this bullet (no text content)'
+      : 'Expand this bullet with AI to generate child bullets'
+
+    // EDITOR-3512: Build class string with disabled state
+    const classes = isDisabled ? 'bullet-expand bullet-expand-disabled' : 'bullet-expand'
+
     return html`
       <div
-        class="bullet-expand"
-        @click=${this._handleExpandClick}
-        title="Expand with AI (generates child bullets)"
+        class="${classes}"
+        @click=${isDisabled ? undefined : this._handleExpandClick}
+        title="${tooltip}"
         role="button"
-        aria-label="Expand this bullet with AI"
-        tabindex="0"
-        @keydown=${(e: KeyboardEvent) => {
+        aria-label="${ariaLabel}"
+        aria-disabled="${isDisabled}"
+        tabindex="${isDisabled ? -1 : 0}"
+        @keydown=${isDisabled ? undefined : (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             this._handleExpandClick(e)
