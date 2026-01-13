@@ -19,8 +19,8 @@ TESTING THREADS (Priority - verify merged work):
 
 DEVELOPMENT THREADS:
 🔴 Thread 1 (Bug Fixes - 3h):
-   EDITOR-3701 (3h) - Fix Drag Drift
-   Status: READY - critical bug fix
+   ~~EDITOR-3701 (3h) - Fix Drag Drift~~
+   Status: ✓ COMPLETED - merged PR #118
 
 🟢 Thread 2 (Navigation - 10h):
    FE-505 (6h) → FE-506 (4h)
@@ -118,7 +118,7 @@ Strikethrough (`~~ticket~~`) = completed
 ### Priority 2: Bug Fixes
 | Thread | Tickets | Est | Notes |
 |--------|---------|-----|-------|
-| 1 | EDITOR-3701 | 3h | Fix drag drift near parent |
+| 1 | ~~EDITOR-3701~~ | 3h | ✓ Completed - PR #118 merged |
 
 ### Priority 3: New Features (Parallel Safe)
 | Thread | Tickets | Est | Notes |
@@ -267,7 +267,7 @@ DEVELOPMENT DEPENDENCIES:
 |--------|---------|-----------|--------|
 | T1 | FE-503-E2E + 6 E2E tests | ~4h | READY |
 | T2 | 13 SAT tests | ~3h | WAITING (Vercel) |
-| 1 | EDITOR-3701 | 3h | READY |
+| 1 | ~~EDITOR-3701~~ | 3h | ✓ COMPLETED |
 | 2 | FE-505 → FE-506 | 10h | READY |
 | 3 | EDITOR-3702 → EDITOR-3703 | 6h | READY |
 | 4 | EDITOR-3704 | 8h | READY |
