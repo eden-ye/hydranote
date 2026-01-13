@@ -95,12 +95,21 @@ if (!this._shouldShowContentInFocusMode()) {
 ```
 
 ### Test Results
-- All 1682 tests pass ✅
+- All 1701 tests pass ✅
 - Build succeeds ✅
 - Chrome E2E verified ✅
-  - Focus on Child1: Grandchild visible, Child2/Parent/Sibling hidden
-  - Focus on Parent: Child1/Grandchild/Child2 visible, Sibling hidden
+  - Focus on Parent: Child 1 visible, Sibling hidden
+  - Title (doc-title) hidden in focus mode
+  - Breadcrumb and FocusHeader showing correctly
   - Exit focus mode: All content restored
+
+### Additional Fixes
+- Added cleanup in `connectedCallback` to prevent memory leaks when component is re-connected
+- Added `_focusStoreUnsubscribe` member variable for focus store subscription cleanup
+- Integrated with existing BUG-EDITOR-3708 memory leak fix in `disconnectedCallback`
+
+### Known Issues (Separate Ticket)
+- **Layout Inversion**: Editor content appears above navigation/breadcrumb/FocusHeader due to how BlockSuite editor is mounted to the DOM. This is a pre-existing issue in Editor.tsx component lifecycle, not caused by focus mode changes. Should be tracked as a separate ticket.
 
 ## Technical Details
 
