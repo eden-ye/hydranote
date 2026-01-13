@@ -87,6 +87,45 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | EDITOR-3511 | Ghost Bullet Suggestions | 6h | [x] | Merged PR #104, Chrome E2E pending |
 | EDITOR-3512 | Add Block Button UX | 3h | [x] | Fix unclear state + position shift during typing, merged PR #111 |
 
+## Epic: Bug Fixes (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3701 | Fix Drag Drift Near Parent | 3h | [ ] | Dragging drifts near parent bullet |
+
+## Epic: Left Panel Enhancements (2)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| FE-508 | All Bullets Filter | 2h | [ ] | Only show bullets with children/descriptors |
+| FE-503-E2E | Verify Favorite Reorder | 1h | [ ] | Chrome E2E test for drag-to-reorder |
+
+## Epic: Navigation (2)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| FE-505 | Breadcrumb Navigation | 6h | [ ] | Clickable breadcrumb, zoom in/out |
+| FE-506 | Back/Forward Buttons | 4h | [ ] | Page navigation history |
+
+## Epic: Cheat Sheet / Dashing Button (2)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3702 | Dashing Button Position | 2h | [ ] | Move closer to bullet text |
+| EDITOR-3703 | == Syntax for Dashing | 4h | [ ] | Type == to create dashing + multiline |
+
+## Epic: AI Features (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3704 | Auto AI Summarize | 8h | [ ] | >30 words → notation, configurable |
+
+## Epic: Onboarding (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| FE-507 | New User Onboarding Page | 6h | [ ] | Tutorial page for new users |
+
 ---
 
 ## Quick Filter
@@ -98,7 +137,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 - **PROD OK [P]**: (none)
 - **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512, FE-503
 - **In Progress [~]**: (none)
-- **Backlog [ ]**: EDITOR-3408
+- **Backlog [ ]**: EDITOR-3408, EDITOR-3701, FE-508, FE-503-E2E, FE-505, FE-506, EDITOR-3702, EDITOR-3703, EDITOR-3704, FE-507
 
 ---
 
@@ -150,9 +189,58 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 ---
 
+# MVP3 Backlog: New Features
+
+**Total Estimate**: ~52h across 8 tickets
+
+## Epic: Daily Review - CRUCIAL (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| FE-601 | Today Document Waterfall | 10h | [ ] | Daily portals for updated bullets, 4-level dedup |
+
+## Epic: Learning Features - CRUCIAL (2)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3801 | User Output Evaluation | 12h | [ ] | Shift+Tab paste, AI scoring, color squares |
+| FE-602 | Flashcard List | 8h | [ ] | Timestamp-sorted review list |
+
+## Epic: Portal Enhancements (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3802 | Portal Descriptor Parent | 3h | [ ] | Show parent bullet in descriptor portals |
+
+## Epic: Settings (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| FE-603 | User API Key Settings | 6h | [ ] | Client-side API key configuration |
+
+## Epic: Block Types (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3803 | Multiline Block | 6h | [ ] | Hotkey, paste as single block, no drag |
+
+## Epic: Editor Core (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3804 | Multi-Block Copy Paste | 4h | [ ] | Correct multi-block copy-paste |
+
+## Epic: UI Polish (1)
+
+| Ticket | Title | Est | Status | Notes |
+|--------|-------|-----|--------|-------|
+| EDITOR-3805 | Descriptor UI Polish | 3h | [ ] | Round grey box background |
+
+---
+
 ## MVP3 Quick Filter
 
-- **All Pending [ ]**: SYNC-101, SYNC-102, SYNC-103, SYNC-201, SYNC-202, SYNC-203, SYNC-301, SYNC-302, SYNC-303, SYNC-401, SYNC-402, SYNC-403
+- **All Pending [ ]**: SYNC-101, SYNC-102, SYNC-103, SYNC-201, SYNC-202, SYNC-203, SYNC-301, SYNC-302, SYNC-303, SYNC-401, SYNC-402, SYNC-403, FE-601, EDITOR-3801, FE-602, EDITOR-3802, FE-603, EDITOR-3803, EDITOR-3804, EDITOR-3805
 
 ---
 
