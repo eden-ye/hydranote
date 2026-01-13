@@ -382,11 +382,10 @@ describe('Focus Mode Zoom Integration Flow (EDITOR-3508)', () => {
      * 3. Normal view restored
      */
     const simulateExitFlow = (
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       exitMethod: 'home-icon' | 'escape-key' | 'breadcrumb'
-    ): { focusModeExited: boolean } => {
-      // Note: exitMethod would be used in actual implementation
-      return { focusModeExited: true }
+    ): { focusModeExited: boolean; method: string } => {
+      // Return the exit method used along with the result
+      return { focusModeExited: true, method: exitMethod }
     }
 
     it('should exit via home icon click', () => {
