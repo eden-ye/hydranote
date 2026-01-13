@@ -2857,6 +2857,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3507: Perform the drop operation using BlockSuite's moveBlocks
+   * EDITOR-3705: Prevent dragging bullets to root level (siblings of Title)
    */
   private _performDrop(draggedIds: string[], targetId: string, placement: DropPlacement): void {
     const targetBlock = this.doc.getBlockById(targetId)
@@ -2875,6 +2876,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           // Move before target (sibling of target)
           const parent = targetBlock.parent
           if (parent) {
+            // EDITOR-3705: Prevent dropping at root level
+            // In Hydra Notes, only the Title should be at root level
+            // Check if parent is root/page block by checking if it has a parent
+            if (!parent.parent) {
+              console.log('[DragDrop] Cannot drop bullets at root level (siblings of Title)')
+              return
+            }
+
             const targetIndex = parent.children.indexOf(targetBlock)
             const beforeRef = parent.children[targetIndex] || null
             this.doc.moveBlocks(blocksToMove, parent, beforeRef)
@@ -2885,6 +2894,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           // Move after target (sibling of target)
           const parent = targetBlock.parent
           if (parent) {
+            // EDITOR-3705: Prevent dropping at root level
+            // In Hydra Notes, only the Title should be at root level
+            if (!parent.parent) {
+              console.log('[DragDrop] Cannot drop bullets at root level (siblings of Title)')
+              return
+            }
+
             const targetIndex = parent.children.indexOf(targetBlock)
             const afterRef = parent.children[targetIndex + 1] || null
             this.doc.moveBlocks(blocksToMove, parent, afterRef)
