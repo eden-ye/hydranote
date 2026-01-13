@@ -52,6 +52,9 @@ import { extractConcepts, semanticSearch } from '@/services/api-client.mock'
 import type { ConceptMatch } from '@/stores/editor-store'
 // EDITOR-3503: Toast notifications
 import { toast } from 'sonner'
+// EDITOR-3506: Inline formatting toolbar
+import InlineToolbar from './InlineToolbar'
+import { TEXT_FORMAT_CONFIGS } from '@/utils/format-commands'
 
 // Register all BlockSuite custom elements
 // Must call blocks effects first (registers core components)
@@ -262,6 +265,12 @@ export default function Editor() {
     setReorgModalConceptMatches,
     setReorgModalError,
   } = useEditorStore()
+
+  // EDITOR-3506: Inline formatting toolbar state
+  const [inlineToolbarVisible, setInlineToolbarVisible] = useState(false)
+  const [inlineToolbarPosition, setInlineToolbarPosition] = useState({ x: 0, y: 0 })
+  const [activeFormats, setActiveFormats] = useState<Record<string, boolean | string | null>>({})
+  const activeInlineEditorRef = useRef<unknown>(null)
 
   // EDITOR-3602: Track expansion completion for auto-generate
   useEffect(() => {
@@ -762,6 +771,83 @@ export default function Editor() {
     closeReorgModal()
   }, [closeReorgModal])
 
+  // EDITOR-3506: Handle inline toolbar format click
+  const handleInlineFormat = useCallback((formatId: string) => {
+    const inlineEditor = activeInlineEditorRef.current as {
+      getInlineRange: () => { index: number; length: number } | null
+      getFormat: (range: { index: number; length: number }) => Record<string, unknown>
+      formatText: (range: { index: number; length: number }, styles: Record<string, unknown>) => void
+    } | null
+
+    if (!inlineEditor) {
+      console.warn('[InlineToolbar] No active inline editor')
+      return
+    }
+
+    const range = inlineEditor.getInlineRange()
+    if (!range || range.length === 0) {
+      console.warn('[InlineToolbar] No selection range')
+      return
+    }
+
+    // Find the format config
+    const config = TEXT_FORMAT_CONFIGS.find((c) => c.id === formatId)
+    if (!config) {
+      console.warn('[InlineToolbar] Unknown format:', formatId)
+      return
+    }
+
+    // Get current format state
+    const currentFormat = inlineEditor.getFormat(range)
+    const isActive = currentFormat[config.styleKey] === true
+
+    // Toggle the format
+    const newValue = isActive ? null : true
+    console.log(`[InlineToolbar] Toggling ${formatId}: ${isActive} -> ${!isActive}`)
+
+    inlineEditor.formatText(range, { [config.styleKey]: newValue })
+
+    // Update active formats state
+    setActiveFormats((prev) => ({
+      ...prev,
+      [formatId]: !isActive,
+    }))
+  }, [])
+
+  // EDITOR-3506: Handle inline toolbar highlight
+  const handleInlineHighlight = useCallback((type: 'color' | 'background', value: string | null) => {
+    const inlineEditor = activeInlineEditorRef.current as {
+      getInlineRange: () => { index: number; length: number } | null
+      formatText: (range: { index: number; length: number }, styles: Record<string, unknown>) => void
+    } | null
+
+    if (!inlineEditor) {
+      console.warn('[InlineToolbar] No active inline editor')
+      return
+    }
+
+    const range = inlineEditor.getInlineRange()
+    if (!range || range.length === 0) {
+      console.warn('[InlineToolbar] No selection range')
+      return
+    }
+
+    console.log(`[InlineToolbar] Setting ${type} to:`, value)
+    inlineEditor.formatText(range, { [type]: value })
+
+    // Update active formats state
+    setActiveFormats((prev) => ({
+      ...prev,
+      [type]: value,
+    }))
+  }, [])
+
+  // EDITOR-3506: Handle inline toolbar close
+  const handleInlineToolbarClose = useCallback(() => {
+    setInlineToolbarVisible(false)
+    activeInlineEditorRef.current = null
+  }, [])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -944,6 +1030,84 @@ export default function Editor() {
     }
   }, [enterFocusMode, handleExpandEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
 
+  // EDITOR-3506: Separate useEffect for selection change listener
+  // This needs to be separate from the main editor initialization useEffect
+  // because the main useEffect has an early return guard that prevents re-registration
+  useEffect(() => {
+    // Handle text selection changes for inline toolbar
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      const range = selection.getRangeAt(0)
+      const selectedText = selection.toString().trim()
+      if (!selectedText) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      // Check if selection is within a rich-text element in a hydra-bullet-block
+      const commonAncestor = range.commonAncestorContainer
+      const element = commonAncestor instanceof Element ? commonAncestor : commonAncestor.parentElement
+      const richText = element?.closest('rich-text')
+      const bulletBlock = element?.closest('hydra-bullet-block')
+
+      if (!richText || !bulletBlock) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      // Get the inline editor from the rich-text element
+      const inlineEditor = (richText as unknown as { inlineEditor: unknown }).inlineEditor
+      if (!inlineEditor) {
+        setInlineToolbarVisible(false)
+        activeInlineEditorRef.current = null
+        return
+      }
+
+      // Store reference to current inline editor
+      activeInlineEditorRef.current = inlineEditor
+
+      // Calculate position (center of selection, above the text)
+      const rect = range.getBoundingClientRect()
+      const x = rect.left + rect.width / 2
+      const y = rect.top
+
+      setInlineToolbarPosition({ x, y })
+
+      // Get current format state
+      const typedEditor = inlineEditor as {
+        getInlineRange: () => { index: number; length: number } | null
+        getFormat: (range: { index: number; length: number }) => Record<string, unknown>
+      }
+      const inlineRange = typedEditor.getInlineRange()
+      if (inlineRange) {
+        const format = typedEditor.getFormat(inlineRange)
+        setActiveFormats({
+          bold: format.bold === true,
+          italic: format.italic === true,
+          underline: format.underline === true,
+          strike: format.strike === true,
+          color: (format.color as string) || null,
+          background: (format.background as string) || null,
+        })
+      }
+
+      setInlineToolbarVisible(true)
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, []) // Empty deps - this listener should remain stable
+
   // Show loading state while hydrating
   if (persistenceState.status === 'loading') {
     return (
@@ -1110,6 +1274,16 @@ export default function Editor() {
 
       {/* EDITOR-3502: Reorganization modal (Cmd+Shift+L) */}
       <ReorganizationModal onConnect={handleReorgConnect} onClose={handleReorgClose} />
+
+      {/* EDITOR-3506: Inline formatting toolbar */}
+      <InlineToolbar
+        isVisible={inlineToolbarVisible}
+        position={inlineToolbarPosition}
+        activeFormats={activeFormats}
+        onFormat={handleInlineFormat}
+        onHighlight={handleInlineHighlight}
+        onClose={handleInlineToolbarClose}
+      />
     </div>
   )
 }

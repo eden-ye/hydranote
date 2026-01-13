@@ -73,7 +73,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
-| EDITOR-3506 | Inline Formatting Toolbar | 10h | [ ] | Bold/Italic/Underline/Strike + Highlight dropdown |
+| EDITOR-3506 | Inline Formatting Toolbar | 10h | [L] | Bold/Italic/Underline/Strike + Highlight dropdown |
 
 ## Epic: Editor UX (6)
 
@@ -90,12 +90,12 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 ## Quick Filter
 
-- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3601, EDITOR-3602, FE-501
+- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, FE-501
 - **SAT Deployed [D]**: (none - awaiting Vercel deploy)
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
-- **Backlog [ ]**: API-303, EDITOR-3408, FE-503, EDITOR-3506, EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512
+- **Backlog [ ]**: API-303, EDITOR-3408, FE-503, EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512
 
 ---
 
