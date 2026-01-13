@@ -194,4 +194,42 @@ describe('AllBulletsSection', () => {
       expect(block).not.toHaveAttribute('draggable', 'true')
     })
   })
+
+  describe('FE-508: Filtering Empty Bullets', () => {
+    it('should only show bullets with children or descriptors (integration test relies on LeftPanel filtering)', () => {
+      // This test documents that filtering is handled by LeftPanel, not AllBulletsSection
+      // AllBulletsSection is a presentational component that displays whatever it's given
+
+      const filteredBlocks = [
+        { id: 'root-1', title: 'Has Children' },
+        { id: 'root-2', title: 'Is Descriptor' },
+      ]
+
+      render(<AllBulletsSection topLevelBlocks={filteredBlocks} />)
+
+      // Should show only the filtered blocks
+      expect(screen.getByTestId('block-node-root-1')).toBeInTheDocument()
+      expect(screen.getByTestId('block-node-root-2')).toBeInTheDocument()
+
+      // Count should reflect filtered count
+      expect(screen.getByText('2')).toBeInTheDocument()
+    })
+
+    it('should update count when filtered list changes', () => {
+      const { rerender } = render(<AllBulletsSection topLevelBlocks={[]} />)
+      // Count badge is not shown when count is 0
+      expect(screen.queryByText('0')).not.toBeInTheDocument()
+
+      const oneBlock = [{ id: 'root-1', title: 'Has Children' }]
+      rerender(<AllBulletsSection topLevelBlocks={oneBlock} />)
+      expect(screen.getByText('1')).toBeInTheDocument()
+
+      const twoBlocks = [
+        { id: 'root-1', title: 'Has Children' },
+        { id: 'root-2', title: 'Is Descriptor' },
+      ]
+      rerender(<AllBulletsSection topLevelBlocks={twoBlocks} />)
+      expect(screen.getByText('2')).toBeInTheDocument()
+    })
+  })
 })

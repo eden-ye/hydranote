@@ -22,6 +22,9 @@ export function LeftPanel() {
   // FE-504: Read block data from store (synced from Editor)
   const blockTitles = useEditorStore((state) => state.blockTitles)
   const topLevelBlockIds = useEditorStore((state) => state.topLevelBlockIds)
+  // FE-508: Read block metadata for filtering
+  const blockHasChildren = useEditorStore((state) => state.blockHasChildren)
+  const blockIsDescriptor = useEditorStore((state) => state.blockIsDescriptor)
 
   // Keyboard shortcut: Cmd+\ to toggle sidebar
   useEffect(() => {
@@ -40,13 +43,20 @@ export function LeftPanel() {
     [blockTitles]
   )
 
+  // FE-508: Filter to only show blocks with children or descriptors
   const topLevelBlocks = useMemo(
     () =>
-      topLevelBlockIds.map((id) => ({
-        id,
-        title: getBlockTitle(id),
-      })),
-    [topLevelBlockIds, getBlockTitle]
+      topLevelBlockIds
+        .filter((id) => {
+          const hasChildren = blockHasChildren.get(id) || false
+          const isDescriptor = blockIsDescriptor.get(id) || false
+          return hasChildren || isDescriptor
+        })
+        .map((id) => ({
+          id,
+          title: getBlockTitle(id),
+        })),
+    [topLevelBlockIds, getBlockTitle, blockHasChildren, blockIsDescriptor]
   )
 
   return (
