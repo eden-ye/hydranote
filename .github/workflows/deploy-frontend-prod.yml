@@ -30,7 +30,6 @@ jobs:
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
 
       - name: Install dependencies
         run: npm install
@@ -48,7 +47,7 @@ jobs:
       - name: Prepare Vercel output
         run: |
           mkdir -p .vercel/output/static
-          cp -r dist/* .vercel/output/static/
+          cp -r frontend/dist/* .vercel/output/static/
           cat > .vercel/output/config.json << 'EOF'
           {
             "version": 3,
@@ -58,8 +57,6 @@ jobs:
             ]
           }
           EOF
-        working-directory: frontend
 
       - name: Deploy to Vercel
         run: vercel deploy --prebuilt --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
