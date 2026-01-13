@@ -926,6 +926,45 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       padding: 0 4px;
     }
 
+    /* EDITOR-3509: Inline preview separator (clickable dash) */
+    .inline-preview-separator {
+      cursor: pointer;
+      color: var(--affine-text-secondary-color, #9CA3AF);
+      margin: 0 8px;
+      transition: color 0.15s ease;
+      user-select: none;
+    }
+
+    .inline-preview-separator:hover {
+      color: var(--affine-text-primary-color, #374151);
+    }
+
+    /* EDITOR-3509: Inline preview restore button */
+    .inline-preview-restore {
+      opacity: 0;
+      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--affine-icon-color, #888);
+      border-radius: 4px;
+      flex-shrink: 0;
+      user-select: none;
+      margin-left: 8px;
+      transition: opacity 0.15s ease, background-color 0.15s ease;
+    }
+
+    .bullet-container:hover .inline-preview-restore {
+      opacity: 0.6;
+    }
+
+    .inline-preview-restore:hover {
+      opacity: 1;
+      background-color: var(--affine-hover-color, #f0f0f0);
+    }
+
     /* EDITOR-3103: Context menu color picker styles */
     .color-context-menu {
       position: fixed;
@@ -2032,36 +2071,89 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
+   * EDITOR-3509: Toggle inline preview visibility.
+   * Clicking the dash separator hides the preview; clicking restore button shows it.
+   */
+  private _toggleInlinePreview(): void {
+    this.doc.transact(() => {
+      this.model.inlinePreviewVisible = !this.model.inlinePreviewVisible
+    })
+  }
+
+  /**
+   * EDITOR-3509: Render restore button for hidden inline preview.
+   * Only shown when preview is hidden and on hover.
+   */
+  private _renderInlinePreviewRestoreButton(): TemplateResult | typeof nothing {
+    // Only show when preview is hidden and block has children and is collapsed
+    if (this.model.inlinePreviewVisible || this.model.isExpanded || !this._hasChildren) {
+      return nothing
+    }
+
+    return html`
+      <span
+        class="inline-preview-restore"
+        @click=${(e: Event) => {
+          e.stopPropagation()
+          this._toggleInlinePreview()
+        }}
+        title="Show inline preview"
+        role="button"
+        aria-label="Show inline preview"
+      >+</span>
+    `
+  }
+
+  /**
    * Render inline preview element when collapsed with children.
    * EDITOR-3302: Render colored segments for Pros (green) and Cons (pink).
    * EDITOR-3304: Render styled separators (pipe, versus).
+   * EDITOR-3509: Add dash separator and respect visibility flag.
    */
   private _renderInlinePreview(): TemplateResult | typeof nothing {
+    // EDITOR-3509: Check if preview is hidden
+    if (!this.model.inlinePreviewVisible) {
+      return nothing
+    }
+
     // EDITOR-3302: Try to get colored segments first
     const segments = this._getCheatsheetSegments()
 
     if (segments && segments.length > 0) {
       // Render with colored segments and styled separators
       const fullText = segments.map(s => s.text).join('')
-      return html`<span class="inline-preview" title="${fullText}">${segments.map(
-        (segment) => {
-          // EDITOR-3304: Check for separator type first
-          if (segment.separatorType) {
-            const separatorClass = `cheatsheet-separator-${segment.separatorType}`
-            return html`<span class="${separatorClass}">${segment.text}</span>`
+      // EDITOR-3509: Add dash separator before preview
+      return html`
+        <span
+          class="inline-preview-separator"
+          @click=${(e: Event) => {
+            e.stopPropagation()
+            this._toggleInlinePreview()
+          }}
+          title="Click to hide preview"
+          role="button"
+          aria-label="Hide inline preview"
+        >—</span>
+        <span class="inline-preview" title="${fullText}">${segments.map(
+          (segment) => {
+            // EDITOR-3304: Check for separator type first
+            if (segment.separatorType) {
+              const separatorClass = `cheatsheet-separator-${segment.separatorType}`
+              return html`<span class="${separatorClass}">${segment.text}</span>`
+            }
+            if (segment.color) {
+              // Render colored segment (Pros/Cons)
+              return html`<span
+                class="cheatsheet-segment"
+                style="background-color: ${segment.color.backgroundColor}; color: ${segment.color.textColor}; padding: 0 4px; border-radius: 3px; margin: 0 1px;"
+              >${segment.text}</span>`
+            } else {
+              // Render plain text segment
+              return html`<span>${segment.text}</span>`
+            }
           }
-          if (segment.color) {
-            // Render colored segment (Pros/Cons)
-            return html`<span
-              class="cheatsheet-segment"
-              style="background-color: ${segment.color.backgroundColor}; color: ${segment.color.textColor}; padding: 0 4px; border-radius: 3px; margin: 0 1px;"
-            >${segment.text}</span>`
-          } else {
-            // Render plain text segment
-            return html`<span>${segment.text}</span>`
-          }
-        }
-      )}</span>`
+        )}</span>
+      `
     }
 
     // Fallback to plain text preview
@@ -2070,9 +2162,20 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return nothing
     }
 
-    return html`<span class="inline-preview" title="${previewText}"
-      >${previewText}</span
-    >`
+    // EDITOR-3509: Add dash separator before preview
+    return html`
+      <span
+        class="inline-preview-separator"
+        @click=${(e: Event) => {
+          e.stopPropagation()
+          this._toggleInlinePreview()
+        }}
+        title="Click to hide preview"
+        role="button"
+        aria-label="Hide inline preview"
+      >—</span>
+      <span class="inline-preview" title="${previewText}">${previewText}</span>
+    `
   }
 
   /**
@@ -3345,6 +3448,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           @contextmenu=${this._handleContextMenu}
         ></rich-text>
         ${this._renderInlinePreview()}
+        ${this._renderInlinePreviewRestoreButton()}
         ${this._renderVisibilityToggle()}
         ${this._renderExpandButton()}
       </div>

@@ -25,6 +25,8 @@ export interface BulletBlockProps {
   blockType: BlockType
   /** EDITOR-3510: Whether checkbox is checked (only relevant for checkbox type) */
   isChecked: boolean
+  /** EDITOR-3509: Whether inline preview is visible (default: true) */
+  inlinePreviewVisible: boolean
 }
 
 /**
@@ -50,6 +52,8 @@ export const BulletBlockSchema = defineBlockSchema({
     // EDITOR-3510: Block type system props with defaults
     blockType: 'bullet',
     isChecked: false,
+    // EDITOR-3509: Inline preview visibility (default: true)
+    inlinePreviewVisible: true,
   }),
   metadata: {
     version: 1,
