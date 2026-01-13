@@ -112,7 +112,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
 | EDITOR-3702 | Ghost Question Delayed Reveal | 6h | [L] | PR #126, E2E OK, moved to done/ |
-| EDITOR-3703 | == Syntax for Dashing | 4h | [ ] | Type == to create dashing + multiline |
+| EDITOR-3703 | == Syntax for Dashing | 4h | [x] | Merged, manual E2E pending |
 
 ## Epic: AI Features (1)
 
@@ -135,9 +135,9 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
-- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512, FE-503
+- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512, EDITOR-3703, FE-503
 - **In Progress [~]**: (none)
-- **Backlog [ ]**: EDITOR-3408, EDITOR-3701, FE-508, FE-503-E2E, EDITOR-3703, EDITOR-3704, FE-507
+- **Backlog [ ]**: EDITOR-3408, EDITOR-3701, FE-508, FE-503-E2E, EDITOR-3704, FE-507
 
 ---
 

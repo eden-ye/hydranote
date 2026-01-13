@@ -56,6 +56,8 @@ import { parseMarkdownShortcut } from '../utils/markdown-shortcuts'
 import { computeListNumber } from '../utils/numbered-list'
 import { getBulletMarker } from '../utils/block-icons'
 import { isSlashTrigger } from '../utils/slash-menu'
+// EDITOR-3703: Import dashing button syntax parser
+import { parseDashingSyntax } from '../utils/dashing-button-syntax'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -2534,6 +2536,25 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return nothing
     }
 
+    // EDITOR-3703: Check for manual preview text first (from == syntax)
+    if (this.model.manualPreviewText !== undefined) {
+      const previewText = this.model.manualPreviewText
+      // Show dashing button even if preview is empty (user is typing)
+      return html`
+        <span
+          class="inline-preview-separator"
+          @click=${(e: Event) => {
+            e.stopPropagation()
+            this._toggleInlinePreview()
+          }}
+          title="Click to hide preview"
+          role="button"
+          aria-label="Hide inline preview"
+        >—</span>
+        ${previewText ? html`<span class="inline-preview" title="${previewText}">${previewText}</span>` : nothing}
+      `
+    }
+
     // EDITOR-3302: Try to get colored segments first
     const segments = this._getCheatsheetSegments()
 
@@ -3267,6 +3288,17 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         this._handleMarkdownShortcut()
         return
       }
+
+      // EDITOR-3703: Handle == syntax for dashing button
+      // Only trigger if no manual preview already exists
+      if (!this.model.manualPreviewText) {
+        const dashingResult = parseDashingSyntax(textWithSpace)
+        if (dashingResult) {
+          e.preventDefault()
+          this._handleDashingSyntax(dashingResult.mainText)
+          return
+        }
+      }
     }
 
     // EDITOR-3405: Detect / key for portal slash command
@@ -3712,6 +3744,33 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
 
     return true
+  }
+
+  /**
+   * EDITOR-3703: Handle == syntax for dashing button
+   *
+   * Splits text at == and sets main text and preview text
+   *
+   * @param mainText - Text before == (becomes main bullet text)
+   */
+  private _handleDashingSyntax(mainText: string): void {
+    // Get current text to extract preview content
+    const currentText = this.model.text.toString()
+    const textWithSpace = currentText + ' '
+
+    // Find == position to extract preview text
+    const dashIndex = textWithSpace.indexOf('==')
+    const afterDash = textWithSpace.slice(dashIndex + 2)
+    const previewText = afterDash.slice(1).trim() // Remove first space and trim
+
+    // Update the main text (remove the == and preview part)
+    this.model.text.delete(0, this.model.text.length)
+    this.model.text.insert(mainText, 0)
+
+    // Set manualPreviewText to the content after ==
+    this.doc.updateBlock(this.model, {
+      manualPreviewText: previewText,
+    })
   }
 
   /**
