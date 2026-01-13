@@ -533,6 +533,72 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       cursor: default;
     }
 
+    /* EDITOR-3508: Grip handle styles (Affine-style) */
+    .bullet-grip {
+      width: 16px;
+      height: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      user-select: none;
+      border-radius: 4px;
+    }
+
+    .bullet-container:hover .bullet-grip {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bullet-grip:hover {
+      background-color: var(--affine-hover-color, #f0f0f0);
+    }
+
+    /* Grip dots icon using pseudo-element */
+    .bullet-grip::before {
+      content: '⋮⋮';
+      font-size: 10px;
+      color: var(--affine-icon-color, #888);
+      letter-spacing: -2px;
+    }
+
+    /* EDITOR-3508: Expand toggle styles (separate from grip) */
+    .bullet-expand-toggle {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--affine-icon-color, #888);
+      border-radius: 4px;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 12px;
+      transition: background-color 0.15s ease, opacity 0.15s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .bullet-container:hover .bullet-expand-toggle.has-children {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Always show expand toggle when children exist and collapsed */
+    .bullet-expand-toggle.has-children.collapsed {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bullet-expand-toggle:hover {
+      background-color: var(--affine-hover-color, #f0f0f0);
+    }
+
     /* FE-408: Expand button styles */
     .bullet-expand {
       width: 20px;
@@ -1831,20 +1897,59 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     >`
   }
 
-  private _renderToggle(): TemplateResult {
+  /**
+   * EDITOR-3508: Render grip handle for focus mode zoom
+   * Clicking the grip handle dispatches hydra-focus-block event
+   * Dragging will be handled in EDITOR-3507
+   */
+  private _renderGripHandle(): TemplateResult {
+    return html`
+      <div
+        class="bullet-grip"
+        @click=${this._handleGripClick}
+        title="Click to zoom"
+        role="button"
+        aria-label="Click to zoom into this bullet"
+        tabindex="0"
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            this._handleGripClick(e)
+          }
+        }}
+      ></div>
+    `
+  }
+
+  /**
+   * EDITOR-3508: Handle grip handle click to enter focus mode
+   * Dispatches hydra-focus-block event which Editor.tsx listens for
+   */
+  private _handleGripClick(e: Event): void {
+    e.stopPropagation()
+    const event = new CustomEvent('hydra-focus-block', {
+      bubbles: true,
+      composed: true,
+      detail: { blockId: this.model.id },
+    })
+    this.dispatchEvent(event)
+  }
+
+  /**
+   * EDITOR-3508: Render expand toggle (separate from grip handle)
+   * Hidden by default, shown on hover, only when block has children
+   */
+  private _renderExpandToggle(): TemplateResult | typeof nothing {
     if (!this._hasChildren) {
-      return html`
-        <div class="bullet-toggle no-children">
-          <span class="bullet-icon"></span>
-        </div>
-      `
+      return nothing
     }
 
     const icon = this.model.isExpanded ? '▼' : '▶'
     const title = this.model.isExpanded ? 'Collapse (⌘↵)' : 'Expand (⌘↵)'
+    const expandedClass = this.model.isExpanded ? '' : 'collapsed'
     return html`
       <div
-        class="bullet-toggle has-children"
+        class="bullet-expand-toggle has-children ${expandedClass}"
         @click=${this._toggleExpand}
         title=${title}
         role="button"
@@ -1863,6 +1968,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     `
   }
 
+  // EDITOR-3508: _renderToggle() removed - replaced by _renderGripHandle() and _renderExpandToggle()
   // EDITOR-3053: _handleInput() removed - rich-text handles Yjs sync automatically
 
   /**
@@ -2437,9 +2543,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // EDITOR-3102: Pass extended schema to enable background/color attributes
     // EDITOR-3103: Add contextmenu handler for color picker
     // EDITOR-3303: Add visibility toggle for descriptor blocks
+    // EDITOR-3508: Use grip handle + expand toggle (Affine-style) instead of bullet-toggle
     return html`
       <div class="${containerClass}">
-        ${this._renderToggle()}
+        ${this._renderGripHandle()}
+        ${this._renderExpandToggle()}
         ${this._renderDescriptorPrefix()}
         <rich-text
           .yText=${this.model.text.yText}
