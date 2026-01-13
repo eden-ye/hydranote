@@ -101,3 +101,81 @@ Strikethrough (`~~ticket~~`) = completed
 | Thread 4 | EDITOR-3506 | 10h | Inline formatting, independent |
 | Thread 5 | EDITOR-3510 → 3511 | 14h | Block types → ghost bullets |
 | Thread 6 | FE-503 | 15h | Left panel, safe with EDITOR |
+
+---
+
+# MVP3 Thread Planning: Multi-Device Sync
+
+**Target Version**: v1.2.0
+**Total Estimate**: ~36h across 12 tickets
+**Architecture**: AFFiNE-style Yjs sync (y-websocket + MongoDB)
+
+## Proposed Thread Structure
+
+```
+🔴 Thread 1 (Server - 10h):
+   SYNC-101 (4h) → SYNC-102 (4h) → SYNC-103 (2h)
+   Status: □ PENDING
+   Note: New Node.js sync server
+
+🟢 Thread 2 (Frontend - 9h):
+   SYNC-201 (3h) → SYNC-202 (3h) → SYNC-203 (3h)
+   Status: □ PENDING (depends on SYNC-101)
+   Note: Frontend integration
+
+🔵 Thread 3 (UX - 7h):
+   SYNC-301 (3h) → SYNC-302 (2h) → SYNC-303 (2h)
+   Status: □ PENDING (depends on SYNC-102)
+   Note: User experience features
+
+🟡 Thread 4 (Testing - 10h):
+   SYNC-401 (4h) → SYNC-402 (3h) → SYNC-403 (3h)
+   Status: □ PENDING (depends on all above)
+   Note: E2E testing and migration
+```
+
+## MVP3 Dependency Graph
+
+```
+              ┌─────────────┐
+              │  SYNC-101   │
+              │ WS Server   │
+              └──────┬──────┘
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+ ┌──────▼──────┐ ┌───▼────┐ ┌─────▼─────┐
+ │  SYNC-102   │ │SYNC-201│ │ SYNC-301  │
+ │ Persistence │ │Provider│ │ Doc List  │
+ └──────┬──────┘ └───┬────┘ └─────┬─────┘
+        │            │            │
+ ┌──────▼──────┐ ┌───▼────┐ ┌─────▼─────┐
+ │  SYNC-103   │ │SYNC-202│ │ SYNC-302  │
+ │  Deploy     │ │  Auth  │ │  Toggle   │
+ └─────────────┘ └───┬────┘ └─────┬─────┘
+                     │            │
+                 ┌───▼────┐ ┌─────▼─────┐
+                 │SYNC-203│ │ SYNC-303  │
+                 │Status UI│ │ Indicator │
+                 └────────┘ └───────────┘
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+ ┌──────▼──────┐          ┌───────▼───────┐
+ │  SYNC-401   │          │   SYNC-402    │
+ │ Multi-Dev E2E│          │ Offline Test  │
+ └──────┬──────┘          └───────────────┘
+        │
+ ┌──────▼──────┐
+ │  SYNC-403   │
+ │  Migration  │
+ └─────────────┘
+```
+
+## Recommended Execution Order
+
+1. **Phase 1**: SYNC-101 (server foundation)
+2. **Phase 2**: SYNC-102 + SYNC-201 (parallel - persistence + provider)
+3. **Phase 3**: SYNC-103 + SYNC-202 + SYNC-301 (parallel - deploy + auth + API)
+4. **Phase 4**: SYNC-203 + SYNC-302 + SYNC-303 (parallel - UX)
+5. **Phase 5**: SYNC-401 → SYNC-402 → SYNC-403 (sequential - testing)
