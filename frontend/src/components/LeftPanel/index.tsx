@@ -1,35 +1,27 @@
 /**
  * LeftPanel Component
  * FE-503: Left Panel with Favorites
+ * FE-504: Removed redundant header, now reads block data from store
  *
- * Main sidebar component with user info, settings, favorites, and all bullets sections.
+ * Main sidebar component with favorites and all bullets sections.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useEditorStore } from '@/stores/editor-store'
-import { UserInfo } from './UserInfo'
 import { FavoritesSection } from './FavoritesSection'
 import { AllBulletsSection } from './AllBulletsSection'
-import { SettingsPanel } from '../SettingsPanel'
 
-interface LeftPanelProps {
-  /** Map of block IDs to their titles */
-  blockTitles?: Map<string, string>
-  /** Array of top-level block IDs */
-  topLevelBlockIds?: string[]
-}
-
-export function LeftPanel({
-  blockTitles = new Map(),
-  topLevelBlockIds = [],
-}: LeftPanelProps) {
+export function LeftPanel() {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
 
   // Load favorites from localStorage on mount
   const loadFavorites = useEditorStore((state) => state.loadFavorites)
   useEffect(() => {
     loadFavorites()
   }, [loadFavorites])
+
+  // FE-504: Read block data from store (synced from Editor)
+  const blockTitles = useEditorStore((state) => state.blockTitles)
+  const topLevelBlockIds = useEditorStore((state) => state.topLevelBlockIds)
 
   // Keyboard shortcut: Cmd+\ to toggle sidebar
   useEffect(() => {
@@ -73,38 +65,6 @@ export function LeftPanel({
           flexShrink: 0,
         }}
       >
-        {/* Header with user info and settings */}
-        <div
-          style={{
-            padding: '12px',
-            borderBottom: '1px solid #333',
-          }}
-        >
-          <UserInfo />
-          <div style={{ marginTop: '8px' }}>
-            <button
-              data-testid="sidebar-settings-button"
-              onClick={() => setShowSettings(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: '100%',
-                padding: '8px 12px',
-                backgroundColor: 'transparent',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                color: '#888',
-                fontSize: '13px',
-              }}
-            >
-              <SettingsIcon />
-              <span>Settings</span>
-            </button>
-          </div>
-        </div>
-
         {/* Scrollable content */}
         <div
           style={{
@@ -166,49 +126,7 @@ export function LeftPanel({
           <path d="M4.5 2L8.5 6L4.5 10" />
         </svg>
       </button>
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div
-          data-testid="settings-modal-backdrop"
-          onClick={() => setShowSettings(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div onClick={(e) => e.stopPropagation()}>
-            <SettingsPanel onClose={() => setShowSettings(false)} />
-          </div>
-        </div>
-      )}
     </>
-  )
-}
-
-function SettingsIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
   )
 }
 
@@ -216,4 +134,3 @@ export { FavoritesSection } from './FavoritesSection'
 export { AllBulletsSection } from './AllBulletsSection'
 export { BlockNode } from './BlockNode'
 export { CollapsibleSection } from './CollapsibleSection'
-export { UserInfo } from './UserInfo'

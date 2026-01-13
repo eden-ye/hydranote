@@ -141,12 +141,41 @@ function buildBreadcrumbPath(doc: Doc, blockId: string): BreadcrumbItem[] {
   return items
 }
 
+/**
+ * FE-504: Extract top-level block IDs and titles from the document
+ * Used to sync block data to the editor store for the LeftPanel sidebar
+ */
+function extractTopLevelBlocks(doc: Doc): { ids: string[], titles: Map<string, string> } {
+  const ids: string[] = []
+  const titles = new Map<string, string>()
+
+  if (!doc.root) return { ids, titles }
+
+  // Traverse through root's children to find hydra:bullet blocks
+  // Document structure: affine:page > affine:note > hydra:bullet
+  for (const child of doc.root.children) {
+    if (child.flavour === 'affine:note') {
+      for (const noteChild of child.children) {
+        if (noteChild.flavour === 'hydra:bullet') {
+          ids.push(noteChild.id)
+          const text = (noteChild as BlockModel & { text?: { toString(): string } }).text?.toString() || ''
+          titles.set(noteChild.id, text || `Block ${noteChild.id.slice(0, 8)}`)
+        }
+      }
+    }
+  }
+
+  return { ids, titles }
+}
+
 export default function Editor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<AffineEditorContainer | null>(null)
   const collectionRef = useRef<DocCollection | null>(null)
   const persistenceRef = useRef<IndexeddbPersistence | null>(null)
   const docRef = useRef<Doc | null>(null)
+  // FE-504: Subscription ref for block update listener
+  const blockUpdateSubscriptionRef = useRef<{ dispose: () => void } | null>(null)
 
   const [persistenceState, setPersistenceState] = useState<{
     status: PersistenceStatus
@@ -273,6 +302,9 @@ export default function Editor() {
     openPortalSearchModal,
     closePortalSearchModal,
   } = useEditorStore()
+
+  // FE-504: Sync block data to store for LeftPanel
+  const syncBlockData = useEditorStore((state) => state.syncBlockData)
 
   // EDITOR-3502: Reorganization modal state
   const {
@@ -979,6 +1011,23 @@ export default function Editor() {
           doc.addBlock('hydra:bullet', {}, noteId)
         }
         setPersistenceState({ status: 'synced', error: null })
+
+        // FE-504: Sync initial block data to store for LeftPanel
+        const { ids, titles } = extractTopLevelBlocks(doc)
+        syncBlockData(ids, titles)
+
+        // FE-504: Subscribe to block updates for sidebar sync
+        // Disposes any existing subscription first
+        if (blockUpdateSubscriptionRef.current) {
+          blockUpdateSubscriptionRef.current.dispose()
+        }
+        // Guard against undefined slots (can happen in tests)
+        if (doc.slots?.blockUpdated) {
+          blockUpdateSubscriptionRef.current = doc.slots.blockUpdated.on(() => {
+            const { ids, titles } = extractTopLevelBlocks(doc)
+            syncBlockData(ids, titles)
+          })
+        }
       })
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
@@ -992,6 +1041,18 @@ export default function Editor() {
         const pageId = doc.addBlock('affine:page', {})
         const noteId = doc.addBlock('affine:note', {}, pageId)
         doc.addBlock('hydra:bullet', {}, noteId)
+      }
+
+      // FE-504: Sync block data even if persistence fails
+      const { ids, titles } = extractTopLevelBlocks(doc)
+      syncBlockData(ids, titles)
+
+      // FE-504: Subscribe to block updates (guard against undefined slots in tests)
+      if (doc.slots?.blockUpdated) {
+        blockUpdateSubscriptionRef.current = doc.slots.blockUpdated.on(() => {
+          const { ids: newIds, titles: newTitles } = extractTopLevelBlocks(doc)
+          syncBlockData(newIds, newTitles)
+        })
       }
     }
 
@@ -1099,6 +1160,11 @@ export default function Editor() {
       container.removeEventListener('hydra-portal-picker-open', handlePortalPickerOpenEvent as EventListener)
       container.removeEventListener('hydra-slash-menu-open', handleSlashMenuOpenEvent as EventListener)
       container.removeEventListener('keydown', handleKeyDown)
+      // FE-504: Dispose block update subscription
+      if (blockUpdateSubscriptionRef.current) {
+        blockUpdateSubscriptionRef.current.dispose()
+        blockUpdateSubscriptionRef.current = null
+      }
       // Destroy persistence first
       if (persistenceRef.current) {
         persistenceRef.current.destroy()
@@ -1112,7 +1178,7 @@ export default function Editor() {
       collectionRef.current = null
       docRef.current = null
     }
-  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal])
+  }, [enterFocusMode, handleExpandEvent, handleFocusBlockEvent, handleDescriptorGenerateEvent, handleAutocompleteOpenEvent, handlePortalPickerOpenEvent, handleSlashMenuOpenEvent, autoGenerateStatus, cancelAutoGenerate, resetAutoGenerate, openPortalSearchModal, openReorgModal, syncBlockData])
 
   // EDITOR-3506: Separate useEffect for selection change listener
   // This needs to be separate from the main editor initialization useEffect
