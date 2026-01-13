@@ -79,7 +79,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
-| EDITOR-3507 | Bullet Drag-and-Drop | 8h | [L] | Affine grip handle + drag behavior (shared with 3508), PR #100 ready |
+| EDITOR-3507 | Bullet Drag-and-Drop | 8h | [x] | Affine grip handle + drag behavior (shared with 3508), merged PR #100 |
 | EDITOR-3508 | Focus Mode Zoom | 6h | [x] | Affine grip handle + click=zoom (do first, shared UI with 3507) |
 | EDITOR-3509 | Collapsible Inline Preview | 2h | [ ] | Clickable dash separator to hide/show inline preview |
 | EDITOR-3510 | Block Type System | 8h | [x] | Checkbox, numbered list, bullet, headings + slash menu + markdown |
@@ -90,12 +90,12 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 ## Quick Filter
 
-- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3507, EDITOR-3601, EDITOR-3602, FE-501
+- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3601, EDITOR-3602, FE-501
 - **SAT Deployed [D]**: (none - awaiting Vercel deploy)
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
-- **Merged [x]**: EDITOR-3508, EDITOR-3510
+- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3510
 - **Backlog [ ]**: API-303, EDITOR-3408, FE-503, EDITOR-3506, EDITOR-3509, EDITOR-3511, EDITOR-3512
 
 ---
