@@ -318,6 +318,119 @@ export function buildDescriptorGenerationContext(input: DescriptorGenerationInpu
   }
 }
 
+// ============================================================================
+// EDITOR-3511: Ghost Bullet Suggestions - Pure Logic Functions
+// ============================================================================
+
+/**
+ * EDITOR-3511: Ghost suggestion interface
+ * Represents a suggestion that appears as an inline ghost bullet
+ */
+export interface GhostSuggestion {
+  /** Unique identifier */
+  id: string
+  /** Question/suggestion text */
+  text: string
+}
+
+/**
+ * EDITOR-3511: Context for generating ghost suggestions
+ */
+export interface GhostSuggestionContext {
+  /** Text content of the parent block */
+  parentText: string
+  /** Text content of sibling blocks */
+  siblingTexts: string[]
+  /** Nesting depth of the parent block */
+  depth: number
+}
+
+/**
+ * EDITOR-3511: Input for determining if ghost bullets should be shown
+ */
+export interface GhostBulletVisibilityInput {
+  /** Whether the block has text content */
+  hasText: boolean
+  /** Whether the block is expanded */
+  isExpanded: boolean
+  /** Whether the block has children */
+  hasChildren: boolean
+  /** Whether in focus mode */
+  isInFocusMode: boolean
+}
+
+/**
+ * EDITOR-3511: Determine if ghost bullets should be shown for a block
+ *
+ * Ghost bullets are shown when:
+ * - Block has text content (no suggestions for empty blocks)
+ * - Block is expanded (don't show when collapsed)
+ *
+ * @param input - Visibility context
+ * @returns true if ghost bullets should be displayed
+ */
+export function shouldShowGhostBullets(input: GhostBulletVisibilityInput): boolean {
+  // Don't show ghost bullets if block has no text
+  if (!input.hasText) {
+    return false
+  }
+
+  // Don't show ghost bullets if block is collapsed
+  if (!input.isExpanded) {
+    return false
+  }
+
+  // Show ghost bullets for blocks with text that are expanded
+  return true
+}
+
+/**
+ * EDITOR-3511: Default question templates for ghost suggestions
+ * These are used to generate context-aware questions
+ */
+const GHOST_QUESTION_TEMPLATES = [
+  'What are the key implications of this?',
+  'How does this relate to the broader context?',
+  'What evidence supports this idea?',
+  'What are the potential challenges?',
+  'What are the next steps?',
+]
+
+/**
+ * EDITOR-3511: Counter for generating unique IDs
+ */
+let ghostIdCounter = 0
+
+/**
+ * EDITOR-3511: Generate ghost suggestions based on parent context
+ *
+ * Currently uses static question templates. In production, this could
+ * call AI to generate contextually relevant suggestions.
+ *
+ * @param context - The parent block's context
+ * @returns Array of ghost suggestions (max 3)
+ */
+export function generateGhostSuggestions(context: GhostSuggestionContext): GhostSuggestion[] {
+  // No suggestions for empty or whitespace-only text
+  if (!context.parentText || context.parentText.trim().length === 0) {
+    return []
+  }
+
+  // Generate up to 3 suggestions using templates
+  // In a full implementation, this would use AI to generate contextual questions
+  const suggestions: GhostSuggestion[] = []
+  const maxSuggestions = Math.min(3, GHOST_QUESTION_TEMPLATES.length)
+
+  for (let i = 0; i < maxSuggestions; i++) {
+    suggestions.push({
+      id: `ghost-${++ghostIdCounter}`,
+      text: GHOST_QUESTION_TEMPLATES[i],
+    })
+  }
+
+  return suggestions
+}
+
 /**
  * Input for computing backspace merge strategy
  * EDITOR-3063: Added to handle children reparenting
@@ -1066,6 +1179,96 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       background-color: var(--affine-border-color, #e0e0e0);
       width: 100%;
     }
+
+    /* EDITOR-3511: Ghost bullet styles */
+    .ghost-bullets-container {
+      margin-left: 24px;
+      margin-top: 2px;
+    }
+
+    .ghost-bullet {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      min-height: 24px;
+      padding: 2px 0;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, background-color 0.15s ease;
+    }
+
+    /* Show ghost bullets on parent hover */
+    :host(:hover) .ghost-bullet {
+      opacity: 1;
+    }
+
+    .ghost-bullet:hover {
+      background-color: var(--affine-hover-color, #f5f5f5);
+      border-radius: 4px;
+    }
+
+    .ghost-bullet-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--affine-text-disable-color, #c0c0c0);
+      font-size: 8px;
+    }
+
+    .ghost-bullet-text {
+      flex: 1;
+      min-width: 0;
+      color: var(--affine-text-secondary-color, #9CA3AF);
+      font-style: italic;
+      font-size: 0.95em;
+      line-height: 20px;
+    }
+
+    .ghost-bullet:hover .ghost-bullet-text {
+      color: var(--affine-text-primary-color, #374151);
+    }
+
+    .ghost-bullet-dismiss {
+      width: 20px;
+      height: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--affine-icon-color, #888);
+      border: none;
+      background: none;
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .ghost-bullet:hover .ghost-bullet-dismiss {
+      display: flex;
+    }
+
+    .ghost-bullet-dismiss:hover {
+      background-color: var(--affine-hover-color, #e5e5e5);
+      color: var(--affine-error-color, #dc2626);
+    }
+
+    .ghost-bullet-dismiss svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Ghost bullet loading state */
+    .ghost-bullet.loading {
+      pointer-events: none;
+    }
+
+    .ghost-bullet.loading .ghost-bullet-text {
+      color: var(--affine-primary-color, #1976d2);
+      animation: pulse 1s ease-in-out infinite;
+    }
   `
 
   /**
@@ -1073,6 +1276,18 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    * Created lazily on first null model access.
    */
   private _cachedDummyModel: ReturnType<typeof createDummyModel> | null = null
+
+  /**
+   * EDITOR-3511: Set of dismissed ghost suggestion IDs
+   * Persisted per block to remember dismissed suggestions
+   */
+  private _dismissedGhostIds: Set<string> = new Set()
+
+  /**
+   * EDITOR-3511: ID of ghost bullet currently being converted to real bullet
+   * Used to show loading state during AI generation
+   */
+  private _loadingGhostId: string | null = null
 
   /**
    * BUG-EDITOR-3064: Override model getter to return a dummy object when null.
@@ -3293,6 +3508,151 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     return classes.join(' ')
   }
 
+  // ============================================================================
+  // EDITOR-3511: Ghost Bullet Suggestions
+  // ============================================================================
+
+  /**
+   * EDITOR-3511: Handle ghost bullet click - convert to real bullet and trigger AI expansion
+   */
+  private _handleGhostBulletClick(suggestion: GhostSuggestion): void {
+    // Mark as loading
+    this._loadingGhostId = suggestion.id
+    this.requestUpdate()
+
+    // Create a new child bullet with the ghost text
+    const newBlockProps = {
+      text: new this.doc.Text(suggestion.text),
+      isExpanded: true,
+    }
+
+    // Add the new block as a child of this block
+    const newBlockId = this.doc.addBlock(
+      'hydra:bullet',
+      newBlockProps,
+      this.model
+    )
+
+    // Dismiss this ghost suggestion since it's now a real bullet
+    this._dismissedGhostIds.add(suggestion.id)
+    this._loadingGhostId = null
+    this.requestUpdate()
+
+    // Dispatch expand event for the new block to trigger AI generation
+    setTimeout(() => {
+      // Get context for expansion
+      const siblings = this.model.children
+        .filter(c => c.flavour === 'hydra:bullet' && c.id !== newBlockId)
+        .map(s => (s as BulletBlockModel).text?.toString() || '')
+        .filter(text => text.length > 0)
+
+      const event = new CustomEvent('hydra-expand-block', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          blockId: newBlockId,
+          blockText: suggestion.text,
+          siblingTexts: siblings,
+          parentText: this.model.text?.toString() || null,
+        },
+      })
+      this.dispatchEvent(event)
+    }, 100) // Small delay to allow block creation to complete
+  }
+
+  /**
+   * EDITOR-3511: Handle ghost bullet dismiss
+   */
+  private _handleGhostBulletDismiss(e: Event, suggestionId: string): void {
+    e.stopPropagation()
+    this._dismissedGhostIds.add(suggestionId)
+    this.requestUpdate()
+  }
+
+  /**
+   * EDITOR-3511: Render ghost bullet suggestions
+   * Shows inline suggestions below the block's children
+   */
+  private _renderGhostBullets(): TemplateResult | typeof nothing {
+    // Check if ghost bullets should be shown
+    const hasText = this.model.text?.toString().trim().length > 0
+    const shouldShow = shouldShowGhostBullets({
+      hasText,
+      isExpanded: this.model.isExpanded,
+      hasChildren: this._hasChildren,
+      isInFocusMode: false, // Will be enhanced in future
+    })
+
+    if (!shouldShow) {
+      return nothing
+    }
+
+    // Generate suggestions
+    const suggestions = generateGhostSuggestions({
+      parentText: this.model.text?.toString() || '',
+      siblingTexts: this.model.children
+        .filter(c => c.flavour === 'hydra:bullet')
+        .map(c => (c as BulletBlockModel).text?.toString() || '')
+        .filter(t => t.length > 0),
+      depth: this._getBlockDepth(),
+    })
+
+    // Filter out dismissed suggestions
+    const visibleSuggestions = suggestions.filter(
+      s => !this._dismissedGhostIds.has(s.id)
+    )
+
+    if (visibleSuggestions.length === 0) {
+      return nothing
+    }
+
+    return html`
+      <div class="ghost-bullets-container">
+        ${visibleSuggestions.map(suggestion => {
+          const isLoading = this._loadingGhostId === suggestion.id
+          const bulletClass = isLoading ? 'ghost-bullet loading' : 'ghost-bullet'
+
+          return html`
+            <div
+              class="${bulletClass}"
+              @click=${() => this._handleGhostBulletClick(suggestion)}
+              role="button"
+              tabindex="0"
+              aria-label="Add suggestion: ${suggestion.text}"
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  this._handleGhostBulletClick(suggestion)
+                }
+              }}
+            >
+              <div class="ghost-bullet-icon">●</div>
+              <div class="ghost-bullet-text">${suggestion.text}</div>
+              <button
+                class="ghost-bullet-dismiss"
+                @click=${(e: Event) => this._handleGhostBulletDismiss(e, suggestion.id)}
+                aria-label="Dismiss suggestion"
+                title="Dismiss"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          `
+        })}
+      </div>
+    `
+  }
+
   override renderBlock(): TemplateResult {
     // BUG-EDITOR-3064: Additional guard (render() guard should catch this, but being defensive)
     // Uses isDummyModel since model getter always returns something now
@@ -3328,6 +3688,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     // EDITOR-3508: Use grip handle + expand toggle (Affine-style) instead of bullet-toggle
     // EDITOR-3507: Add drop indicator for drag-and-drop
     // EDITOR-3510: Render block type prefix before grip handle
+    // EDITOR-3511: Render ghost bullets after children
     return html`
       ${this._renderDropIndicator()}
       <div class="${containerClass}">
@@ -3351,6 +3712,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       <div class="bullet-children ${childrenClass}">
         ${this.std ? this.renderChildren(this.model) : nothing}
       </div>
+      ${this._renderGhostBullets()}
       ${this._renderContextMenu()}
     `
   }

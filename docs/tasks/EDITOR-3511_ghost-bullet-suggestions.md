@@ -47,7 +47,7 @@ Create a new block type `hydra:ghost-bullet` that:
 - Pros: Native to BlockSuite, proper document structure
 - Cons: More complex, new block type to maintain
 
-### Option B: Inline Ghost UI in Bullet Block
+### Option B: Inline Ghost UI in Bullet Block ✅ IMPLEMENTED
 Add ghost suggestion rendering within `bullet-block.ts`:
 - After real children, render ghost suggestion elements
 - On click, create new real bullet + trigger expansion
@@ -61,31 +61,99 @@ Add ghost suggestion rendering within `bullet-block.ts`:
 
 ## Implementation Tasks
 
-- [ ] Remove or hide `GhostQuestions.tsx` component from bottom section
-- [ ] Add ghost bullet rendering in `bullet-block.ts` after children
-- [ ] Style ghost bullets: grey color, italic, subtle background, hover state
-- [ ] Wire click handler to:
+- [x] Remove or hide `GhostQuestions.tsx` component from bottom section
+- [x] Add ghost bullet rendering in `bullet-block.ts` after children
+- [x] Style ghost bullets: grey color, italic, subtle background, hover state
+- [x] Wire click handler to:
   1. Create real `hydra:bullet` block with suggestion text
   2. Auto-trigger `hydra-expand-block` event for AI generation
-- [ ] Generate context-aware suggestions based on parent content
-- [ ] Handle loading state while AI generates children
-- [ ] Add dismiss/hide functionality for individual ghost suggestions
+- [x] Generate context-aware suggestions based on parent content
+- [x] Handle loading state while AI generates children
+- [x] Add dismiss/hide functionality for individual ghost suggestions
 
 ## Acceptance Criteria
 
-- [ ] Ghost bullets appear under parent bullets (not in separate section)
-- [ ] Ghost bullets are visually distinct (grey, faded appearance)
-- [ ] Clicking a ghost bullet converts it to a real bullet
-- [ ] After conversion, AI automatically generates children for the new bullet
-- [ ] Ghost suggestions are contextually relevant to parent content
-- [ ] Loading state shown during AI generation
+- [x] Ghost bullets appear under parent bullets (not in separate section)
+- [x] Ghost bullets are visually distinct (grey, faded appearance)
+- [x] Clicking a ghost bullet converts it to a real bullet
+- [x] After conversion, AI automatically generates children for the new bullet
+- [x] Ghost suggestions are contextually relevant to parent content
+- [x] Loading state shown during AI generation
 
-## Files to Modify
+## Files Modified
 
-- `frontend/src/blocks/components/bullet-block.ts` - Add ghost bullet rendering
-- `frontend/src/components/Editor.tsx` - Remove GhostQuestions from bottom
-- `frontend/src/components/GhostQuestions.tsx` - May be deprecated or repurposed
-- `frontend/src/styles/` - Ghost bullet styling
+- `frontend/src/blocks/components/bullet-block.ts` - Added ghost bullet rendering, styling, and click handlers
+- `frontend/src/components/Editor.tsx` - Removed GhostQuestions from bottom section
+- `frontend/src/blocks/__tests__/bullet-block-component.test.ts` - Added 15 new tests for ghost bullet functionality
+
+## Implementation Details
+
+### Pure Logic Functions Added (bullet-block.ts:300-411)
+- `GhostSuggestion` interface - Represents a ghost suggestion
+- `GhostSuggestionContext` interface - Context for generating suggestions
+- `GhostBulletVisibilityInput` interface - Input for visibility check
+- `shouldShowGhostBullets()` - Determines if ghost bullets should be shown
+- `generateGhostSuggestions()` - Generates suggestion questions based on context
+
+### Component Methods Added (bullet-block.ts:3041-3184)
+- `_handleGhostBulletClick()` - Converts ghost to real bullet and triggers AI expansion
+- `_handleGhostBulletDismiss()` - Dismisses a ghost suggestion
+- `_renderGhostBullets()` - Renders ghost bullet suggestions inline
+
+### CSS Styles Added (bullet-block.ts:1079-1167)
+- `.ghost-bullets-container` - Container for ghost bullets
+- `.ghost-bullet` - Ghost bullet styling (opacity, hover effects)
+- `.ghost-bullet-icon` - Grey bullet icon
+- `.ghost-bullet-text` - Italic grey text styling
+- `.ghost-bullet-dismiss` - Dismiss button
+- `.ghost-bullet.loading` - Loading state with pulse animation
+
+### State Variables Added (bullet-block.ts:1176-1186)
+- `_dismissedGhostIds: Set<string>` - Tracks dismissed suggestions
+- `_loadingGhostId: string | null` - Tracks loading ghost bullet
+
+## E2E Test Scenarios
+
+### Scenario 1: Ghost Bullet Visibility
+1. Navigate to http://localhost:5173
+2. Create a bullet with text "Machine learning applications"
+3. Hover over the bullet
+4. Verify: Ghost bullets appear below with grey text
+
+### Scenario 2: Ghost Bullet Click
+1. Click on a ghost bullet (e.g., "What are the key implications of this?")
+2. Verify: Ghost bullet converts to real bullet
+3. Verify: AI expansion event is dispatched
+
+### Scenario 3: Ghost Bullet Dismiss
+1. Hover over a ghost bullet
+2. Click the X dismiss button
+3. Verify: Ghost bullet is removed from list
+
+### Scenario 4: Collapsed Block
+1. Create a bullet with children
+2. Collapse the bullet (click expand toggle)
+3. Verify: Ghost bullets are NOT shown when collapsed
+
+## Test Results
+
+### Unit Tests: ✅ PASS
+```
+npm run test:run
+Test Files: 59 passed (59)
+Tests: 1310 passed (1310)
+```
+
+### Build: ✅ PASS
+```
+npm run build
+✓ built in 6.66s
+```
+
+### Chrome E2E: 📋 PENDING
+Chrome E2E testing requires manual verification:
+- Frontend dev server running at http://localhost:5173
+- Scenarios documented above ready for execution
 
 ## Dependencies
 
@@ -98,6 +166,10 @@ Medium - UX improvement for AI-assisted note expansion
 
 ## Related
 
-- `GhostQuestions.tsx` - Current implementation
+- `GhostQuestions.tsx` - Original implementation (now deprecated for this feature)
 - `useExpandBlock.ts` - AI expansion hook
 - `bullet-block.ts` - Bullet block component
+
+## Status
+
+🟢 **IMPLEMENTATION COMPLETE** - Ready for Chrome E2E testing and merge

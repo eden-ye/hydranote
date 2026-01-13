@@ -16,8 +16,9 @@ import { useFocusMode } from '@/hooks/useFocusMode'
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 // EDITOR-3508: Focus mode header
 import { FocusHeader } from './FocusHeader'
-// FE-409: Ghost questions
-import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
+// FE-409/EDITOR-3511: Ghost questions moved to inline rendering in bullet-block.ts
+// GhostQuestions component no longer needed here - kept for reference
+// import { GhostQuestions, type GhostQuestion } from './GhostQuestions'
 // FE-408: Expand block hook
 import { useExpandBlock, type ExpandBlockContext } from '@/hooks/useExpandBlock'
 // EDITOR-3601: Descriptor generation context
@@ -161,10 +162,11 @@ export default function Editor() {
   // EDITOR-3508: Focused block title for FocusHeader
   const [focusedBlockTitle, setFocusedBlockTitle] = useState('')
 
-  // FE-409: Ghost questions state
-  const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
-  const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
+  // FE-409/EDITOR-3511: Ghost questions state - now handled inline in bullet-block.ts
+  // Ghost suggestions are generated and rendered within each bullet block component
+  // const [ghostQuestions, setGhostQuestions] = useState<GhostQuestion[]>([])
+  // const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
+  // const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set())
 
   // Update breadcrumb and title when focus changes
   useEffect(() => {
@@ -181,24 +183,11 @@ export default function Editor() {
         setFocusedBlockTitle('')
       }
 
-      // FE-409: Generate placeholder ghost questions when entering focus mode
-      // In production, these would come from AI generation
-      setIsLoadingQuestions(true)
-      setDismissedQuestions(new Set())
-
-      // Simulate AI question generation delay
-      setTimeout(() => {
-        setGhostQuestions([
-          { id: 'q1', text: 'What are the key implications of this point?' },
-          { id: 'q2', text: 'How does this relate to the broader context?' },
-          { id: 'q3', text: 'What evidence supports this idea?' },
-        ])
-        setIsLoadingQuestions(false)
-      }, 500)
+      // FE-409/EDITOR-3511: Ghost questions now generated inline in bullet-block.ts
+      // No need to manage ghost question state here anymore
     } else {
       setBreadcrumbItems([])
       setFocusedBlockTitle('')
-      setGhostQuestions([])
     }
   }, [isInFocusMode, focusedBlockId])
 
@@ -207,16 +196,15 @@ export default function Editor() {
     enterFocusMode(id)
   }, [enterFocusMode])
 
-  // FE-409: Handle ghost question click
-  const handleQuestionClick = useCallback((question: GhostQuestion) => {
-    // In production, this would trigger AI expansion
-    console.log('[GhostQuestions] Question clicked:', question.text)
-  }, [])
+  // FE-409/EDITOR-3511: Ghost question click now handled inline in bullet-block.ts
+  // const handleQuestionClick = useCallback((question: GhostQuestion) => {
+  //   console.log('[GhostQuestions] Question clicked:', question.text)
+  // }, [])
 
-  // FE-409: Handle ghost question dismiss
-  const handleQuestionDismiss = useCallback((questionId: string) => {
-    setDismissedQuestions(prev => new Set([...prev, questionId]))
-  }, [])
+  // FE-409/EDITOR-3511: Ghost question dismiss now handled inline in bullet-block.ts
+  // const handleQuestionDismiss = useCallback((questionId: string) => {
+  //   setDismissedQuestions(prev => new Set([...prev, questionId]))
+  // }, [])
 
   // FE-408: Expand block hook
   const { expandBlock, canExpand, isExpanding } = useExpandBlock()
@@ -1074,8 +1062,8 @@ export default function Editor() {
     )
   }
 
-  // FE-409: Filter out dismissed questions
-  const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
+  // FE-409/EDITOR-3511: Ghost questions now handled inline in bullet-block.ts
+  // const visibleQuestions = ghostQuestions.filter(q => !dismissedQuestions.has(q.id))
 
   return (
     <div
@@ -1175,15 +1163,11 @@ export default function Editor() {
         }}
       />
 
-      {/* FE-409: Show ghost questions in focus mode */}
-      {isInFocusMode && (visibleQuestions.length > 0 || isLoadingQuestions) && (
-        <GhostQuestions
-          questions={visibleQuestions}
-          isLoading={isLoadingQuestions}
-          onQuestionClick={handleQuestionClick}
-          onDismiss={handleQuestionDismiss}
-        />
-      )}
+      {/* FE-409/EDITOR-3511: Ghost questions removed from bottom section
+        * Ghost bullet suggestions are now rendered inline within bullet-block.ts
+        * They appear directly under each bullet block as children, not as a separate section
+        * See EDITOR-3511 for inline ghost bullet implementation
+        */}
 
       {/* EDITOR-3203: Descriptor autocomplete dropdown */}
       <DescriptorAutocomplete
