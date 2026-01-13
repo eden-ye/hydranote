@@ -18,9 +18,10 @@ TESTING THREADS (Priority - verify merged work):
    Status: WAITING - needs Vercel SAT deployment first
 
 DEVELOPMENT THREADS:
-🔴 Thread 1 (Bug Fixes - 3h):
+🔴 Thread 1 (Bug Fixes - 5h):
    ~~EDITOR-3701 (3h) - Fix Drag Drift~~
-   Status: ✓ COMPLETED - merged PR #118
+   BUG-EDITOR-3709 (2h) - Prevent Root-Level Typing
+   Status: READY - new bug added
 
 🟢 Thread 2 (Navigation - 10h):
    FE-505 (6h) → FE-506 (4h)
@@ -118,7 +119,7 @@ Strikethrough (`~~ticket~~`) = completed
 ### Priority 2: Bug Fixes
 | Thread | Tickets | Est | Notes |
 |--------|---------|-----|-------|
-| 1 | ~~EDITOR-3701~~ | 3h | ✓ Completed - PR #118 merged |
+| 1 | ~~EDITOR-3701~~, BUG-EDITOR-3709 | 5h | EDITOR-3701 done, 3709 pending |
 
 ### Priority 3: New Features (Parallel Safe)
 | Thread | Tickets | Est | Notes |
@@ -267,7 +268,7 @@ DEVELOPMENT DEPENDENCIES:
 |--------|---------|-----------|--------|
 | T1 | FE-503-E2E + 6 E2E tests | ~4h | READY |
 | T2 | 13 SAT tests | ~3h | WAITING (Vercel) |
-| 1 | ~~EDITOR-3701~~ | 3h | ✓ COMPLETED |
+| 1 | ~~EDITOR-3701~~, BUG-EDITOR-3709 | 5h | READY (3709 pending) |
 | 2 | FE-505 → FE-506 | 10h | READY |
 | 3 | EDITOR-3702 → EDITOR-3703 | 6h | READY |
 | 4 | EDITOR-3704 | 8h | READY |
