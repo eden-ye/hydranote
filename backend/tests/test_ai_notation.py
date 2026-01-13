@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.middleware.auth import UserInfo
+from app.middleware.auth import UserInfo, get_current_user
 
 
 client = TestClient(app)
@@ -12,7 +12,7 @@ client = TestClient(app)
 
 def mock_get_current_user():
     """Mock auth dependency for testing."""
-    return UserInfo(user_id="test-user-123")
+    return UserInfo(id="test-user-123", email="test@example.com")
 
 
 class TestGenerateNotationEndpoint:
@@ -25,7 +25,10 @@ class TestGenerateNotationEndpoint:
             "tokens_used": 25,
         }
 
-        with patch("app.api.routes.ai.get_current_user", return_value=mock_get_current_user()):
+        # Override auth dependency
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+
+        try:
             with patch("app.api.routes.ai.get_claude_service") as mock_get:
                 mock_service = MagicMock()
                 mock_service.generate = AsyncMock(return_value=mock_response)
@@ -42,10 +45,15 @@ class TestGenerateNotationEndpoint:
                 assert "tokens_used" in data
                 assert data["notation"] == "Tesla Model 3 autopilot"
                 assert data["tokens_used"] == 25
+        finally:
+            # Clean up
+            app.dependency_overrides.clear()
 
     def test_generate_notation_empty_text(self):
         """Notation endpoint rejects empty text."""
-        with patch("app.api.routes.ai.get_current_user", return_value=mock_get_current_user()):
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+
+        try:
             response = client.post(
                 "/api/ai/generate-notation",
                 json={"text": ""},
@@ -53,10 +61,14 @@ class TestGenerateNotationEndpoint:
 
             assert response.status_code == 400
             assert "empty" in response.json()["detail"].lower()
+        finally:
+            app.dependency_overrides.clear()
 
     def test_generate_notation_whitespace_only(self):
         """Notation endpoint rejects whitespace-only text."""
-        with patch("app.api.routes.ai.get_current_user", return_value=mock_get_current_user()):
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+
+        try:
             response = client.post(
                 "/api/ai/generate-notation",
                 json={"text": "   \n\t  "},
@@ -64,10 +76,14 @@ class TestGenerateNotationEndpoint:
 
             assert response.status_code == 400
             assert "empty" in response.json()["detail"].lower()
+        finally:
+            app.dependency_overrides.clear()
 
     def test_generate_notation_claude_service_error(self):
         """Notation endpoint returns 503 when Claude service fails."""
-        with patch("app.api.routes.ai.get_current_user", return_value=mock_get_current_user()):
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+
+        try:
             with patch("app.api.routes.ai.get_claude_service") as mock_get:
                 mock_service = MagicMock()
                 mock_service.generate = AsyncMock(side_effect=Exception("Claude API error"))
@@ -78,7 +94,9 @@ class TestGenerateNotationEndpoint:
                     json={"text": "Some long text that needs summarization for testing error handling"},
                 )
 
-            assert response.status_code == 503
+                assert response.status_code == 503
+        finally:
+            app.dependency_overrides.clear()
 
     def test_generate_notation_truncates_long_response(self):
         """Notation endpoint truncates overly long notations to 5 words."""
@@ -87,7 +105,9 @@ class TestGenerateNotationEndpoint:
             "tokens_used": 30,
         }
 
-        with patch("app.api.routes.ai.get_current_user", return_value=mock_get_current_user()):
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+
+        try:
             with patch("app.api.routes.ai.get_claude_service") as mock_get:
                 mock_service = MagicMock()
                 mock_service.generate = AsyncMock(return_value=mock_response)
@@ -98,11 +118,13 @@ class TestGenerateNotationEndpoint:
                     json={"text": "Some long text that needs a brief summarization notation that captures the key concepts"},
                 )
 
-            assert response.status_code == 200
-            data = response.json()
-            notation_words = data["notation"].split()
-            # Should be truncated to first 5 words
-            assert len(notation_words) <= 5
+                assert response.status_code == 200
+                data = response.json()
+                notation_words = data["notation"].split()
+                # Should be truncated to first 5 words
+                assert len(notation_words) <= 5
+        finally:
+            app.dependency_overrides.clear()
 
     def test_generate_notation_strips_quotes(self):
         """Notation endpoint strips surrounding quotes from notation."""
@@ -111,7 +133,9 @@ class TestGenerateNotationEndpoint:
             "tokens_used": 20,
         }
 
-        with patch("app.api.routes.ai.get_current_user", return_value=mock_get_current_user()):
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+
+        try:
             with patch("app.api.routes.ai.get_claude_service") as mock_get:
                 mock_service = MagicMock()
                 mock_service.generate = AsyncMock(return_value=mock_response)
@@ -122,8 +146,10 @@ class TestGenerateNotationEndpoint:
                     json={"text": "The Tesla Model 3 is an electric sedan with autopilot features and long range battery"},
                 )
 
-            assert response.status_code == 200
-            data = response.json()
-            # Quotes should be stripped
-            assert data["notation"] == "Tesla Model 3"
-            assert '"' not in data["notation"]
+                assert response.status_code == 200
+                data = response.json()
+                # Quotes should be stripped
+                assert data["notation"] == "Tesla Model 3"
+                assert '"' not in data["notation"]
+        finally:
+            app.dependency_overrides.clear()

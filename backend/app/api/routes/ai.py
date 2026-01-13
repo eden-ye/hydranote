@@ -348,3 +348,6 @@ Respond with ONLY the notation (2-5 words), no additional text."""
 
     except ClaudeServiceError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        # Catch all other exceptions from Claude service
+        raise HTTPException(status_code=503, detail=f"Notation generation failed: {str(e)}")

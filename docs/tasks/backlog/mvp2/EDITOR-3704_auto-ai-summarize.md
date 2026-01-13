@@ -203,28 +203,46 @@ The original approach created a React hook (`useNotation.ts`) for a Lit componen
   - Cache invalidation via text hash
 
 ### Files Changed
-1. **backend/app/api/routes/ai.py** - Added `/api/ai/generate-notation` endpoint
+1. **backend/app/api/routes/ai.py** - Added `/api/ai/generate-notation` endpoint with generic exception handling
 2. **frontend/src/blocks/components/bullet-block.ts** - Added Lit-based notation generation and rendering
 3. **frontend/src/blocks/schemas/bullet-block-schema.ts** - Added `notation` and `notationCustom` properties
 4. **frontend/src/services/api-client.ts** - Added `generateNotation()` API client function
-5. **backend/tests/test_ai_notation.py** - Added endpoint tests (6 tests)
+5. **backend/tests/test_ai_notation.py** - Added endpoint tests (6 tests - ALL PASSING)
 
-### Testing Status
-- [x] Backend endpoint implemented
-- [x] Frontend build passes
-- [x] Lit integration complete
-- [ ] E2E testing (requires Chrome browser)
-- [ ] Settings toggle verification
+### Testing Status (2026-01-13)
+- [x] Backend endpoint implemented with proper error handling
+- [x] Backend unit tests (6/6 passing) - Fixed auth mocking and exception handling
+- [x] Frontend build passes (no TypeScript errors)
+- [x] Lit integration complete (notation renders at line 4113)
+- [x] Frontend unit tests (all passing - 600+ tests)
+- [ ] Chrome E2E testing (Chrome extension not available - another thread using it)
+
+### Bug Fixes Applied (2026-01-13)
+1. **Backend Tests**: Fixed `UserInfo` constructor call (requires `id` and `email` positional args)
+2. **Backend Tests**: Fixed auth dependency override pattern (use `app.dependency_overrides[get_current_user]`)
+3. **Backend Endpoint**: Added generic `Exception` handler (catch all errors, not just `ClaudeServiceError`)
 
 ### Known Limitations
 - Notation editing NOT implemented (click handler is placeholder)
 - Feature requires auto-summarize to be enabled in settings (default: OFF)
 - API calls require auth token (only works for logged-in users)
+- Chrome E2E testing blocked (extension in use by another thread)
+
+### Implementation Details
+- **Notation Generation Logic**: Line 3300-3349 in bullet-block.ts
+- **Notation Rendering**: Line 3398-3414 (renders at line 4113 in template)
+- **CSS Styling**: Lines with `.notation` class (grey background, hover effect)
+- **API Endpoint**: `/api/ai/generate-notation` (POST, requires auth)
+- **Debounce**: 2 seconds to avoid API spam
+- **Cache**: Text hash-based to avoid regenerating for same content
 
 ### Next Steps for User
-1. Enable auto-summarize in settings panel
-2. Create a bullet with >30 words
-3. Wait 2 seconds for notation to appear
-4. Verify notation appears before dashing button
-5. Test with real Claude API (not mocks)
+1. **REQUIRED**: Run Chrome E2E tests when extension is available
+   - Navigate to http://localhost:5173
+   - Enable auto-summarize in settings
+   - Create bullet with >30 words
+   - Wait 2 seconds, verify notation appears
+   - Test settings toggle
+2. If Chrome E2E passes, proceed with commit and merge
+3. If Chrome E2E fails, investigate browser console errors (see BUG-001 note in CLAUDE.md)
 
