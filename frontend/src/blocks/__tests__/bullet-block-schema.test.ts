@@ -79,6 +79,7 @@ describe('BulletBlockSchema', () => {
       cheatsheetVisible: boolean
       blockType: string
       isChecked: boolean
+      inlinePreviewVisible: boolean // EDITOR-3509
     }
 
     it('should define text and isExpanded props', () => {
@@ -273,6 +274,41 @@ describe('BulletBlockSchema', () => {
       const props = propsFactory(mockInternal) as { isChecked: boolean }
 
       expect(props.isChecked).toBe(false)
+    })
+
+    // EDITOR-3509: Inline preview visibility prop tests
+    it('should define inlinePreviewVisible prop', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal)
+
+      expect(props).toHaveProperty('inlinePreviewVisible')
+    })
+
+    it('should default inlinePreviewVisible to true', () => {
+      const propsFactory = BulletBlockSchema.model.props as PropsFactory
+
+      if (!propsFactory) {
+        throw new Error('Props factory not defined')
+      }
+
+      const mockInternal = {
+        Text: vi.fn(() => ({ toString: () => '' })),
+        Boxed: vi.fn((val: unknown) => val),
+      }
+
+      const props = propsFactory(mockInternal)
+
+      expect(props.inlinePreviewVisible).toBe(true)
     })
   })
 })
