@@ -68,7 +68,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
 | FE-503 | Left Panel with Favorites | 15h | [x] | Merged PR #107 |
-| FE-504 | Left Panel Cleanup | 2h | [~] | Remove header, wire up blocks |
+| FE-504 | Left Panel Cleanup | 2h | [L] | PR #114, Local E2E OK |
 
 ## Epic: Inline Formatting (1)
 
@@ -91,13 +91,13 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 
 ## Quick Filter
 
-- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, FE-501
+- **Local E2E OK [L]**: API-301, API-302, EDITOR-3406, EDITOR-3407, EDITOR-3409, EDITOR-3410, EDITOR-3501, EDITOR-3506, EDITOR-3601, EDITOR-3602, FE-501, FE-504
 - **SAT Deployed [D]**: (none - awaiting Vercel deploy)
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
 - **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3512, FE-503
-- **In Progress [~]**: FE-504
+- **In Progress [~]**: (none)
 - **Backlog [ ]**: API-303, EDITOR-3408, EDITOR-3511
 
 ---

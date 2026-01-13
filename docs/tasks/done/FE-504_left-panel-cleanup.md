@@ -8,13 +8,13 @@ Follow-up to FE-503 (Left Panel with Favorites). Two issues identified:
 
 ## Acceptance Criteria
 
-- [ ] Remove UserInfo component from left panel (user info already in main Header)
-- [ ] Remove Settings button from left panel (settings already in main Header)
-- [ ] ALL BULLETS section shows all top-level bullets from the document
-- [ ] Star/favorite button visible on hover over blocks in ALL BULLETS
-- [ ] Clicking star adds block to FAVORITES section
-- [ ] No console errors
-- [ ] All tests pass
+- [x] Remove UserInfo component from left panel (user info already in main Header)
+- [x] Remove Settings button from left panel (settings already in main Header)
+- [x] ALL BULLETS section shows all top-level bullets from the document
+- [x] Star/favorite button visible on hover over blocks in ALL BULLETS
+- [x] Clicking star adds block to FAVORITES section
+- [x] No new console errors (pre-existing BUG-001 orphan block errors only)
+- [x] All tests pass (1545 tests)
 
 ## Implementation Plan
 
@@ -70,5 +70,17 @@ Follow-up to FE-503 (Left Panel with Favorites). Two issues identified:
 ## Status
 
 - **Created**: 2026-01-13
-- **Status**: in_progress
+- **Completed**: 2026-01-13
+- **Status**: Local E2E OK
 - **Epic**: MVP2 - Left Panel Navigation
+- **Branch**: fe/FE-504-left-panel-cleanup
+- **Commit**: 751fab3
+- **PR**: https://github.com/eden-ye/hydranote/pull/114
+
+## E2E Testing Results
+
+- ✅ No user info/settings in left panel header
+- ✅ ALL BULLETS shows document blocks
+- ✅ Star button appears on hover
+- ✅ Click star adds block to FAVORITES
+- ⚠️ Pre-existing BUG-001 console errors (BlockSuite orphaned blocks)
