@@ -31,3 +31,7 @@ export * from './portal-slash-command'
 // EDITOR-3407: Auto-reorg foundation
 export * from './auto-reorg'
 export * from './portal-placement'
+
+// EDITOR-3507: Drag-drop utilities
+export * from './drag-drop'
+export * from './block-selection'
