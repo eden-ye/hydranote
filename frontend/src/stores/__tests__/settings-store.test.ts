@@ -771,3 +771,258 @@ describe('Auto-Generation Settings Store (FE-502)', () => {
     })
   })
 })
+
+/**
+ * Tests for Auto-Summarize Settings
+ * EDITOR-3704: Auto AI Summarize
+ *
+ * Tests for the settings store that manages:
+ * - Auto-summarize toggle (on/off)
+ * - Word threshold (default: 30)
+ */
+describe('Auto-Summarize Settings Store (EDITOR-3704)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorageMock.clear()
+    // Reset store to initial state
+    useSettingsStore.setState({
+      semanticLinkingEnabled: SEMANTIC_LINKING_DEFAULTS.enabled,
+      semanticLinkingThreshold: SEMANTIC_LINKING_DEFAULTS.threshold,
+      semanticLinkingMaxSuggestions: SEMANTIC_LINKING_DEFAULTS.maxSuggestionsPerConcept,
+      autoGenerationEnabled: false,
+      autoGenerationCount: 3,
+      autoGenerationTriggers: { what: true, why: true, how: true, pros: false, cons: false },
+      // Reset auto-summarize settings
+      autoSummarizeEnabled: false,
+      autoSummarizeThreshold: 30,
+    })
+  })
+
+  afterEach(() => {
+    vi.resetAllMocks()
+  })
+
+  describe('Default Values', () => {
+    it('should export AUTO_SUMMARIZE_DEFAULTS with correct values', async () => {
+      const { AUTO_SUMMARIZE_DEFAULTS } = await import('../settings-store')
+      expect(AUTO_SUMMARIZE_DEFAULTS).toEqual({
+        enabled: false,
+        wordThreshold: 30,
+      })
+    })
+  })
+
+  describe('Initial State', () => {
+    it('should have auto-summarize disabled by default', () => {
+      const { result } = renderHook(() => useSettingsStore())
+      expect(result.current.autoSummarizeEnabled).toBe(false)
+    })
+
+    it('should have word threshold of 30 by default', () => {
+      const { result } = renderHook(() => useSettingsStore())
+      expect(result.current.autoSummarizeThreshold).toBe(30)
+    })
+  })
+
+  describe('setAutoSummarizeEnabled action', () => {
+    it('should enable auto-summarize', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeEnabled(true)
+      })
+
+      expect(result.current.autoSummarizeEnabled).toBe(true)
+    })
+
+    it('should disable auto-summarize', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeEnabled(true)
+        result.current.setAutoSummarizeEnabled(false)
+      })
+
+      expect(result.current.autoSummarizeEnabled).toBe(false)
+    })
+
+    it('should persist to localStorage when changed', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeEnabled(true)
+      })
+
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        SETTINGS_STORAGE_KEY,
+        expect.stringContaining('"autoSummarizeEnabled":true')
+      )
+    })
+  })
+
+  describe('setAutoSummarizeThreshold action', () => {
+    it('should update threshold', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeThreshold(20)
+      })
+
+      expect(result.current.autoSummarizeThreshold).toBe(20)
+    })
+
+    it('should allow setting to minimum (10)', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeThreshold(10)
+      })
+
+      expect(result.current.autoSummarizeThreshold).toBe(10)
+    })
+
+    it('should allow setting to maximum (100)', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeThreshold(100)
+      })
+
+      expect(result.current.autoSummarizeThreshold).toBe(100)
+    })
+
+    it('should clamp values below minimum to 10', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeThreshold(5)
+      })
+
+      expect(result.current.autoSummarizeThreshold).toBe(10)
+    })
+
+    it('should clamp values above maximum to 100', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeThreshold(150)
+      })
+
+      expect(result.current.autoSummarizeThreshold).toBe(100)
+    })
+
+    it('should persist to localStorage when changed', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.setAutoSummarizeThreshold(25)
+      })
+
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        SETTINGS_STORAGE_KEY,
+        expect.stringContaining('"autoSummarizeThreshold":25')
+      )
+    })
+  })
+
+  describe('Selectors', () => {
+    it('should have selectAutoSummarizeEnabled selector', async () => {
+      const { selectAutoSummarizeEnabled } = await import('../settings-store')
+      const { result: storeResult } = renderHook(() => useSettingsStore())
+      const { result: selectorResult } = renderHook(() =>
+        useSettingsStore(selectAutoSummarizeEnabled)
+      )
+
+      expect(selectorResult.current).toBe(false)
+
+      act(() => {
+        storeResult.current.setAutoSummarizeEnabled(true)
+      })
+
+      expect(selectorResult.current).toBe(true)
+    })
+
+    it('should have selectAutoSummarizeThreshold selector', async () => {
+      const { selectAutoSummarizeThreshold } = await import('../settings-store')
+      const { result: storeResult } = renderHook(() => useSettingsStore())
+      const { result: selectorResult } = renderHook(() =>
+        useSettingsStore(selectAutoSummarizeThreshold)
+      )
+
+      expect(selectorResult.current).toBe(30)
+
+      act(() => {
+        storeResult.current.setAutoSummarizeThreshold(25)
+      })
+
+      expect(selectorResult.current).toBe(25)
+    })
+  })
+
+  describe('loadSettingsFromStorage with auto-summarize settings', () => {
+    it('should load auto-summarize settings from localStorage', () => {
+      const savedSettings = {
+        semanticLinkingEnabled: true,
+        semanticLinkingThreshold: 0.8,
+        semanticLinkingMaxSuggestions: 3,
+        autoGenerationEnabled: false,
+        autoGenerationCount: 3,
+        autoGenerationTriggers: { what: true, why: true, how: true, pros: false, cons: false },
+        autoSummarizeEnabled: true,
+        autoSummarizeThreshold: 25,
+      }
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(savedSettings))
+
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.loadSettingsFromStorage()
+      })
+
+      expect(result.current.autoSummarizeEnabled).toBe(true)
+      expect(result.current.autoSummarizeThreshold).toBe(25)
+    })
+
+    it('should use defaults for auto-summarize when not in localStorage', () => {
+      const savedSettings = {
+        semanticLinkingEnabled: false,
+        semanticLinkingThreshold: 0.7,
+        semanticLinkingMaxSuggestions: 5,
+        // No auto-summarize settings
+      }
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(savedSettings))
+
+      const { result } = renderHook(() => useSettingsStore())
+
+      act(() => {
+        result.current.loadSettingsFromStorage()
+      })
+
+      expect(result.current.autoSummarizeEnabled).toBe(false)
+      expect(result.current.autoSummarizeThreshold).toBe(30)
+    })
+  })
+
+  describe('resetToDefaults with auto-summarize settings', () => {
+    it('should reset auto-summarize settings to defaults', () => {
+      const { result } = renderHook(() => useSettingsStore())
+
+      // Change auto-summarize settings
+      act(() => {
+        result.current.setAutoSummarizeEnabled(true)
+        result.current.setAutoSummarizeThreshold(20)
+      })
+
+      expect(result.current.autoSummarizeEnabled).toBe(true)
+      expect(result.current.autoSummarizeThreshold).toBe(20)
+
+      // Reset to defaults
+      act(() => {
+        result.current.resetToDefaults()
+      })
+
+      expect(result.current.autoSummarizeEnabled).toBe(false)
+      expect(result.current.autoSummarizeThreshold).toBe(30)
+    })
+  })
+})

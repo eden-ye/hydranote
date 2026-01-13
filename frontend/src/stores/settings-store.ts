@@ -55,6 +55,15 @@ export const AUTO_GENERATION_DEFAULTS = {
 } as const
 
 /**
+ * Default values for auto-summarize settings
+ * EDITOR-3704: Auto-summarize disabled by default, 30 word threshold
+ */
+export const AUTO_SUMMARIZE_DEFAULTS = {
+  enabled: false,
+  wordThreshold: 30,
+} as const
+
+/**
  * Settings store state interface
  */
 interface SettingsState {
@@ -70,6 +79,10 @@ interface SettingsState {
   autoGenerationCount: number
   /** Which descriptor types trigger auto-generation (FE-502) */
   autoGenerationTriggers: AutoGenerationTriggers
+  /** Whether auto-summarize is enabled (EDITOR-3704) */
+  autoSummarizeEnabled: boolean
+  /** Word threshold for auto-summarize (10-100) (EDITOR-3704) */
+  autoSummarizeThreshold: number
 }
 
 /**
@@ -88,6 +101,10 @@ interface SettingsActions {
   setAutoGenerationCount: (count: number) => void
   /** Set a specific descriptor type trigger (FE-502) */
   setAutoGenerationTrigger: (type: DescriptorTriggerType, enabled: boolean) => void
+  /** Enable or disable auto-summarize (EDITOR-3704) */
+  setAutoSummarizeEnabled: (enabled: boolean) => void
+  /** Set word threshold for auto-summarize (clamped to 10-100) (EDITOR-3704) */
+  setAutoSummarizeThreshold: (threshold: number) => void
   /** Load settings from localStorage */
   loadSettingsFromStorage: () => void
   /** Reset all settings to defaults */
@@ -140,6 +157,8 @@ function getInitialState(): SettingsState {
     autoGenerationEnabled: saved.autoGenerationEnabled ?? AUTO_GENERATION_DEFAULTS.enabled,
     autoGenerationCount: saved.autoGenerationCount ?? AUTO_GENERATION_DEFAULTS.count,
     autoGenerationTriggers: saved.autoGenerationTriggers ?? { ...AUTO_GENERATION_DEFAULTS.triggers },
+    autoSummarizeEnabled: saved.autoSummarizeEnabled ?? AUTO_SUMMARIZE_DEFAULTS.enabled,
+    autoSummarizeThreshold: saved.autoSummarizeThreshold ?? AUTO_SUMMARIZE_DEFAULTS.wordThreshold,
   }
 }
 
@@ -154,6 +173,8 @@ function getFullState(get: () => SettingsState): SettingsState {
     autoGenerationEnabled: get().autoGenerationEnabled,
     autoGenerationCount: get().autoGenerationCount,
     autoGenerationTriggers: get().autoGenerationTriggers,
+    autoSummarizeEnabled: get().autoSummarizeEnabled,
+    autoSummarizeThreshold: get().autoSummarizeThreshold,
   }
 }
 
@@ -202,6 +223,18 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
     persistSettings({ ...getFullState(get), autoGenerationTriggers: newTriggers })
   },
 
+  // Auto-summarize actions (EDITOR-3704)
+  setAutoSummarizeEnabled: (enabled) => {
+    set({ autoSummarizeEnabled: enabled })
+    persistSettings({ ...getFullState(get), autoSummarizeEnabled: enabled })
+  },
+
+  setAutoSummarizeThreshold: (threshold) => {
+    const clampedThreshold = clamp(threshold, 10, 100)
+    set({ autoSummarizeThreshold: clampedThreshold })
+    persistSettings({ ...getFullState(get), autoSummarizeThreshold: clampedThreshold })
+  },
+
   loadSettingsFromStorage: () => {
     const saved = loadSettings()
     set({
@@ -211,6 +244,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       autoGenerationEnabled: saved.autoGenerationEnabled ?? AUTO_GENERATION_DEFAULTS.enabled,
       autoGenerationCount: saved.autoGenerationCount ?? AUTO_GENERATION_DEFAULTS.count,
       autoGenerationTriggers: saved.autoGenerationTriggers ?? { ...AUTO_GENERATION_DEFAULTS.triggers },
+      autoSummarizeEnabled: saved.autoSummarizeEnabled ?? AUTO_SUMMARIZE_DEFAULTS.enabled,
+      autoSummarizeThreshold: saved.autoSummarizeThreshold ?? AUTO_SUMMARIZE_DEFAULTS.wordThreshold,
     })
   },
 
@@ -222,6 +257,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       autoGenerationEnabled: AUTO_GENERATION_DEFAULTS.enabled,
       autoGenerationCount: AUTO_GENERATION_DEFAULTS.count,
       autoGenerationTriggers: { ...AUTO_GENERATION_DEFAULTS.triggers },
+      autoSummarizeEnabled: AUTO_SUMMARIZE_DEFAULTS.enabled,
+      autoSummarizeThreshold: AUTO_SUMMARIZE_DEFAULTS.wordThreshold,
     }
     set(defaults)
     persistSettings(defaults)
@@ -263,3 +300,15 @@ export const selectAutoGenerationCount = (state: SettingsState): number =>
  */
 export const selectAutoGenerationTriggers = (state: SettingsState): AutoGenerationTriggers =>
   state.autoGenerationTriggers
+
+/**
+ * Selector for checking if auto-summarize is enabled (EDITOR-3704)
+ */
+export const selectAutoSummarizeEnabled = (state: SettingsState): boolean =>
+  state.autoSummarizeEnabled
+
+/**
+ * Selector for getting auto-summarize threshold (EDITOR-3704)
+ */
+export const selectAutoSummarizeThreshold = (state: SettingsState): number =>
+  state.autoSummarizeThreshold

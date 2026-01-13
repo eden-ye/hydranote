@@ -2,6 +2,7 @@
  * Settings Panel Component
  * FE-501: Semantic Linking Settings
  * FE-502: Auto-Generation Settings
+ * EDITOR-3704: Auto-Summarize Settings
  *
  * Provides UI for configuring:
  * - Toggle: Enable/disable semantic linking
@@ -10,6 +11,8 @@
  * - Toggle: Enable/disable auto-generation
  * - Input: Generation count (1-5)
  * - Checkboxes: Descriptor type triggers
+ * - Toggle: Enable/disable auto-summarize
+ * - Input: Word threshold (10-100)
  */
 import { useSettingsStore, type DescriptorTriggerType } from '@/stores/settings-store'
 
@@ -32,6 +35,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     setAutoGenerationEnabled,
     setAutoGenerationCount,
     setAutoGenerationTrigger,
+    // Auto-summarize settings (EDITOR-3704)
+    autoSummarizeEnabled,
+    autoSummarizeThreshold,
+    setAutoSummarizeEnabled,
+    setAutoSummarizeThreshold,
   } = useSettingsStore()
 
   const handleToggle = () => {
@@ -57,6 +65,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   const handleTriggerChange = (type: DescriptorTriggerType) => {
     setAutoGenerationTrigger(type, !autoGenerationTriggers[type])
+  }
+
+  // Auto-summarize handlers (EDITOR-3704)
+  const handleAutoSummarizeToggle = () => {
+    setAutoSummarizeEnabled(!autoSummarizeEnabled)
+  }
+
+  const handleAutoSummarizeThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAutoSummarizeThreshold(parseInt(e.target.value, 10))
   }
 
   return (
@@ -389,6 +406,129 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               </label>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Auto Summarize Section (EDITOR-3704) */}
+      <div
+        style={{
+          marginTop: '24px',
+          paddingTop: '20px',
+          borderTop: '1px solid #eee',
+        }}
+      >
+        <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 600 }}>
+          Auto Summarize
+        </h2>
+
+        {/* Enable/Disable Toggle */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            padding: '8px 0',
+          }}
+        >
+          <label
+            htmlFor="auto-summarize-toggle"
+            style={{ fontSize: '14px', color: '#333' }}
+          >
+            Auto-generate notation for long bullets
+            <span
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                color: '#666',
+                marginTop: '2px',
+              }}
+            >
+              Creates a brief key concept summary
+            </span>
+          </label>
+          <input
+            id="auto-summarize-toggle"
+            data-testid="auto-summarize-toggle"
+            type="checkbox"
+            checked={autoSummarizeEnabled}
+            onChange={handleAutoSummarizeToggle}
+            style={{
+              width: '20px',
+              height: '20px',
+              cursor: 'pointer',
+            }}
+          />
+        </div>
+
+        {/* Word Threshold Input */}
+        <div
+          data-testid="auto-summarize-threshold-row"
+          className={!autoSummarizeEnabled ? 'disabled' : ''}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            padding: '8px 0',
+            opacity: autoSummarizeEnabled ? 1 : 0.5,
+          }}
+        >
+          <label
+            htmlFor="auto-summarize-threshold-input"
+            style={{ fontSize: '14px', color: '#333' }}
+          >
+            Word threshold
+            <span
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                color: '#666',
+                marginTop: '2px',
+              }}
+            >
+              Generate notation when text exceeds this word count
+            </span>
+          </label>
+          <input
+            id="auto-summarize-threshold-input"
+            data-testid="auto-summarize-threshold-input"
+            type="number"
+            min="10"
+            max="100"
+            value={autoSummarizeThreshold}
+            onChange={handleAutoSummarizeThresholdChange}
+            disabled={!autoSummarizeEnabled}
+            style={{
+              width: '60px',
+              padding: '6px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              textAlign: 'center',
+              cursor: autoSummarizeEnabled ? 'text' : 'not-allowed',
+            }}
+          />
+        </div>
+
+        {/* Info Box */}
+        <div
+          style={{
+            backgroundColor: '#f8f9fa',
+            borderRadius: '6px',
+            padding: '12px',
+            fontSize: '12px',
+            color: '#666',
+          }}
+        >
+          <div style={{ fontWeight: 500, marginBottom: '8px' }}>
+            How it works
+          </div>
+          <p style={{ margin: 0, lineHeight: '1.5' }}>
+            When enabled, bullets with more than {autoSummarizeThreshold} words will
+            automatically get a brief notation (up to 5 words) displayed before the
+            full text. This helps quickly scan long content without losing detail.
+          </p>
         </div>
       </div>
     </div>
