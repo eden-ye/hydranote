@@ -243,6 +243,22 @@ export function canOutdent(depth: number): boolean {
 }
 
 /**
+ * EDITOR-3705: Get the nesting depth of a block by counting hydra:bullet ancestors
+ * @param block - Block model to get depth for
+ * @returns Number of hydra:bullet ancestors (0 = direct child of note)
+ */
+export function getBlockDepth(block: BlockModel | null): number {
+  if (!block) return 0
+  let depth = 0
+  let parent = block.parent
+  while (parent && parent.flavour === 'hydra:bullet') {
+    depth++
+    parent = parent.parent
+  }
+  return depth
+}
+
+/**
  * EDITOR-3601: Input for determining if Tab should trigger AI generation
  */
 export interface TabTriggerInput {
@@ -2787,6 +2803,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3507: Global dragover handler
+   * EDITOR-3705: Added depth-based target snapping to prevent drift
    */
   private _handleGlobalDragOver = (e: DragEvent): void => {
     e.preventDefault()
@@ -2799,46 +2816,79 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     // Find the target block under cursor
     const target = document.elementFromPoint(e.clientX, e.clientY)
-    const blockElement = target?.closest('hydra-bullet-block') as HydraBulletBlock | null
+    let blockElement = target?.closest('hydra-bullet-block') as HydraBulletBlock | null
 
     // Clear all drop indicators first
     this._clearAllDropIndicators()
 
     if (blockElement && blockElement.model) {
-      const targetId = blockElement.model.id
       const draggedIds = HydraBulletBlock._dragState.draggedBlockIds
 
-      // Check if valid drop target
-      const descendantIds = Array.from(getAllDescendantIds(draggedIds, (id) => {
-        const block = this.doc.getBlockById(id) as BulletBlockModel | null
-        return block?.children.map(c => c.id) || []
-      }))
+      // EDITOR-3705: Prevent depth drift
+      // If target is deeper than dragged block, snap to ancestor at same depth
+      if (draggedIds.length > 0) {
+        const draggedBlock = this.doc.getBlockById(draggedIds[0])
+        const draggedDepth = getBlockDepth(draggedBlock)
+        const targetDepth = getBlockDepth(blockElement.model)
 
-      if (isValidDropTarget(draggedIds, targetId, descendantIds)) {
-        // Calculate drop placement
-        const rect = blockElement.getBoundingClientRect()
-        const placement = computeDropPlacement(
-          e.clientX,
-          e.clientY,
-          {
-            top: rect.top,
-            bottom: rect.bottom,
-            left: rect.left,
-            right: rect.right,
-            height: rect.height,
-            width: rect.width,
-          },
-          INDENT_THRESHOLD
-        )
+        if (targetDepth > draggedDepth) {
+          // Walk up to find ancestor at same depth as dragged block
+          let current: BlockModel | null = blockElement.model
+          while (current && getBlockDepth(current) > draggedDepth) {
+            if (current.parent && current.parent.flavour === 'hydra:bullet') {
+              current = current.parent
+            } else {
+              break
+            }
+          }
+          // Get the block element for this ancestor
+          if (current && getBlockDepth(current) === draggedDepth) {
+            const ancestorElement = this.host?.view?.getBlock(current.id) as HydraBulletBlock | null
+            if (ancestorElement) {
+              blockElement = ancestorElement
+            }
+          }
+        }
+      }
 
-        // Update drop target state
-        blockElement._isDropTarget = true
-        blockElement._dropPlacement = placement
-        blockElement.requestUpdate()
+      // Re-check after possible ancestor snap
+      if (blockElement && blockElement.model) {
+        const targetId = blockElement.model.id
 
-        HydraBulletBlock._dragState.dropTarget = {
-          blockId: targetId,
-          placement,
+        // Check if valid drop target
+        const descendantIds = Array.from(getAllDescendantIds(draggedIds, (id) => {
+          const block = this.doc.getBlockById(id) as BulletBlockModel | null
+          return block?.children.map(c => c.id) || []
+        }))
+
+        if (isValidDropTarget(draggedIds, targetId, descendantIds)) {
+          // Calculate drop placement
+          const rect = blockElement.getBoundingClientRect()
+          const placement = computeDropPlacement(
+            e.clientX,
+            e.clientY,
+            {
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+              height: rect.height,
+              width: rect.width,
+            },
+            INDENT_THRESHOLD
+          )
+
+          // Update drop target state
+          blockElement._isDropTarget = true
+          blockElement._dropPlacement = placement
+          blockElement.requestUpdate()
+
+          HydraBulletBlock._dragState.dropTarget = {
+            blockId: targetId,
+            placement,
+          }
+        } else {
+          HydraBulletBlock._dragState.dropTarget = null
         }
       } else {
         HydraBulletBlock._dragState.dropTarget = null
@@ -2884,6 +2934,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
   /**
    * EDITOR-3507: Perform the drop operation using BlockSuite's moveBlocks
+   * EDITOR-3705: Prevent dragging bullets to root level (siblings of Title)
    */
   private _performDrop(draggedIds: string[], targetId: string, placement: DropPlacement): void {
     const targetBlock = this.doc.getBlockById(targetId)
@@ -2902,6 +2953,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           // Move before target (sibling of target)
           const parent = targetBlock.parent
           if (parent) {
+            // EDITOR-3705: Prevent dropping at root level
+            // In Hydra Notes, only the Title should be at root level
+            // Check if parent is root/page block by checking if it has a parent
+            if (!parent.parent) {
+              console.log('[DragDrop] Cannot drop bullets at root level (siblings of Title)')
+              return
+            }
+
             const targetIndex = parent.children.indexOf(targetBlock)
             const beforeRef = parent.children[targetIndex] || null
             this.doc.moveBlocks(blocksToMove, parent, beforeRef)
@@ -2912,6 +2971,13 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           // Move after target (sibling of target)
           const parent = targetBlock.parent
           if (parent) {
+            // EDITOR-3705: Prevent dropping at root level
+            // In Hydra Notes, only the Title should be at root level
+            if (!parent.parent) {
+              console.log('[DragDrop] Cannot drop bullets at root level (siblings of Title)')
+              return
+            }
+
             const targetIndex = parent.children.indexOf(targetBlock)
             const afterRef = parent.children[targetIndex + 1] || null
             this.doc.moveBlocks(blocksToMove, parent, afterRef)
