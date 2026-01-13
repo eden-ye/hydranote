@@ -7,7 +7,7 @@
  * - Streams generated content in real-time
  * - Handles rate limiting and errors
  */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   useAIStore,
   selectCanGenerate,
@@ -94,6 +94,18 @@ export function useExpandBlock() {
   const [error, setLocalError] = useState<string | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
+
+  /**
+   * BUG-EDITOR-3708: Auto-close WebSocket on unmount to prevent memory leaks
+   */
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+    }
+  }, [])
 
   /**
    * Start expanding a block with AI
