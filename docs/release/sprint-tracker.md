@@ -76,7 +76,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 |--------|-------|-----|--------|-------|
 | EDITOR-3506 | Inline Formatting Toolbar | 10h | [L] | Bold/Italic/Underline/Strike + Highlight dropdown |
 
-## Epic: Editor UX (6)
+## Epic: Editor UX (7)
 
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
@@ -86,6 +86,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 | EDITOR-3510 | Block Type System | 8h | [x] | Checkbox, numbered list, bullet, headings + slash menu + markdown |
 | EDITOR-3511 | Ghost Bullet Suggestions | 6h | [x] | Merged PR #104, Chrome E2E pending |
 | EDITOR-3512 | Add Block Button UX | 3h | [x] | Fix unclear state + position shift during typing, merged PR #111 |
+| EDITOR-3706 | Remove Bullet Markers | 1h | [ ] | Hide dirty bullet symbols (•, ◦, ▪, ▫) from list items |
 
 ## Epic: Bug Fixes (1)
 
@@ -137,7 +138,7 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 - **PROD OK [P]**: (none)
 - **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3511, EDITOR-3512, EDITOR-3701, EDITOR-3703, FE-503
 - **In Progress [~]**: (none)
-- **Backlog [ ]**: EDITOR-3408, FE-508, FE-503-E2E, EDITOR-3704, FE-507
+- **Backlog [ ]**: EDITOR-3408, FE-508, FE-503-E2E, EDITOR-3704, EDITOR-3706, FE-507
 
 ---
 
