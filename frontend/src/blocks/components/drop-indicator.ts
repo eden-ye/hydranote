@@ -53,13 +53,15 @@ export class HydraDropIndicator extends LitElement {
       border-radius: 1px;
     }
 
+    /* EDITOR-3701: 'in' indicator shows nested placement - requires explicit drag to right */
     .drop-indicator.in {
       top: 0;
       bottom: 0;
-      left: 40px; /* Further indent to show nesting */
+      left: 48px; /* More indent to clearly show nesting will occur */
       background: var(--affine-primary-color, #1976d2);
-      opacity: 0.15;
+      opacity: 0.2;
       border-radius: 4px;
+      border-left: 3px solid var(--affine-primary-color, #1976d2);
     }
 
     /* Indicator circle at the start of the line */

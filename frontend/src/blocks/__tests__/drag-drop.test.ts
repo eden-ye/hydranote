@@ -63,10 +63,12 @@ describe('Drag-Drop Utilities (EDITOR-3507)', () => {
         expect(result).toBe('after')
       })
 
-      it('should return "in" when mouse is in middle zone with X >= indent threshold', () => {
+      it('should return "in" when mouse is in middle zone with X >= 60% of block width (EDITOR-3701 fix)', () => {
         const blockRect = createBlockRect(100, 40)
         const mouseY = 120 // Middle zone
-        const mouseX = 80 // Greater than threshold (blockRect.left + 24 = 64)
+        // EDITOR-3701: With new relative calculation, mouse must be past 60% of block width
+        // blockRect.left = 40, width = 460, so threshold = 40 + (460 * 0.6) = 316
+        const mouseX = 320 // Greater than 60% threshold
 
         const result = computeDropPlacement(mouseX, mouseY, blockRect, INDENT_THRESHOLD)
         expect(result).toBe('in')
@@ -259,8 +261,10 @@ describe('Drag-Drop Utilities (EDITOR-3507)', () => {
   })
 
   describe('Constants', () => {
-    it('should have INDENT_THRESHOLD of 24 (matching CHILDREN_PADDING)', () => {
-      expect(INDENT_THRESHOLD).toBe(24)
+    it('should have INDENT_THRESHOLD of 0.6 (60% of block width for nesting - EDITOR-3701 fix)', () => {
+      // EDITOR-3701: Changed from 24px absolute to 0.6 (60%) relative threshold
+      // This prevents accidental nesting and requires explicit drag to the right
+      expect(INDENT_THRESHOLD).toBe(0.6)
     })
 
     it('should have TOP_ZONE_RATIO of 0.25 (25%)', () => {
