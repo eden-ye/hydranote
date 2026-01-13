@@ -1,6 +1,11 @@
 name: Deploy Frontend to Vercel (SAT)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend-sat.yml'
   pull_request:
     branches: [main]
     paths:
