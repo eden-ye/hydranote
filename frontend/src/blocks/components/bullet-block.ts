@@ -725,6 +725,12 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   private _isDropTarget = false
   private _dropPlacement: DropPlacement = 'after'
 
+  /**
+   * BUG-EDITOR-3511: Track hover state for ghost bullet visibility
+   * Using reactive property since component uses light DOM (no shadow DOM = :host selector won't work)
+   */
+  private _isHovered = false
+
   static override styles = css`
     :host {
       display: block;
@@ -1341,8 +1347,9 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       transition: opacity 0.15s ease, background-color 0.15s ease;
     }
 
-    /* Show ghost bullets on parent hover */
-    :host(:hover) .ghost-bullet {
+    /* BUG-EDITOR-3511: Show ghost bullets on parent hover
+       Using class-based approach instead of :host(:hover) which doesn't work reliably */
+    :host(.is-hovered) .ghost-bullet {
       opacity: 1;
     }
 
@@ -1499,6 +1506,34 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         this._bindKeyboardShortcuts()
       }
     })
+
+    // BUG-EDITOR-3511: Add hover listeners for ghost bullet visibility
+    this.addEventListener('mouseenter', this._handleMouseEnter)
+    this.addEventListener('mouseleave', this._handleMouseLeave)
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback()
+    // BUG-EDITOR-3511: Clean up hover listeners
+    this.removeEventListener('mouseenter', this._handleMouseEnter)
+    this.removeEventListener('mouseleave', this._handleMouseLeave)
+  }
+
+  /**
+   * BUG-EDITOR-3511: Handle mouse enter to show ghost bullets
+   * Using reactive property since component uses light DOM (no shadow DOM = :host selector won't work)
+   */
+  private _handleMouseEnter = (): void => {
+    this._isHovered = true
+    this.requestUpdate()
+  }
+
+  /**
+   * BUG-EDITOR-3511: Handle mouse leave to hide ghost bullets
+   */
+  private _handleMouseLeave = (): void => {
+    this._isHovered = false
+    this.requestUpdate()
   }
 
   override firstUpdated(): void {
@@ -3838,6 +3873,10 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return nothing
     }
 
+    // BUG-EDITOR-3511: Apply opacity based on hover state
+    // Component uses light DOM so :host(.is-hovered) CSS selector won't work
+    const ghostOpacity = this._isHovered ? '1' : '0'
+
     return html`
       <div class="ghost-bullets-container">
         ${visibleSuggestions.map(suggestion => {
@@ -3847,6 +3886,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
           return html`
             <div
               class="${bulletClass}"
+              style="opacity: ${ghostOpacity}"
               @click=${() => this._handleGhostBulletClick(suggestion)}
               role="button"
               tabindex="0"
