@@ -1214,3 +1214,217 @@ describe('Null Model Defense (BUG-EDITOR-3064)', () => {
     })
   })
 })
+
+// Import ghost bullet functions (EDITOR-3511)
+import {
+  generateGhostSuggestions,
+  shouldShowGhostBullets,
+  type GhostSuggestion,
+  type GhostSuggestionContext,
+} from '../components/bullet-block'
+
+/**
+ * Tests for Ghost Bullet Suggestions (EDITOR-3511)
+ *
+ * Ghost bullets appear inline under parent bullets as suggestion placeholders.
+ * When clicked, they convert to real bullets and trigger AI expansion.
+ */
+describe('Ghost Bullet Suggestions (EDITOR-3511)', () => {
+  describe('shouldShowGhostBullets', () => {
+    it('should return true when block has text and is expanded', () => {
+      expect(shouldShowGhostBullets({
+        hasText: true,
+        isExpanded: true,
+        hasChildren: true,
+        isInFocusMode: false,
+      })).toBe(true)
+    })
+
+    it('should return true when block has text and no children (leaf node)', () => {
+      expect(shouldShowGhostBullets({
+        hasText: true,
+        isExpanded: true,
+        hasChildren: false,
+        isInFocusMode: false,
+      })).toBe(true)
+    })
+
+    it('should return false when block is collapsed', () => {
+      expect(shouldShowGhostBullets({
+        hasText: true,
+        isExpanded: false,
+        hasChildren: true,
+        isInFocusMode: false,
+      })).toBe(false)
+    })
+
+    it('should return false when block has no text', () => {
+      expect(shouldShowGhostBullets({
+        hasText: false,
+        isExpanded: true,
+        hasChildren: false,
+        isInFocusMode: false,
+      })).toBe(false)
+    })
+
+    it('should return true in focus mode for focused block', () => {
+      expect(shouldShowGhostBullets({
+        hasText: true,
+        isExpanded: true,
+        hasChildren: true,
+        isInFocusMode: true,
+      })).toBe(true)
+    })
+  })
+
+  describe('generateGhostSuggestions', () => {
+    it('should generate suggestions based on parent text', () => {
+      const context: GhostSuggestionContext = {
+        parentText: 'Machine learning applications',
+        siblingTexts: [],
+        depth: 1,
+      }
+      const suggestions = generateGhostSuggestions(context)
+
+      expect(suggestions.length).toBeGreaterThan(0)
+      expect(suggestions.length).toBeLessThanOrEqual(3)
+      suggestions.forEach(suggestion => {
+        expect(suggestion.id).toBeTruthy()
+        expect(suggestion.text).toBeTruthy()
+        expect(suggestion.text.endsWith('?')).toBe(true) // Suggestions should be questions
+      })
+    })
+
+    it('should return empty array when parent text is empty', () => {
+      const context: GhostSuggestionContext = {
+        parentText: '',
+        siblingTexts: [],
+        depth: 1,
+      }
+      const suggestions = generateGhostSuggestions(context)
+      expect(suggestions).toEqual([])
+    })
+
+    it('should return empty array when parent text is only whitespace', () => {
+      const context: GhostSuggestionContext = {
+        parentText: '   ',
+        siblingTexts: [],
+        depth: 1,
+      }
+      const suggestions = generateGhostSuggestions(context)
+      expect(suggestions).toEqual([])
+    })
+
+    it('should limit suggestions to max 3', () => {
+      const context: GhostSuggestionContext = {
+        parentText: 'Complex topic with many possible directions',
+        siblingTexts: ['First point', 'Second point'],
+        depth: 2,
+      }
+      const suggestions = generateGhostSuggestions(context)
+      expect(suggestions.length).toBeLessThanOrEqual(3)
+    })
+
+    it('should generate unique IDs for each suggestion', () => {
+      const context: GhostSuggestionContext = {
+        parentText: 'Test topic',
+        siblingTexts: [],
+        depth: 1,
+      }
+      const suggestions = generateGhostSuggestions(context)
+      const ids = suggestions.map(s => s.id)
+      const uniqueIds = new Set(ids)
+      expect(uniqueIds.size).toBe(ids.length)
+    })
+  })
+
+  describe('GhostSuggestion interface', () => {
+    it('should have required properties', () => {
+      const suggestion: GhostSuggestion = {
+        id: 'ghost-1',
+        text: 'What are the implications?',
+      }
+      expect(suggestion.id).toBe('ghost-1')
+      expect(suggestion.text).toBe('What are the implications?')
+    })
+  })
+
+  describe('Ghost bullet click behavior', () => {
+    /**
+     * Simulates converting a ghost bullet to a real bullet
+     * Returns the context for AI expansion
+     */
+    const convertGhostToRealBullet = (
+      ghostText: string,
+      parentBlockId: string
+    ): { newBlockText: string; parentId: string; shouldTriggerExpand: boolean } => {
+      return {
+        newBlockText: ghostText,
+        parentId: parentBlockId,
+        shouldTriggerExpand: true,
+      }
+    }
+
+    it('should return correct structure for conversion', () => {
+      const result = convertGhostToRealBullet('What are the key factors?', 'block-123')
+      expect(result.newBlockText).toBe('What are the key factors?')
+      expect(result.parentId).toBe('block-123')
+      expect(result.shouldTriggerExpand).toBe(true)
+    })
+  })
+
+  describe('Ghost bullet styling', () => {
+    /**
+     * Returns the CSS classes for ghost bullet styling
+     */
+    const getGhostBulletClasses = (isHovered: boolean): string[] => {
+      const classes = ['ghost-bullet']
+      if (isHovered) {
+        classes.push('ghost-bullet-hover')
+      }
+      return classes
+    }
+
+    it('should have base ghost-bullet class', () => {
+      const classes = getGhostBulletClasses(false)
+      expect(classes).toContain('ghost-bullet')
+    })
+
+    it('should add hover class when hovered', () => {
+      const classes = getGhostBulletClasses(true)
+      expect(classes).toContain('ghost-bullet')
+      expect(classes).toContain('ghost-bullet-hover')
+    })
+  })
+
+  describe('Ghost bullet dismiss behavior', () => {
+    /**
+     * Simulates dismissing a ghost suggestion
+     */
+    const dismissGhostSuggestion = (
+      suggestions: GhostSuggestion[],
+      dismissId: string
+    ): GhostSuggestion[] => {
+      return suggestions.filter(s => s.id !== dismissId)
+    }
+
+    it('should remove dismissed suggestion from list', () => {
+      const suggestions: GhostSuggestion[] = [
+        { id: 'ghost-1', text: 'Question 1?' },
+        { id: 'ghost-2', text: 'Question 2?' },
+        { id: 'ghost-3', text: 'Question 3?' },
+      ]
+      const result = dismissGhostSuggestion(suggestions, 'ghost-2')
+      expect(result.length).toBe(2)
+      expect(result.find(s => s.id === 'ghost-2')).toBeUndefined()
+    })
+
+    it('should return same list if ID not found', () => {
+      const suggestions: GhostSuggestion[] = [
+        { id: 'ghost-1', text: 'Question 1?' },
+      ]
+      const result = dismissGhostSuggestion(suggestions, 'nonexistent')
+      expect(result.length).toBe(1)
+    })
+  })
+})
