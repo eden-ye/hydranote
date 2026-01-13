@@ -260,3 +260,91 @@ Respond with ONLY the JSON array, no additional text."""
 
     except ClaudeServiceError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+# --- Notation Generation (EDITOR-3704) ---
+
+class NotationGenerationRequest(BaseModel):
+    """Request model for notation generation."""
+    text: str
+
+
+class NotationGenerationResponse(BaseModel):
+    """Response model for notation generation."""
+    notation: str
+    tokens_used: int
+
+
+@router.post("/generate-notation", response_model=NotationGenerationResponse)
+async def generate_notation(
+    request: NotationGenerationRequest,
+    current_user: UserInfo = Depends(get_current_user)
+):
+    """
+    Generate a short notation (<5 words) for long bullet text.
+
+    Uses Claude Haiku for fast, cheap generation of brief notations that
+    summarize the key concepts in long bullets (>30 words).
+
+    Args:
+        request: NotationGenerationRequest with text to summarize
+        current_user: Authenticated user info from JWT token
+
+    Returns:
+        NotationGenerationResponse with notation and token usage
+
+    Raises:
+        HTTPException 401: If not authenticated
+        HTTPException 400: If text is empty
+        HTTPException 503: If Claude service fails
+    """
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+
+    try:
+        claude = get_claude_service()
+
+        # Build prompt for notation generation
+        user_prompt = f"""Generate a very brief notation (key concepts, <5 words) for the following text. Just return the notation, nothing else.
+
+Text: {request.text}
+
+The notation should:
+- Be extremely concise (maximum 5 words, preferably 2-3)
+- Capture the core concept or topic
+- Be clear and meaningful on its own
+- Avoid generic words like "about", "regarding", "information"
+- Use key terms that help identify the content
+
+Examples:
+- "The Tesla Model 3 is an electric sedan with autopilot features and long range battery..." → "Tesla Model 3 autopilot"
+- "Machine learning algorithms can be supervised, unsupervised, or reinforcement learning..." → "ML algorithm types"
+- "The human brain contains approximately 86 billion neurons that communicate via synapses..." → "Brain neuron communication"
+
+Respond with ONLY the notation (2-5 words), no additional text."""
+
+        system_prompt = "You are a notation generator. Create ultra-brief summaries."
+
+        # Call Claude API (using default Haiku model for speed and cost)
+        result = await claude.generate(
+            prompt=user_prompt,
+            system=system_prompt,
+            max_tokens=50,  # Very short response
+        )
+
+        # Extract notation (trim quotes and whitespace)
+        notation = result["text"].strip().strip('"').strip("'")
+
+        # Validate notation length (rough word count)
+        word_count = len(notation.split())
+        if word_count > 7:
+            # Truncate to first 5 words if too long
+            notation = ' '.join(notation.split()[:5])
+
+        return NotationGenerationResponse(
+            notation=notation,
+            tokens_used=result["tokens_used"]
+        )
+
+    except ClaudeServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))

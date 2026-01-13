@@ -7,6 +7,7 @@ import type { BlockType } from '../utils/markdown-shortcuts'
  * Each bullet supports text content, folding state, nested children,
  * and optional descriptor functionality (EDITOR-3201).
  * EDITOR-3510: Added blockType and isChecked for type system.
+ * EDITOR-3704: Added notation for auto-summarization.
  */
 export interface BulletBlockProps {
   /** Text content with ~20 word soft limit */
@@ -27,6 +28,10 @@ export interface BulletBlockProps {
   isChecked: boolean
   /** EDITOR-3509: Whether inline preview is visible (default: true) */
   inlinePreviewVisible: boolean
+  /** EDITOR-3704: AI-generated notation for long bullets (<5 words) */
+  notation: string | undefined
+  /** EDITOR-3704: Whether notation is user-customized (if true, won't auto-regenerate) */
+  notationCustom: boolean
 }
 
 /**
@@ -54,6 +59,9 @@ export const BulletBlockSchema = defineBlockSchema({
     isChecked: false,
     // EDITOR-3509: Inline preview visibility (default: true)
     inlinePreviewVisible: true,
+    // EDITOR-3704: Notation props with defaults
+    notation: undefined,
+    notationCustom: false,
   }),
   metadata: {
     version: 1,

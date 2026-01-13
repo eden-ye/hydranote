@@ -56,6 +56,16 @@ import { parseMarkdownShortcut } from '../utils/markdown-shortcuts'
 import { computeListNumber } from '../utils/numbered-list'
 import { getBulletMarker } from '../utils/block-icons'
 import { isSlashTrigger } from '../utils/slash-menu'
+// EDITOR-3704: Import notation utilities and API
+import {
+  shouldGenerateNotation,
+  computeTextHash,
+  type NotationConfig,
+} from '../utils/auto-summarize'
+import { generateNotation } from '@/services/api-client'
+import { useAuthStore, selectAccessToken } from '@/stores/auth-store'
+import { useSettingsStore } from '@/stores/settings-store'
+import { state } from 'lit/decorators.js'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -725,6 +735,15 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   private _isDropTarget = false
   private _dropPlacement: DropPlacement = 'after'
 
+  /**
+   * EDITOR-3704: Notation state for auto-summarization
+   */
+  @state() private _notation: string | null = null
+  @state() private _notationGenerating: boolean = false
+  // @state() private _notationEditing: boolean = false  // TODO: Implement editing in future
+  private _notationDebounceTimer: number | null = null
+  private _lastTextHash: string | null = null
+
   static override styles = css`
     :host {
       display: block;
@@ -1075,6 +1094,29 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
 
     .bullet-container.descriptor-block .bullet-toggle {
       color: var(--affine-text-secondary-color, #6B7280);
+    }
+
+    /* EDITOR-3704: Notation styles for auto-summarization */
+    .notation {
+      color: #6b7280;
+      font-size: 0.9em;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      margin-right: 6px;
+      user-select: none;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease;
+    }
+
+    .notation:hover {
+      background: #e5e7eb;
+    }
+
+    .notation.generating {
+      opacity: 0.6;
+      cursor: wait;
     }
 
     /* EDITOR-3303: Visibility toggle icon styles */
@@ -1532,6 +1574,14 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         console.log('[AutoFocus] focusTextModel error:', e)
       }
     }
+  }
+
+  /**
+   * EDITOR-3704: Called before each update to check if notation should be generated
+   */
+  override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
+    super.willUpdate(changedProperties)
+    this._checkNotationGeneration()
   }
 
   /**
@@ -3245,6 +3295,125 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   }
 
   /**
+   * EDITOR-3704: Check if notation should be generated for current text
+   */
+  private _checkNotationGeneration(): void {
+    if (!this.model) return
+
+    const text = this.model.text?.toString() || ''
+    const textHash = computeTextHash(text)
+
+    // Skip if text hasn't changed
+    if (this._lastTextHash === textHash) {
+      return
+    }
+    this._lastTextHash = textHash
+
+    // Get settings
+    const settings = useSettingsStore.getState()
+    const config: NotationConfig = {
+      enabled: settings.autoSummarizeEnabled,
+      wordThreshold: settings.autoSummarizeThreshold,
+    }
+
+    // Check if we should generate notation
+    if (!shouldGenerateNotation(text, config)) {
+      // Clear notation if text is now short
+      if (this._notation) {
+        this._notation = null
+        this.model.notation = undefined
+      }
+      return
+    }
+
+    // Use existing notation from model if available and not custom
+    if (this.model.notation && !this.model.notationCustom) {
+      this._notation = this.model.notation
+      return
+    }
+
+    // If custom notation exists, use it
+    if (this.model.notationCustom && this.model.notation) {
+      this._notation = this.model.notation
+      return
+    }
+
+    // Debounce API call
+    if (this._notationDebounceTimer) {
+      window.clearTimeout(this._notationDebounceTimer)
+    }
+
+    this._notationDebounceTimer = window.setTimeout(() => {
+      this._generateNotation(text)
+    }, 2000) // 2 second debounce
+  }
+
+  /**
+   * EDITOR-3704: Generate notation via API
+   */
+  private async _generateNotation(text: string): Promise<void> {
+    if (this._notationGenerating) return
+
+    // Get auth token
+    const accessToken = selectAccessToken(useAuthStore.getState())
+    if (!accessToken) {
+      console.warn('[Notation] No access token available')
+      return
+    }
+
+    this._notationGenerating = true
+
+    try {
+      const notation = await generateNotation(text, accessToken)
+      this._notation = notation
+
+      // Save to model
+      if (this.model) {
+        this.model.notation = notation
+        this.model.notationCustom = false
+      }
+    } catch (error) {
+      console.error('[Notation] Generation failed:', error)
+      this._notation = null
+    } finally {
+      this._notationGenerating = false
+    }
+  }
+
+  /**
+   * EDITOR-3704: Handle notation click for editing
+   */
+  private _handleNotationClick(e: MouseEvent): void {
+    e.stopPropagation()
+    e.preventDefault()
+
+    // TODO: Implement notation editing in future iteration
+    // For now, just log
+    console.log('[Notation] Click detected - editing not yet implemented')
+  }
+
+  /**
+   * EDITOR-3704: Render notation if present
+   */
+  private _renderNotation(): TemplateResult | typeof nothing {
+    if (!this._notation) {
+      return nothing
+    }
+
+    const notationClass = this._notationGenerating ? 'notation generating' : 'notation'
+
+    return html`
+      <span
+        class="${notationClass}"
+        @click=${this._handleNotationClick}
+        title="Click to edit notation"
+      >
+        ${this._notation}
+      </span>
+    `
+  }
+
+  /**
    * EDITOR-3405 BUGFIX: Override render() to guard against null model.
    * BUG-EDITOR-3064: Uses isDummyModel check since model getter now returns dummy instead of null.
    * Returns empty template if model is unavailable (orphaned block edge case).
@@ -3941,6 +4110,7 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         ${this._renderInlinePreview()}
         ${this._renderInlinePreviewRestoreButton()}
         ${this._renderVisibilityToggle()}
+        ${this._renderNotation()}
         ${this._renderExpandButton()}
       </div>
       <div class="bullet-children ${childrenClass}">

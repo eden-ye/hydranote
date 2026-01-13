@@ -165,6 +165,53 @@ export async function extractConcepts(
 }
 
 /**
+ * Notation generation response from API
+ * (EDITOR-3704)
+ */
+export interface NotationGenerationResponse {
+  /** Generated notation (<5 words) */
+  notation: string
+  /** Tokens used by the AI model */
+  tokens_used: number
+}
+
+/**
+ * Generate a short notation for long bullet text
+ * (EDITOR-3704)
+ *
+ * @param text - Text to generate notation for
+ * @param accessToken - User's auth token
+ * @returns Promise resolving to generated notation
+ * @throws ApiError if the request fails
+ */
+export async function generateNotation(
+  text: string,
+  accessToken: string
+): Promise<string> {
+  const baseUrl = getApiBaseUrl()
+  const response = await fetch(`${baseUrl}/api/ai/generate-notation`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ text }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error')
+    throw new ApiError(
+      `Notation generation failed: ${response.statusText}`,
+      response.status,
+      errorText
+    )
+  }
+
+  const data: NotationGenerationResponse = await response.json()
+  return data.notation
+}
+
+/**
  * Check if we should use real APIs or mocks
  *
  * Returns true if:
