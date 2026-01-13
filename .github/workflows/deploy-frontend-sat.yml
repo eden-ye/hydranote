@@ -28,12 +28,12 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@44
 
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Install dependencies
+        run: npm ci
         working-directory: frontend
 
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build Project
+        run: npm run build
         working-directory: frontend
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_SAT }}
@@ -41,6 +41,6 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL_SAT }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL_SAT }}
 
-      - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel
+        run: vercel deploy dist --yes --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: frontend
