@@ -806,6 +806,11 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
   private _isDropTarget = false
   private _dropPlacement: DropPlacement = 'after'
 
+  /**
+   * BUG-EDITOR-3708: Store keydown handler reference for cleanup
+   */
+  private _richTextKeydownHandler: ((e: Event) => void) | null = null
+
   static override styles = css`
     :host {
       display: block;
@@ -1599,15 +1604,37 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     })
   }
 
+  /**
+   * BUG-EDITOR-3708: Clean up event listeners to prevent memory leaks
+   */
+  override disconnectedCallback(): void {
+    super.disconnectedCallback()
+
+    // Clean up rich-text keydown listener
+    const richText = this.querySelector('rich-text') as HTMLElement
+    if (richText && this._richTextKeydownHandler) {
+      richText.removeEventListener('keydown', this._richTextKeydownHandler)
+      this._richTextKeydownHandler = null
+    }
+
+    // Ensure context menu listeners are removed (even if menu is visible)
+    this._hideContextMenu()
+
+    // Ensure drag listeners are removed (even if dragging)
+    this._cleanupDrag()
+  }
+
   override firstUpdated(): void {
     // EDITOR-3053: With rich-text, we no longer need manual text sync
     // rich-text handles Yjs binding internally via the .yText property
 
     // Get rich-text element for keydown handling
+    // BUG-EDITOR-3708: Store handler reference for cleanup in disconnectedCallback
     const richText = this.querySelector('rich-text') as HTMLElement
     if (richText) {
       // Bind keydown handler for shortcuts that rich-text doesn't handle
-      richText.addEventListener('keydown', (e: Event) => this._handleKeydown(e as KeyboardEvent))
+      this._richTextKeydownHandler = (e: Event) => this._handleKeydown(e as KeyboardEvent)
+      richText.addEventListener('keydown', this._richTextKeydownHandler)
     }
 
     // EDITOR-3102: Apply highlight styles after first render
