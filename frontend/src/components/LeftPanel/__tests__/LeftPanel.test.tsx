@@ -1,58 +1,21 @@
 /**
  * Tests for LeftPanel Component
  * FE-503: Left Panel with Favorites
+ * FE-504: Removed header tests (UserInfo/Settings moved to main Header)
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { User } from '@supabase/supabase-js'
 
-// Mock stores
-vi.mock('@/stores/auth-store', () => ({
-  useAuthStore: vi.fn(),
-}))
-
+// Mock editor store
 vi.mock('@/stores/editor-store', () => ({
   useEditorStore: vi.fn(),
 }))
 
-// Mock supabase
-vi.mock('@/services/supabase', () => ({
-  signInWithGoogle: vi.fn(),
-  signOut: vi.fn(),
-}))
-
 import { LeftPanel } from '../index'
-import { useAuthStore } from '@/stores/auth-store'
 import { useEditorStore } from '@/stores/editor-store'
 
-// Helper to create mock user
-function createMockUser(): User {
-  return {
-    id: 'user-123',
-    email: 'test@example.com',
-    aud: 'authenticated',
-    created_at: '2024-01-01',
-    app_metadata: {},
-    user_metadata: {
-      full_name: 'Test User',
-      avatar_url: 'https://example.com/avatar.png',
-    },
-  } as User
-}
-
 // Default mock implementations
-const mockAuthStore = {
-  user: null,
-  session: null,
-  isLoading: false,
-  isInitialized: true,
-  setUser: vi.fn(),
-  setSession: vi.fn(),
-  setLoading: vi.fn(),
-  clearUser: vi.fn(),
-}
-
 const mockEditorStore = {
   favoriteBlockIds: [],
   focusedBlockId: null,
@@ -61,17 +24,14 @@ const mockEditorStore = {
   isFavorite: vi.fn(() => false),
   reorderFavorites: vi.fn(),
   loadFavorites: vi.fn(),
+  // FE-504: Block data from store
+  blockTitles: new Map<string, string>(),
+  topLevelBlockIds: [] as string[],
 }
 
 describe('LeftPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useAuthStore).mockImplementation((selector) => {
-      if (typeof selector === 'function') {
-        return selector(mockAuthStore)
-      }
-      return mockAuthStore
-    })
     vi.mocked(useEditorStore).mockImplementation((selector) => {
       if (typeof selector === 'function') {
         return selector(mockEditorStore as any)
@@ -119,57 +79,6 @@ describe('LeftPanel', () => {
     })
   })
 
-  describe('User Info Section', () => {
-    it('should show login button when not authenticated', () => {
-      vi.mocked(useAuthStore).mockImplementation((selector) => {
-        if (typeof selector === 'function') {
-          return selector({ ...mockAuthStore, user: null })
-        }
-        return { ...mockAuthStore, user: null }
-      })
-      render(<LeftPanel />)
-      expect(screen.getByTestId('sidebar-login-button')).toBeInTheDocument()
-    })
-
-    it('should show user avatar when authenticated', () => {
-      const user = createMockUser()
-      vi.mocked(useAuthStore).mockImplementation((selector) => {
-        if (typeof selector === 'function') {
-          return selector({ ...mockAuthStore, user })
-        }
-        return { ...mockAuthStore, user }
-      })
-      render(<LeftPanel />)
-      expect(screen.getByTestId('sidebar-user-info')).toBeInTheDocument()
-    })
-
-    it('should show user name when authenticated', () => {
-      const user = createMockUser()
-      vi.mocked(useAuthStore).mockImplementation((selector) => {
-        if (typeof selector === 'function') {
-          return selector({ ...mockAuthStore, user })
-        }
-        return { ...mockAuthStore, user }
-      })
-      render(<LeftPanel />)
-      expect(screen.getByText('Test User')).toBeInTheDocument()
-    })
-  })
-
-  describe('Settings Button', () => {
-    it('should render settings button', () => {
-      render(<LeftPanel />)
-      expect(screen.getByTestId('sidebar-settings-button')).toBeInTheDocument()
-    })
-
-    it('should open settings modal when clicked', () => {
-      render(<LeftPanel />)
-      const settingsButton = screen.getByTestId('sidebar-settings-button')
-      fireEvent.click(settingsButton)
-      expect(screen.getByTestId('settings-panel')).toBeInTheDocument()
-    })
-  })
-
   describe('Favorites Section', () => {
     it('should render favorites section', () => {
       render(<LeftPanel />)
@@ -203,6 +112,31 @@ describe('LeftPanel', () => {
     it('should render all bullets section', () => {
       render(<LeftPanel />)
       expect(screen.getByTestId('all-bullets-section')).toBeInTheDocument()
+    })
+
+    it('should show "No blocks yet" when empty', () => {
+      render(<LeftPanel />)
+      expect(screen.getByText(/no blocks yet/i)).toBeInTheDocument()
+    })
+
+    it('should list top-level blocks from store', () => {
+      vi.mocked(useEditorStore).mockImplementation((selector) => {
+        const titles = new Map<string, string>()
+        titles.set('bullet-1', 'First Bullet')
+        titles.set('bullet-2', 'Second Bullet')
+        const store = {
+          ...mockEditorStore,
+          blockTitles: titles,
+          topLevelBlockIds: ['bullet-1', 'bullet-2'],
+        }
+        if (typeof selector === 'function') {
+          return selector(store as any)
+        }
+        return store as any
+      })
+      render(<LeftPanel />)
+      expect(screen.getByText('First Bullet')).toBeInTheDocument()
+      expect(screen.getByText('Second Bullet')).toBeInTheDocument()
     })
   })
 

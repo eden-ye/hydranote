@@ -137,6 +137,11 @@ interface EditorState {
   // FE-503: Favorites state
   /** Array of favorite block IDs in display order */
   favoriteBlockIds: string[]
+  // FE-504: Block data for sidebar
+  /** Map of block IDs to their titles for sidebar display */
+  blockTitles: Map<string, string>
+  /** Array of top-level block IDs (root bullets in document) */
+  topLevelBlockIds: string[]
 }
 
 /**
@@ -239,6 +244,9 @@ interface EditorActions {
   reorderFavorites: (blockId: string, newIndex: number) => void
   /** Clear all favorites */
   clearFavorites: () => void
+  // FE-504: Block data actions
+  /** Sync all block data from document */
+  syncBlockData: (topLevelBlockIds: string[], blockTitles: Map<string, string>) => void
 }
 
 /**
@@ -287,6 +295,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   reorgModalError: null,
   // FE-503: Favorites initial state
   favoriteBlockIds: [],
+  // FE-504: Block data initial state
+  blockTitles: new Map(),
+  topLevelBlockIds: [],
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -557,6 +568,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
     localStorage.setItem('hydra:favorites', JSON.stringify([]))
     set({ favoriteBlockIds: [] })
   },
+
+  // FE-504: Block data actions
+  syncBlockData: (topLevelBlockIds, blockTitles) =>
+    set({ topLevelBlockIds, blockTitles }),
 }))
 
 /**

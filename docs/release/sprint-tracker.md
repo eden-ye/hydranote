@@ -63,11 +63,12 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 |--------|-------|-----|--------|-------|
 | FE-501 | Semantic Linking Settings | 4h | [L] | Needs SAT Chrome E2E |
 
-## Epic: Left Panel Navigation (1)
+## Epic: Left Panel Navigation (2)
 
 | Ticket | Title | Est | Status | Notes |
 |--------|-------|-----|--------|-------|
-| FE-503 | Left Panel with Favorites | 15h | [ ] | Sidebar, favorites, drag-to-reorder |
+| FE-503 | Left Panel with Favorites | 15h | [x] | Merged PR #107 |
+| FE-504 | Left Panel Cleanup | 2h | [~] | Remove header, wire up blocks |
 
 ## Epic: Inline Formatting (1)
 
@@ -95,8 +96,9 @@ Pending → In Progress → Merged → Local E2E → SAT Deployed → SAT Verifi
 - **Ready for Elevation [S]**: (none)
 - **Needs PROD E2E [E]**: (none)
 - **PROD OK [P]**: (none)
-- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3512
-- **Backlog [ ]**: API-303, EDITOR-3408, FE-503, EDITOR-3511
+- **Merged [x]**: EDITOR-3507, EDITOR-3508, EDITOR-3509, EDITOR-3510, EDITOR-3512, FE-503
+- **In Progress [~]**: FE-504
+- **Backlog [ ]**: API-303, EDITOR-3408, EDITOR-3511
 
 ---
 
