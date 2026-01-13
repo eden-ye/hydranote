@@ -1298,6 +1298,43 @@ export default function Editor() {
     }
     container.addEventListener('dblclick', handleDoubleClick)
 
+    // BUG-EDITOR-3709: Redirect clicks on empty note area to first bullet
+    // This prevents users from accidentally clicking in root-level space
+    const handleNoteClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+
+      // Check if click is directly on the note block or its container (not on a bullet)
+      const noteBlock = target.closest('affine-note')
+      const bulletBlock = target.closest('hydra-bullet-block')
+      const portalBlock = target.closest('hydra-portal-block')
+
+      // If clicked on note area but not on any bullet/portal, redirect to first bullet
+      if (noteBlock && !bulletBlock && !portalBlock) {
+        const firstBullet = noteBlock.querySelector('hydra-bullet-block')
+        if (firstBullet) {
+          // Find the rich-text element inside the bullet and focus it
+          const richText = firstBullet.querySelector('rich-text')
+          if (richText) {
+            // Focus the rich-text to move cursor there
+            const editableElement = richText.querySelector('[contenteditable="true"]')
+            if (editableElement instanceof HTMLElement) {
+              editableElement.focus()
+              // Move cursor to end of content
+              const selection = window.getSelection()
+              if (selection) {
+                const range = document.createRange()
+                range.selectNodeContents(editableElement)
+                range.collapse(false) // Collapse to end
+                selection.removeAllRanges()
+                selection.addRange(range)
+              }
+            }
+          }
+        }
+      }
+    }
+    container.addEventListener('click', handleNoteClick)
+
     // FE-408: Add expand event listener
     container.addEventListener('hydra-expand-block', handleExpandEvent as EventListener)
 
@@ -1370,6 +1407,7 @@ export default function Editor() {
     // Cleanup function
     return () => {
       container.removeEventListener('dblclick', handleDoubleClick)
+      container.removeEventListener('click', handleNoteClick) // BUG-EDITOR-3709
       container.removeEventListener('hydra-expand-block', handleExpandEvent as EventListener)
       container.removeEventListener('hydra-focus-block', handleFocusBlockEvent as EventListener)
       container.removeEventListener('hydra-descriptor-generate', handleDescriptorGenerateEvent as EventListener)

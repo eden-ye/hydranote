@@ -48,3 +48,37 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* BUG-EDITOR-3709: Prevent root-level typing in editor
+ * These styles ensure users cannot type at the root level (outside of bullets)
+ * by hiding any potential placeholder text and preventing direct interaction
+ * with the affine-note block container.
+ */
+
+/* Hide any potential "Type '/' for commands" placeholder at root level */
+affine-note > .affine-note-block-container > .affine-block-children-container::before,
+affine-note > .affine-note-block-container > .affine-block-children-container::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Prevent any potential affine:paragraph blocks from showing placeholder */
+affine-note affine-paragraph {
+  display: none !important;
+}
+
+/* Ensure note block itself is not editable */
+affine-note > .affine-note-block-container {
+  /* Allow pointer events for children but not for the container itself */
+  cursor: default;
+}
+
+/* Hide any paragraph placeholder that might appear */
+affine-paragraph .affine-paragraph-placeholder {
+  display: none !important;
+}
+
+/* Ensure only hydra-bullet-block elements are interactive within the note */
+affine-note > .affine-note-block-container > .affine-block-children-container > *:not(hydra-bullet-block):not(hydra-portal-block) {
+  display: none !important;
+}

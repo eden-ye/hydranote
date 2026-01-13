@@ -15,23 +15,45 @@
 
 ## Root Cause Analysis
 
-### Hypothesis
+### Investigation Findings
 
-The BlockSuite editor's page block or root note block may be accepting keyboard input when it shouldn't. The "Type '/' for commands" placeholder suggests a default BlockSuite behavior that needs to be disabled for our hierarchical note-taking application.
+After thorough investigation, the issue was found to be largely prevented by the existing architecture:
 
-### Areas to Investigate
+1. **BlockSuite "Type '/' for commands" placeholder**: This placeholder is a feature of `affine:paragraph` blocks from BlockSuite. Our editor uses `hydra:bullet` blocks exclusively, so this placeholder doesn't appear.
 
-1. **page-block configuration**: Check if the page block is configured to prevent direct text input
-2. **note-block root**: The root note block may be allowing text entry
-3. **Event handling**: Keyboard events at the root level should be intercepted and redirected to the first bullet
-4. **Placeholder text**: The "Type '/' for commands" placeholder should not appear at root level
+2. **Schema configuration**: The schema extends `affine:note` to only accept `hydra:bullet` and `hydra:portal` as children (Editor.tsx lines 1186-1191), which prevents `affine:paragraph` blocks from being created.
 
-## Proposed Solution
+3. **Keyboard handling**: All keyboard shortcuts including Enter are bound to `hydra:bullet` blocks via `bindHotKey` with `{ flavour: true }`, ensuring new blocks are always `hydra:bullet`.
 
-1. Disable text input on the root page/note block
-2. Remove or hide the "Type '/' for commands" placeholder at root level
-3. Redirect any typing at root level to create/focus the first bullet
-4. Ensure the editor always has at least one bullet for user input
+### Defensive Measures Added
+
+Although the issue was not actively reproducible, defensive measures were implemented to prevent potential future issues:
+
+1. **CSS protections** (index.css):
+   - Hide any potential placeholder pseudo-elements at root level
+   - Hide any `affine:paragraph` blocks that might be created
+   - Hide any non-hydra child elements in the note container
+
+2. **Click handler** (Editor.tsx):
+   - Redirect clicks on empty note area to first bullet
+   - Ensures users always end up in a valid editing context
+
+## Solution Implemented
+
+### Files Changed
+
+1. **frontend/src/index.css**
+   - Added CSS rules to hide placeholder elements at root level
+   - Added rules to hide any `affine:paragraph` blocks
+   - Added rules to ensure only `hydra-bullet-block` and `hydra-portal-block` are visible
+
+2. **frontend/src/components/Editor.tsx**
+   - Added click handler to redirect clicks on note block's empty area to first bullet
+   - Ensures focus always ends up in a valid `hydra:bullet` block
+
+3. **frontend/src/blocks/__tests__/root-level-typing.test.ts**
+   - Added unit tests documenting expected behavior
+   - Tests validate schema configuration and keyboard behavior
 
 ## Impact
 
@@ -41,12 +63,22 @@ The BlockSuite editor's page block or root note block may be accepting keyboard 
 
 ## Acceptance Criteria
 
-- [ ] No placeholder text appears at the root level
-- [ ] Clicking at root level focuses the first bullet (or creates one)
-- [ ] Typing at root level is either blocked or redirected to bullets
-- [ ] All content remains within the bullet hierarchy
+- [x] No placeholder text appears at the root level
+- [x] Clicking at root level focuses the first bullet (or creates one)
+- [x] Typing at root level is either blocked or redirected to bullets
+- [x] All content remains within the bullet hierarchy
+
+## E2E Test Results
+
+| Test | Result |
+|------|--------|
+| No "Type '/' for commands" placeholder visible | PASSED |
+| Click in empty space doesn't focus note directly | PASSED |
+| Enter creates hydra:bullet (not paragraph) | PASSED |
+| All editable content in valid containers | PASSED |
 
 ## Timeline
 
 - Reported: 2026-01-13
-- Status: Pending
+- Fixed: 2026-01-13
+- Status: Complete
