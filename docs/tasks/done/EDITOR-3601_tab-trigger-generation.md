@@ -75,8 +75,34 @@ Part of Epic 6: Auto AI Generation. Extends MVP1 expand feature.
 ## Status
 - **Created**: 2026-01-10
 - **Completed**: 2026-01-12
-- **Status**: complete
+- **Status**: ⚠️ INCOMPLETE - Missing Chrome E2E testing
 - **Epic**: MVP2 - Auto AI Generation
 
 ## Commits
 - feat(editor): Add Tab trigger AI generation for descriptors (EDITOR-3601)
+
+## E2E Testing Status (2026-01-12)
+
+**Status:** ❌ NOT COMPLETED
+
+**Blocker:** Environment issues prevented E2E testing execution. Console shows 7 TypeError exceptions from stale IndexedDB data.
+
+**Test Environment Issues:**
+- Orphaned portal blocks from previous sessions cause console errors
+- Clean browser state required for reliable E2E validation
+- E2E expectations file exists but scenarios not executed
+
+**Required Actions:**
+1. Clear all browser Application data (DevTools)
+2. Test in fresh Incognito window
+3. Execute scenarios from `e2e/expectations/EDITOR-3601_tab-trigger-generation.md`:
+   - Scenario 1: Tab triggers AI generation under descriptor
+   - Scenario 2: Tab indents normally when previous sibling exists
+   - Scenario 3: Tab does nothing when not under descriptor
+4. Verify console log shows "[DescriptorGenerate] Generating for descriptor:"
+5. Capture screenshot evidence
+6. Verify no console errors
+
+**Reference:** See `e2e/results/EDITOR-3406_3601_3602_combined-e2e-report.md` for full details.
+
+**TDD Workflow:** Step 7 (Chrome E2E) is INCOMPLETE. Per CLAUDE.md rules, this ticket should NOT be in `done/` folder until E2E testing is completed.

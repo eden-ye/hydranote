@@ -8,6 +8,10 @@ on:
       - '.github/workflows/deploy-frontend-sat.yml'
   workflow_dispatch:
 
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SAT }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,15 +20,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g vercel@44
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install
         working-directory: frontend
 
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build Project
+        run: npm run build
         working-directory: frontend
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_SAT }}
@@ -32,6 +44,19 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL_SAT }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL_SAT }}
 
-      - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
+      - name: Prepare Vercel output
+        run: |
+          mkdir -p .vercel/output/static
+          cp -r frontend/dist/* .vercel/output/static/
+          cat > .vercel/output/config.json << 'EOF'
+          {
+            "version": 3,
+            "routes": [
+              { "handle": "filesystem" },
+              { "src": "/(.*)", "dest": "/index.html" }
+            ]
+          }
+          EOF
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }}

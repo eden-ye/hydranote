@@ -5,8 +5,11 @@
  * EDITOR-3203: Descriptor Autocomplete State
  * EDITOR-3405: Portal Picker State
  * EDITOR-3409: Portal Search Modal State
+ * EDITOR-3510: Slash Menu State
  * EDITOR-3602: Auto-Generate Settings
  * EDITOR-3407: Auto-Reorg Settings
+ * EDITOR-3502: Reorganization Modal State
+ * FE-503: Favorites State
  *
  * Manages editor state including:
  * - Current document ID
@@ -15,13 +18,17 @@
  * - Descriptor autocomplete state
  * - Portal picker state
  * - Portal search modal state
+ * - Slash menu state (EDITOR-3510)
  * - Auto-generate settings and status
  * - Auto-reorg settings and status
+ * - Reorganization modal state (Cmd+Shift+L)
+ * - Favorite blocks list (FE-503)
  */
 import { create } from 'zustand'
 import type { AutoGenerateStatus } from '@/blocks/utils/auto-generate'
 import type { RecentItem } from '@/utils/frecency'
 import type { FuzzySearchResult } from '@/utils/fuzzy-search'
+import type { SemanticSearchResult } from '@/services/api-client.mock'
 
 /**
  * Editor mode type
@@ -32,6 +39,25 @@ export type EditorMode = 'normal' | 'focus'
  * EDITOR-3407: Auto-reorg status type
  */
 export type AutoReorgStatus = 'idle' | 'processing' | 'completed'
+
+/**
+ * EDITOR-3502: Reorganization modal status type
+ */
+export type ReorgModalStatus = 'idle' | 'extracting' | 'searching' | 'loaded' | 'error'
+
+/**
+ * EDITOR-3502: Concept match for reorganization modal
+ */
+export interface ConceptMatch {
+  /** Name of the extracted concept */
+  concept: string
+  /** Category of the concept */
+  category: string
+  /** Matching search results for this concept */
+  matches: SemanticSearchResult[]
+  /** Set of selected match block IDs */
+  selectedMatches: Set<string>
+}
 
 /**
  * Editor Store state interface
@@ -74,6 +100,15 @@ interface EditorState {
   portalSearchSelectedIndex: number
   /** Block ID where Cmd+S was pressed */
   portalSearchCurrentBulletId: string | null
+  // EDITOR-3510: Slash menu state
+  /** Whether the slash menu is open */
+  slashMenuOpen: boolean
+  /** Current search query in slash menu (text after /) */
+  slashMenuQuery: string
+  /** Block ID where slash menu was triggered */
+  slashMenuBlockId: string | null
+  /** Currently selected index in slash menu list */
+  slashMenuSelectedIndex: number
   // EDITOR-3602: Auto-generate settings
   /** Whether auto-generate after descriptor is enabled */
   autoGenerateEnabled: boolean
@@ -88,6 +123,25 @@ interface EditorState {
   autoReorgThreshold: number
   /** Current auto-reorg status */
   autoReorgStatus: AutoReorgStatus
+  // EDITOR-3502: Reorganization modal state
+  /** Whether the reorganization modal is open */
+  reorgModalOpen: boolean
+  /** Current status of the reorganization modal */
+  reorgModalStatus: ReorgModalStatus
+  /** Document ID being reorganized */
+  reorgModalDocumentId: string | null
+  /** Concept matches with search results */
+  reorgModalConceptMatches: ConceptMatch[]
+  /** Error message if any */
+  reorgModalError: string | null
+  // FE-503: Favorites state
+  /** Array of favorite block IDs in display order */
+  favoriteBlockIds: string[]
+  // FE-504: Block data for sidebar
+  /** Map of block IDs to their titles for sidebar display */
+  blockTitles: Map<string, string>
+  /** Array of top-level block IDs (root bullets in document) */
+  topLevelBlockIds: string[]
 }
 
 /**
@@ -137,6 +191,15 @@ interface EditorActions {
   setPortalSearchRecents: (recents: RecentItem[]) => void
   /** Set the selected index in portal search modal */
   setPortalSearchSelectedIndex: (index: number) => void
+  // EDITOR-3510: Slash menu actions
+  /** Open slash menu for a block */
+  openSlashMenu: (blockId: string) => void
+  /** Close slash menu and reset state */
+  closeSlashMenu: () => void
+  /** Update the slash menu search query */
+  setSlashMenuQuery: (query: string) => void
+  /** Set the selected index in slash menu list */
+  setSlashMenuSelectedIndex: (index: number) => void
   // EDITOR-3602: Auto-generate actions
   /** Toggle auto-generate setting */
   setAutoGenerateEnabled: (enabled: boolean) => void
@@ -157,6 +220,33 @@ interface EditorActions {
   setAutoReorgThreshold: (threshold: number) => void
   /** Set auto-reorg status */
   setAutoReorgStatus: (status: AutoReorgStatus) => void
+  // EDITOR-3502: Reorganization modal actions
+  /** Open reorganization modal for a document */
+  openReorgModal: (documentId: string) => void
+  /** Close reorganization modal and reset state */
+  closeReorgModal: () => void
+  /** Set reorganization modal status */
+  setReorgModalStatus: (status: ReorgModalStatus) => void
+  /** Set concept matches */
+  setReorgModalConceptMatches: (matches: ConceptMatch[]) => void
+  /** Set error message */
+  setReorgModalError: (error: string | null) => void
+  /** Toggle selection of a match for a concept */
+  toggleReorgMatch: (concept: string, blockId: string) => void
+  // FE-503: Favorites actions
+  /** Load favorites from localStorage */
+  loadFavorites: () => void
+  /** Toggle a block as favorite (add if not present, remove if present) */
+  toggleFavorite: (blockId: string) => void
+  /** Check if a block is favorited */
+  isFavorite: (blockId: string) => boolean
+  /** Reorder favorites by moving a block to a new index */
+  reorderFavorites: (blockId: string, newIndex: number) => void
+  /** Clear all favorites */
+  clearFavorites: () => void
+  // FE-504: Block data actions
+  /** Sync all block data from document */
+  syncBlockData: (topLevelBlockIds: string[], blockTitles: Map<string, string>) => void
 }
 
 /**
@@ -184,6 +274,11 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   portalSearchRecents: [],
   portalSearchSelectedIndex: 0,
   portalSearchCurrentBulletId: null,
+  // EDITOR-3510: Slash menu initial state
+  slashMenuOpen: false,
+  slashMenuQuery: '',
+  slashMenuBlockId: null,
+  slashMenuSelectedIndex: 0,
   // EDITOR-3602: Auto-generate initial state
   autoGenerateEnabled: true, // Enabled by default
   autoGenerateStatus: 'idle',
@@ -192,6 +287,17 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   autoReorgEnabled: true, // Enabled by default
   autoReorgThreshold: 0.8, // Default 0.8 threshold
   autoReorgStatus: 'idle',
+  // EDITOR-3502: Reorganization modal initial state
+  reorgModalOpen: false,
+  reorgModalStatus: 'idle',
+  reorgModalDocumentId: null,
+  reorgModalConceptMatches: [],
+  reorgModalError: null,
+  // FE-503: Favorites initial state
+  favoriteBlockIds: [],
+  // FE-504: Block data initial state
+  blockTitles: new Map(),
+  topLevelBlockIds: [],
 
   // Focus mode actions
   setFocusedBlockId: (id) => set({ focusedBlockId: id }),
@@ -295,6 +401,32 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   setPortalSearchSelectedIndex: (index) =>
     set({ portalSearchSelectedIndex: index }),
 
+  // EDITOR-3510: Slash menu actions
+  openSlashMenu: (blockId) =>
+    set({
+      slashMenuOpen: true,
+      slashMenuBlockId: blockId,
+      slashMenuQuery: '',
+      slashMenuSelectedIndex: 0,
+    }),
+
+  closeSlashMenu: () =>
+    set({
+      slashMenuOpen: false,
+      slashMenuQuery: '',
+      slashMenuBlockId: null,
+      slashMenuSelectedIndex: 0,
+    }),
+
+  setSlashMenuQuery: (query) =>
+    set({
+      slashMenuQuery: query,
+      slashMenuSelectedIndex: 0, // Reset selection when query changes
+    }),
+
+  setSlashMenuSelectedIndex: (index) =>
+    set({ slashMenuSelectedIndex: index }),
+
   // EDITOR-3602: Auto-generate actions
   setAutoGenerateEnabled: (enabled) =>
     set({ autoGenerateEnabled: enabled }),
@@ -333,6 +465,113 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   setAutoReorgStatus: (status) =>
     set({ autoReorgStatus: status }),
+
+  // EDITOR-3502: Reorganization modal actions
+  openReorgModal: (documentId) =>
+    set({
+      reorgModalOpen: true,
+      reorgModalDocumentId: documentId,
+      reorgModalStatus: 'idle',
+      reorgModalConceptMatches: [],
+      reorgModalError: null,
+    }),
+
+  closeReorgModal: () =>
+    set({
+      reorgModalOpen: false,
+      reorgModalStatus: 'idle',
+      reorgModalDocumentId: null,
+      reorgModalConceptMatches: [],
+      reorgModalError: null,
+    }),
+
+  setReorgModalStatus: (status) =>
+    set({ reorgModalStatus: status }),
+
+  setReorgModalConceptMatches: (matches) =>
+    set({ reorgModalConceptMatches: matches }),
+
+  setReorgModalError: (error) =>
+    set({ reorgModalError: error }),
+
+  toggleReorgMatch: (concept, blockId) =>
+    set((state) => {
+      const updatedMatches = state.reorgModalConceptMatches.map((cm) => {
+        if (cm.concept === concept) {
+          const newSelected = new Set(cm.selectedMatches)
+          if (newSelected.has(blockId)) {
+            newSelected.delete(blockId)
+          } else {
+            newSelected.add(blockId)
+          }
+          return { ...cm, selectedMatches: newSelected }
+        }
+        return cm
+      })
+      return { reorgModalConceptMatches: updatedMatches }
+    }),
+
+  // FE-503: Favorites actions
+  loadFavorites: () => {
+    try {
+      const stored = localStorage.getItem('hydra:favorites')
+      if (stored) {
+        const favoriteBlockIds = JSON.parse(stored)
+        if (Array.isArray(favoriteBlockIds)) {
+          set({ favoriteBlockIds })
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  },
+
+  toggleFavorite: (blockId) =>
+    set((state) => {
+      const index = state.favoriteBlockIds.indexOf(blockId)
+      let newFavorites: string[]
+      if (index >= 0) {
+        // Remove from favorites
+        newFavorites = state.favoriteBlockIds.filter((id) => id !== blockId)
+      } else {
+        // Add to favorites
+        newFavorites = [...state.favoriteBlockIds, blockId]
+      }
+      // Persist to localStorage
+      localStorage.setItem('hydra:favorites', JSON.stringify(newFavorites))
+      return { favoriteBlockIds: newFavorites }
+    }),
+
+  isFavorite: function (blockId: string): boolean {
+    // Access state via this method to avoid circular reference
+    // This is a bound method that checks current favorites
+    const { favoriteBlockIds } = useEditorStore.getState()
+    return favoriteBlockIds.includes(blockId)
+  },
+
+  reorderFavorites: (blockId, newIndex) =>
+    set((state) => {
+      const currentIndex = state.favoriteBlockIds.indexOf(blockId)
+      if (currentIndex < 0) return state // Block not in favorites
+
+      const newFavorites = [...state.favoriteBlockIds]
+      // Remove from current position
+      newFavorites.splice(currentIndex, 1)
+      // Insert at new position
+      newFavorites.splice(newIndex, 0, blockId)
+      // Persist to localStorage
+      localStorage.setItem('hydra:favorites', JSON.stringify(newFavorites))
+      return { favoriteBlockIds: newFavorites }
+    }),
+
+  clearFavorites: () => {
+    localStorage.setItem('hydra:favorites', JSON.stringify([]))
+    set({ favoriteBlockIds: [] })
+  },
+
+  // FE-504: Block data actions
+  syncBlockData: (topLevelBlockIds, blockTitles) =>
+    set({ topLevelBlockIds, blockTitles }),
 }))
 
 /**
@@ -512,3 +751,61 @@ export const selectAutoReorgStatus = (state: EditorState): AutoReorgStatus =>
  */
 export const selectIsAutoReorgProcessing = (state: EditorState): boolean =>
   state.autoReorgStatus === 'processing'
+
+// EDITOR-3502: Reorganization modal selectors
+
+/**
+ * Selector for checking if reorganization modal is open
+ */
+export const selectIsReorgModalOpen = (state: EditorState): boolean =>
+  state.reorgModalOpen
+
+/**
+ * Selector for getting reorganization modal status
+ */
+export const selectReorgModalStatus = (state: EditorState): ReorgModalStatus =>
+  state.reorgModalStatus
+
+/**
+ * Selector for getting reorganization modal document ID
+ */
+export const selectReorgModalDocumentId = (state: EditorState): string | null =>
+  state.reorgModalDocumentId
+
+/**
+ * Selector for getting reorganization modal concept matches
+ */
+export const selectReorgModalConceptMatches = (state: EditorState): ConceptMatch[] =>
+  state.reorgModalConceptMatches
+
+/**
+ * Selector for getting reorganization modal error
+ */
+export const selectReorgModalError = (state: EditorState): string | null =>
+  state.reorgModalError
+
+/**
+ * Selector for getting total selected matches count
+ */
+export const selectReorgModalSelectedCount = (state: EditorState): number =>
+  state.reorgModalConceptMatches.reduce((total, cm) => total + cm.selectedMatches.size, 0)
+
+// FE-503: Favorites selectors
+
+/**
+ * Selector for getting the favorite block IDs
+ */
+export const selectFavoriteBlockIds = (state: EditorState): string[] =>
+  state.favoriteBlockIds
+
+/**
+ * Selector for checking if there are any favorites
+ */
+export const selectHasFavorites = (state: EditorState): boolean =>
+  state.favoriteBlockIds.length > 0
+
+/**
+ * Selector for getting favorites count
+ */
+export const selectFavoritesCount = (state: EditorState): number =>
+  state.favoriteBlockIds.length
