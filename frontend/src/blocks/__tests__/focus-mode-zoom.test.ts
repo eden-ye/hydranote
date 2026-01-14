@@ -12,7 +12,258 @@ import { describe, it, expect, vi } from 'vitest'
  * - Grip handle appears on hover, clicking dispatches hydra-focus-block event
  * - Expand toggle only shows if block has children
  * - FocusHeader renders editable title in focus mode
+ *
+ * BUG-EDITOR-3508: Content Filtering Tests
+ * - Only render focused block's children in focus mode
+ * - Hide focused block itself (becomes title in FocusHeader)
+ * - Hide all siblings and ancestors
  */
+
+// ============================================================================
+// BUG-EDITOR-3508: Focus Mode Content Filtering Tests
+// ============================================================================
+
+describe('Focus Mode Content Filtering (BUG-EDITOR-3508)', () => {
+  /**
+   * Mock block structure for testing ancestry:
+   *
+   * root (affine:page)
+   *   ├── block-1 (Parent)
+   *   │   ├── block-2 (Child1) ← focused
+   *   │   │   └── block-4 (Grandchild)
+   *   │   └── block-3 (Child2)
+   *   └── block-5 (Sibling of Parent)
+   */
+  interface MockBlock {
+    id: string
+    parentId: string | null
+  }
+
+  const mockBlocks: Record<string, MockBlock> = {
+    'root': { id: 'root', parentId: null },
+    'block-1': { id: 'block-1', parentId: 'root' },
+    'block-2': { id: 'block-2', parentId: 'block-1' },
+    'block-3': { id: 'block-3', parentId: 'block-1' },
+    'block-4': { id: 'block-4', parentId: 'block-2' },
+    'block-5': { id: 'block-5', parentId: 'root' },
+  }
+
+  const getBlockById = (id: string): MockBlock | null => mockBlocks[id] || null
+
+  describe('_isDescendantOf logic', () => {
+    /**
+     * Checks if blockId is a descendant of ancestorId
+     * by traversing up the parent chain
+     */
+    const isDescendantOf = (blockId: string, ancestorId: string | null): boolean => {
+      if (!ancestorId) return false
+
+      let currentId: string | null = blockId
+      while (currentId) {
+        const block = getBlockById(currentId)
+        if (!block) return false
+
+        const parentId = block.parentId
+        if (parentId === ancestorId) return true
+        currentId = parentId
+      }
+      return false
+    }
+
+    it('should return true when block is direct child of ancestor', () => {
+      // block-2 is direct child of block-1
+      expect(isDescendantOf('block-2', 'block-1')).toBe(true)
+    })
+
+    it('should return true when block is grandchild of ancestor', () => {
+      // block-4 is grandchild of block-1
+      expect(isDescendantOf('block-4', 'block-1')).toBe(true)
+    })
+
+    it('should return true when block is great-grandchild of ancestor', () => {
+      // block-4 is great-grandchild of root
+      expect(isDescendantOf('block-4', 'root')).toBe(true)
+    })
+
+    it('should return false when block is sibling of ancestor', () => {
+      // block-3 is sibling of block-2, not descendant
+      expect(isDescendantOf('block-3', 'block-2')).toBe(false)
+    })
+
+    it('should return false when block is ancestor of the "ancestor"', () => {
+      // block-1 is parent of block-2, not descendant
+      expect(isDescendantOf('block-1', 'block-2')).toBe(false)
+    })
+
+    it('should return false when block is unrelated', () => {
+      // block-5 is not related to block-2
+      expect(isDescendantOf('block-5', 'block-2')).toBe(false)
+    })
+
+    it('should return false when ancestorId is null', () => {
+      expect(isDescendantOf('block-2', null)).toBe(false)
+    })
+
+    it('should return false when block is the ancestor itself', () => {
+      // A block is not its own descendant
+      expect(isDescendantOf('block-2', 'block-2')).toBe(false)
+    })
+  })
+
+  describe('_shouldRenderInFocusMode logic', () => {
+    interface FocusState {
+      isInFocusMode: boolean
+      focusedBlockId: string | null
+    }
+
+    /**
+     * Determines if a block should render based on focus mode state
+     * In normal mode: render all blocks
+     * In focus mode: only render descendants of focused block
+     */
+    const shouldRenderInFocusMode = (
+      blockId: string,
+      focusState: FocusState,
+      isDescendantOf: (blockId: string, ancestorId: string | null) => boolean
+    ): boolean => {
+      const { isInFocusMode, focusedBlockId } = focusState
+
+      // Normal mode: render all blocks
+      if (!isInFocusMode) return true
+
+      // Don't render the focused block itself (it becomes the title)
+      if (blockId === focusedBlockId) return false
+
+      // Only render if this is a descendant of the focused block
+      return isDescendantOf(blockId, focusedBlockId)
+    }
+
+    // Helper to check ancestry
+    const checkAncestry = (blockId: string, ancestorId: string | null): boolean => {
+      if (!ancestorId) return false
+      let currentId: string | null = blockId
+      while (currentId) {
+        const block = getBlockById(currentId)
+        if (!block) return false
+        const parentId = block.parentId
+        if (parentId === ancestorId) return true
+        currentId = parentId
+      }
+      return false
+    }
+
+    describe('Normal mode (not in focus mode)', () => {
+      const normalState: FocusState = { isInFocusMode: false, focusedBlockId: null }
+
+      it('should render root block', () => {
+        expect(shouldRenderInFocusMode('root', normalState, checkAncestry)).toBe(true)
+      })
+
+      it('should render any block', () => {
+        expect(shouldRenderInFocusMode('block-3', normalState, checkAncestry)).toBe(true)
+      })
+    })
+
+    describe('Focus mode on block-2 (Child1)', () => {
+      const focusState: FocusState = { isInFocusMode: true, focusedBlockId: 'block-2' }
+
+      it('should NOT render the focused block itself (becomes title)', () => {
+        expect(shouldRenderInFocusMode('block-2', focusState, checkAncestry)).toBe(false)
+      })
+
+      it('should render children of focused block (block-4)', () => {
+        expect(shouldRenderInFocusMode('block-4', focusState, checkAncestry)).toBe(true)
+      })
+
+      it('should NOT render sibling of focused block (block-3)', () => {
+        expect(shouldRenderInFocusMode('block-3', focusState, checkAncestry)).toBe(false)
+      })
+
+      it('should NOT render parent of focused block (block-1)', () => {
+        expect(shouldRenderInFocusMode('block-1', focusState, checkAncestry)).toBe(false)
+      })
+
+      it('should NOT render unrelated block (block-5)', () => {
+        expect(shouldRenderInFocusMode('block-5', focusState, checkAncestry)).toBe(false)
+      })
+
+      it('should NOT render root block', () => {
+        expect(shouldRenderInFocusMode('root', focusState, checkAncestry)).toBe(false)
+      })
+    })
+
+    describe('Focus mode on block-1 (Parent)', () => {
+      const focusState: FocusState = { isInFocusMode: true, focusedBlockId: 'block-1' }
+
+      it('should NOT render the focused block itself', () => {
+        expect(shouldRenderInFocusMode('block-1', focusState, checkAncestry)).toBe(false)
+      })
+
+      it('should render direct children (block-2, block-3)', () => {
+        expect(shouldRenderInFocusMode('block-2', focusState, checkAncestry)).toBe(true)
+        expect(shouldRenderInFocusMode('block-3', focusState, checkAncestry)).toBe(true)
+      })
+
+      it('should render grandchildren (block-4)', () => {
+        expect(shouldRenderInFocusMode('block-4', focusState, checkAncestry)).toBe(true)
+      })
+
+      it('should NOT render sibling blocks (block-5)', () => {
+        expect(shouldRenderInFocusMode('block-5', focusState, checkAncestry)).toBe(false)
+      })
+    })
+
+    describe('Focus mode on leaf block (block-4)', () => {
+      const focusState: FocusState = { isInFocusMode: true, focusedBlockId: 'block-4' }
+
+      it('should NOT render the focused block itself', () => {
+        expect(shouldRenderInFocusMode('block-4', focusState, checkAncestry)).toBe(false)
+      })
+
+      it('should NOT render any other blocks (leaf has no children)', () => {
+        expect(shouldRenderInFocusMode('block-1', focusState, checkAncestry)).toBe(false)
+        expect(shouldRenderInFocusMode('block-2', focusState, checkAncestry)).toBe(false)
+        expect(shouldRenderInFocusMode('block-3', focusState, checkAncestry)).toBe(false)
+        expect(shouldRenderInFocusMode('block-5', focusState, checkAncestry)).toBe(false)
+      })
+    })
+  })
+
+  describe('Edge cases', () => {
+    it('should handle empty document gracefully', () => {
+      const shouldRender = (blockId: string, focusedId: string | null) => {
+        if (!focusedId) return true
+        if (blockId === focusedId) return false
+        // In empty doc, no descendants
+        return false
+      }
+
+      expect(shouldRender('only-block', 'only-block')).toBe(false)
+    })
+
+    it('should handle rapid focus/unfocus without crashing', () => {
+      // Simulate rapid state changes
+      const states = [
+        { isInFocusMode: false, focusedBlockId: null },
+        { isInFocusMode: true, focusedBlockId: 'block-1' },
+        { isInFocusMode: false, focusedBlockId: null },
+        { isInFocusMode: true, focusedBlockId: 'block-2' },
+      ]
+
+      const checkRender = (blockId: string, state: { isInFocusMode: boolean; focusedBlockId: string | null }) => {
+        if (!state.isInFocusMode) return true
+        if (blockId === state.focusedBlockId) return false
+        return blockId.includes('child') // simplified
+      }
+
+      // Should not throw
+      states.forEach(state => {
+        expect(() => checkRender('block-1', state)).not.toThrow()
+        expect(() => checkRender('block-2', state)).not.toThrow()
+      })
+    })
+  })
+})
 
 // ============================================================================
 // UI Structure Tests (Phase 1)

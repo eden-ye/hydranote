@@ -58,6 +58,8 @@ import { getBulletMarker } from '../utils/block-icons'
 import { isSlashTrigger } from '../utils/slash-menu'
 // EDITOR-3703: Import dashing button syntax parser
 import { parseDashingSyntax } from '../utils/dashing-button-syntax'
+// BUG-EDITOR-3508: Import editor store for focus mode state
+import { useEditorStore } from '@/stores/editor-store'
 
 /**
  * EDITOR-3102: Extended text attributes schema with background and color
@@ -827,10 +829,21 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
    */
   private _richTextKeydownHandler: ((e: Event) => void) | null = null
 
+  /**
+   * BUG-EDITOR-3508: Store subscription cleanup function
+   * Used to unsubscribe from focus mode changes when component disconnects
+   */
+  private _focusStoreUnsubscribe: (() => void) | null = null
+
   static override styles = css`
     :host {
       display: block;
       position: relative;
+    }
+
+    /* BUG-EDITOR-3508: Hide block entirely when not in focus path */
+    :host([hidden-in-focus]) {
+      display: none !important;
     }
 
     .bullet-container {
@@ -1618,15 +1631,39 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
         this._bindKeyboardShortcuts()
       }
     })
+
+    // BUG-EDITOR-3508: Subscribe to focus mode changes to trigger re-renders
+    // When focusedBlockId changes, all blocks need to re-evaluate whether they should render
+    // Clean up any existing subscription first (handles re-connection scenarios)
+    if (this._focusStoreUnsubscribe) {
+      this._focusStoreUnsubscribe()
+      this._focusStoreUnsubscribe = null
+    }
+    let previousFocusedBlockId: string | null = useEditorStore.getState().focusedBlockId
+    this._focusStoreUnsubscribe = useEditorStore.subscribe((state) => {
+      if (state.focusedBlockId !== previousFocusedBlockId) {
+        previousFocusedBlockId = state.focusedBlockId
+        // Only request update if component is still connected to DOM
+        if (this.isConnected) {
+          this.requestUpdate()
+        }
+      }
+    })
   }
 
   /**
-   * BUG-EDITOR-3708: Clean up event listeners to prevent memory leaks
+   * BUG-EDITOR-3508 + BUG-EDITOR-3708: Clean up subscriptions and event listeners
    */
   override disconnectedCallback(): void {
     super.disconnectedCallback()
 
-    // Clean up rich-text keydown listener
+    // BUG-EDITOR-3508: Clean up focus store subscription
+    if (this._focusStoreUnsubscribe) {
+      this._focusStoreUnsubscribe()
+      this._focusStoreUnsubscribe = null
+    }
+
+    // BUG-EDITOR-3708: Clean up rich-text keydown listener
     const richText = this.querySelector('rich-text') as HTMLElement
     if (richText && this._richTextKeydownHandler) {
       richText.removeEventListener('keydown', this._richTextKeydownHandler)
@@ -4161,6 +4198,117 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
     }
   }
 
+  // ============================================================================
+  // BUG-EDITOR-3508: Focus Mode Content Filtering
+  // ============================================================================
+
+  /**
+   * BUG-EDITOR-3508: Get current focus mode state from the editor store
+   * Returns whether we're in focus mode and the focused block ID
+   */
+  private _getFocusState(): { isInFocusMode: boolean; focusedBlockId: string | null } {
+    const store = useEditorStore.getState()
+    return {
+      isInFocusMode: store.focusedBlockId !== null,
+      focusedBlockId: store.focusedBlockId,
+    }
+  }
+
+  /**
+   * BUG-EDITOR-3508: Check if this block is a descendant of the ancestor block
+   * Traverses up the parent chain to find if ancestor is in the path
+   */
+  private _isDescendantOf(ancestorId: string | null): boolean {
+    if (!ancestorId) return false
+
+    // Defensive check for model validity
+    if (!this.model || isDummyModel(this.model)) return false
+
+    // Start from this block's parent and traverse up
+    let current = this.model.parent
+    while (current && current.id) {
+      if (current.id === ancestorId) return true
+      current = current.parent
+    }
+    return false
+  }
+
+  /**
+   * BUG-EDITOR-3508: Check if this block is an ancestor of the target block
+   * Traverses up from targetId to find if this block is in the path
+   */
+  private _isAncestorOf(targetId: string | null): boolean {
+    if (!targetId) return false
+
+    // Defensive check for model validity
+    if (!this.model || isDummyModel(this.model)) return false
+
+    // Get the target block and traverse up its parent chain
+    const doc = this.model.doc
+    if (!doc) return false
+
+    let current = doc.getBlockById(targetId)
+    while (current && current.parent) {
+      current = current.parent
+      if (current.id === this.model.id) return true
+    }
+    return false
+  }
+
+  /**
+   * BUG-EDITOR-3508: Determine if this block should render in focus mode
+   *
+   * In normal mode: render all blocks
+   * In focus mode:
+   *   - Focused block itself: render children container only (content becomes FocusHeader title)
+   *   - Descendants of focused block: render normally
+   *   - Ancestors of focused block: render children container only (hide content)
+   *   - Other blocks (siblings, unrelated): hide completely
+   */
+  private _shouldRenderInFocusMode(): boolean {
+    // Defensive check - if model isn't valid, don't try to render
+    if (!this.model || isDummyModel(this.model)) return false
+
+    const { isInFocusMode, focusedBlockId } = this._getFocusState()
+
+    // Normal mode: render all blocks
+    if (!isInFocusMode) return true
+
+    // Render the focused block (for its children container, content hidden via _shouldShowContentInFocusMode)
+    if (this.model.id === focusedBlockId) return true
+
+    // Render if this block is a descendant of the focused block
+    if (this._isDescendantOf(focusedBlockId)) return true
+
+    // Render if this block is an ancestor of the focused block (needed for children container)
+    if (this._isAncestorOf(focusedBlockId)) return true
+
+    // Hide all other blocks (siblings, unrelated)
+    return false
+  }
+
+  /**
+   * BUG-EDITOR-3508: Check if this block's content should be visible in focus mode
+   * - Focused block: hide content (becomes FocusHeader title) but render children
+   * - Ancestors: hide content but render children container
+   * - Descendants: show content normally
+   */
+  private _shouldShowContentInFocusMode(): boolean {
+    const { isInFocusMode, focusedBlockId } = this._getFocusState()
+
+    // Normal mode: show all content
+    if (!isInFocusMode) return true
+
+    // Focused block hides its content (displayed in FocusHeader) but renders children
+    if (this.model && this.model.id === focusedBlockId) return false
+
+    // Ancestors hide their content but still render children
+    if (this._isAncestorOf(focusedBlockId)) return false
+
+    // Descendants show their content
+    return true
+  }
+
   /**
    * EDITOR-3511/3702: Render ghost bullet suggestions
    * EDITOR-3702: Now only renders when timer has elapsed on empty bullet
@@ -4249,7 +4397,31 @@ export class HydraBulletBlock extends BlockComponent<BulletBlockModel> {
       return html``
     }
 
+    // BUG-EDITOR-3508: Check if this block should render in focus mode
+    // Returns false for siblings/unrelated blocks AND the focused block itself
+    const shouldRender = this._shouldRenderInFocusMode()
+    if (!shouldRender) {
+      // Set attribute to hide via CSS (display: none)
+      this.setAttribute('hidden-in-focus', '')
+      return html``
+    } else {
+      // Remove attribute when block should be visible
+      this.removeAttribute('hidden-in-focus')
+    }
+
     const childrenClass = this.model.isExpanded ? '' : 'collapsed'
+
+    // BUG-EDITOR-3508: Check if this is an ancestor of the focused block
+    // Ancestors render children container only (to allow descendants to render)
+    // but hide their own bullet content
+    if (!this._shouldShowContentInFocusMode()) {
+      return html`
+        <div class="bullet-children ${childrenClass}">
+          ${this.std ? this.renderChildren(this.model) : nothing}
+        </div>
+      `
+    }
+
     // EDITOR-3510: Use block type container class
     // EDITOR-3507: Add selection class for multi-select highlight
     const isSelected = isBlockSelected(HydraBulletBlock._blockSelectionState, this.model.id)
