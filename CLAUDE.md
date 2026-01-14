@@ -16,6 +16,9 @@ npm run build        # TypeScript check + Vite build
 npm run lint         # ESLint
 npm run test         # Vitest watch mode
 npm run test:run     # Vitest single run (CI)
+npx playwright test  # Run Playwright E2E tests
+npx playwright test --ui  # Run with UI mode (recommended for debugging)
+npx playwright test --headed  # Run in headed mode (see browser)
 ```
 
 ### Backend (in `backend/`)
@@ -76,9 +79,12 @@ Frontend uses `@/*` → `./src/*` (configured in `tsconfig.app.json` and `vite.c
 
 ## Testing
 
-- **Frontend**: Vitest + React Testing Library, config in `vitest.config.ts`
+- **Frontend Unit**: Vitest + React Testing Library, config in `vitest.config.ts`
+- **Frontend E2E**: Playwright for automated browser testing, config in `playwright.config.ts`
 - **Backend**: Pytest + pytest-asyncio, config in `pytest.ini`
+- **Manual E2E**: Chrome MCP for exploratory testing and edge case discovery
 - Test files mirror source structure in `__tests__/` (frontend) and `tests/` (backend)
+- Playwright tests in `e2e/playwright/` organized by feature/ticket
 
 ### Local Development
 
@@ -98,42 +104,71 @@ For each task/feature, execute this sequence:
    → Example: git checkout -b editor/EDITOR-301-blocksuite-integration
    → Branch naming: <worktree>/<ticket>-<description>
         ↓
-2. BEFORE CODING
-   □ Write unit tests (pytest/vitest)
+2. BEFORE CODING (Write all tests first - TRUE TDD)
+   □ Write unit tests (pytest/vitest) - logic & utilities
+   □ Write BASIC Playwright tests (happy path only) - user behavior
+   □ Write E2E expectations (edge case scenarios to explore later)
    □ Check Bruno collection for related endpoints
-   □ Write E2E expectation (e2e/expectations/*.md)
+
+   Playwright tests should cover:
+   ✅ Primary user flow (happy path)
+   ✅ Console error monitoring
+   ✅ Basic acceptance criteria
+
+   DON'T include yet (wait for exploration):
+   ⏭️ Edge cases (discovered during Chrome MCP)
+   ⏭️ Complex interactions (need to understand framework first)
         ↓
-3. IMPLEMENTATION
-   □ Write code to make tests pass
+2.5. SPIKE TESTING (if unfamiliar with framework APIs)
+   □ Test API behavior in browser console
+   □ Verify approach is feasible
+   □ Update tests if needed based on findings
         ↓
-4. UNIT TESTS
-   $ pytest backend/tests/ -v
-   $ npm run test --prefix frontend
+3. IMPLEMENTATION (Make tests pass)
+   □ Write code to make unit tests pass
+   □ Write code to make Playwright tests pass
+   □ TDD red-green-refactor cycle
+        ↓
+4. RUN TESTS (Should pass before continuing)
+   $ npm run test --prefix frontend              # Unit tests
+   $ pytest backend/tests/ -v                     # Backend tests
+   $ npx playwright test e2e/playwright/[ticket]  # Playwright E2E
    → Must pass before continuing
         ↓
-5. BUILD (Required before commit - ensures CI/CD compatibility)
+5. BUILD (Required before commit)
    $ npm run build --prefix frontend
    $ docker build -t hydra-backend ./backend
    → Must succeed before continuing
-   → Docker build catches platform-specific issues
         ↓
-6. BRUNO API TESTS
+6. BRUNO API TESTS (if applicable)
    $ bru run bruno/collections --env local
-   → Validates all API endpoints
         ↓
-7. CHROME E2E (via Claude-in-Chrome MCP)
+7. CHROME E2E (Exploratory - find edge cases)
    □ Execute scenarios from e2e/expectations/
+   □ Find unknown issues, edge cases, visual problems
    □ Screenshot evidence saved to e2e/results/
         ↓
+7.5. BROWSER VERIFICATION (Mandatory gate)
+   □ Open http://localhost:5173
+   □ Open DevTools Console
+   □ Verify: ZERO console errors
+   □ Manually test: Feature works as designed
+   □ Screenshot: Clean console + working feature
+        ↓
+7.6. ENHANCE PLAYWRIGHT TESTS
+   □ Add edge cases discovered during Chrome MCP
+   □ Add complex interactions found during exploration
+   □ Add performance checks if needed
+   □ Run enhanced tests: npx playwright test e2e/playwright/[ticket]
+   □ Commit all tests with feature code
+        ↓
 8. UPDATE DOCUMENTATION
-   □ Update the concise summary about what you have done
-   □ E2E Testing result
-   □ What blocks you and what did you learned
-   □ Especially checking why user actively communicated with you in the conversation: If that's due to something you are missing or didn't follow but already listed in CLAUDE.md or user's instructions, to avoid the same/similar problems happen again, create concise AI instruction as bullets to "## YOU MUST" section in CLAUDE_backlog.md
+   □ Update concise summary about what you have done
+   □ E2E Testing result (Chrome + Playwright)
+   □ What blocks you and what did you learn
    □ Token cost and time cost on each step
    □ Move task file to docs/tasks/done/
    □ Update docs/release/sprint-tracker.md
-   □ Add ticket to docs/release/queues/ready-to-test-in-sat.md
         ↓
 9. COMMIT, PUSH & MERGE (only after all tests pass)
    $ git add <files>
@@ -198,19 +233,26 @@ Required secrets: `RAILWAY_TOKEN`, `VERCEL_TOKEN`, Supabase and API keys
 - **Always pull origin main before starting a new ticket** - ensures you have the latest code
 - **Complete tickets one by one** - If assigned multiple tickets, finish ALL TDD steps for one ticket before starting the next:
   1. Create branch (Step 1)
-  2. Write tests, implement, run tests & build (Steps 2-5)
-  3. Bruno API tests (Step 6)
-  4. Chrome E2E testing (Step 7)
-  5. Update documentation (Step 8)
-  6. Commit, push & create PR (Step 9)
-  7. Wait until all GitHub checks pass, then merge to main
-  8. Only then start the next ticket
+  2. Write tests FIRST (unit + Playwright happy path) (Step 2)
+  3. Implement to make tests pass (Step 3)
+  4. Run all tests (unit + Playwright) (Step 4)
+  5. Build verification (Step 5)
+  6. Bruno API tests (Step 6)
+  7. Chrome E2E exploratory testing (Step 7)
+  8. Browser verification with clean console (Step 7.5)
+  9. Enhance Playwright tests with edge cases (Step 7.6)
+  10. Update documentation (Step 8)
+  11. Commit, push & create PR (Step 9)
+  12. Wait until all GitHub checks pass, then merge to main
+  13. Only then start the next ticket
 - **NEVER skip E2E tests before merging**
   - API tickets: Run Bruno (`cd bruno && bru run collections/<name> --env local`)
-  - EDITOR tickets: Run Chrome E2E tests
+  - EDITOR/FE tickets: Run Playwright tests + Chrome E2E exploratory tests
   - Backend runs locally: `python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000`
   - `.env.local` has all credentials - don't assume tests won't work, just run them
-- NEVER claim TDD complete without E2E tests (Bruno for API, Chrome for EDITOR)
+- **NEVER skip Playwright tests** - Write basic tests BEFORE coding (step 2), enhance with edge cases AFTER exploration (step 7.6)
+- **NEVER mark complete without browser verification** - Console must show ZERO errors (step 7.5)
+- NEVER claim TDD complete without E2E tests (Playwright + Chrome for EDITOR/FE, Bruno for API)
 - NEVER commit `docs/api/` to git - contains sensitive API documentation (in .gitignore)
 - NEVER include API keys, secrets, or credentials in any documentation
 - NEVER use `git reset --hard <commit_number>`, remember you have your peers work on other file
