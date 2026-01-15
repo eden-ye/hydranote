@@ -1196,13 +1196,15 @@ export default function Editor() {
       bulletSchema.model.children.push('hydra:portal')
     }
 
-    // Create document collection
-    const collection = new DocCollection({ schema })
+    // Create document collection with explicit workspace ID
+    // The ID is required for BlockSuite clipboard/drag-drop operations
+    const collection = new DocCollection({ schema, id: 'hydra-workspace' })
     collection.meta.initialize()
     collectionRef.current = collection
 
-    // Create a new document
-    const doc = collection.createDoc()
+    // Create a new document with explicit page ID
+    // The ID is required for BlockSuite clipboard/drag-drop operations
+    const doc = collection.createDoc({ id: DEFAULT_DOC_ID })
     docRef.current = doc
 
     // Set up IndexedDB persistence BEFORE loading

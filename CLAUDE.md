@@ -84,7 +84,36 @@ Frontend uses `@/*` → `./src/*` (configured in `tsconfig.app.json` and `vite.c
 - **Backend**: Pytest + pytest-asyncio, config in `pytest.ini`
 - **Manual E2E**: Chrome MCP for exploratory testing and edge case discovery
 - Test files mirror source structure in `__tests__/` (frontend) and `tests/` (backend)
-- Playwright tests in `e2e/playwright/` organized by feature/ticket
+- Playwright tests in `frontend/e2e/` organized by type (smoke/, regression/)
+
+### Playwright Best Practices
+
+**Purpose:** Automated regression testing to complement Chrome MCP (exploratory testing).
+
+| Tool | Purpose | When |
+|------|---------|------|
+| **Playwright** | Automated regression, edge cases | CI, pre-commit |
+| **Chrome MCP** | Exploratory, discover unknowns | Manual investigation |
+
+**Test Structure:**
+- `e2e/smoke/` - Quick validation (app loads, no console errors)
+- `e2e/regression/` - Comprehensive edge case coverage
+- `e2e/utils/` - Shared utilities (ConsoleMonitor)
+
+**Key Patterns:**
+```typescript
+// Always use ConsoleMonitor to catch console errors
+import { ConsoleMonitor } from '../utils/console-monitor';
+const monitor = new ConsoleMonitor(page);
+// ... test actions ...
+expect(monitor.hasErrors()).toBe(false);
+```
+
+**Workflow:**
+1. Write basic Playwright tests BEFORE coding (happy path)
+2. Run Chrome MCP to discover edge cases
+3. Add discovered edge cases to Playwright regression tests
+4. All Playwright tests run in CI on every PR
 
 ### Local Development
 
